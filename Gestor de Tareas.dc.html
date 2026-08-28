@@ -776,7 +776,31 @@ class Component extends DCLogic {
   pad(n) { return String(n).padStart(2, '0'); }
   changeTheme(theme) { const value=['classic','night','sunset','ocean'].includes(theme) ? theme : 'classic'; document.documentElement.dataset.theme = value === 'classic' ? '' : value; try { localStorage.setItem(this.KEY + ':theme', value); } catch (e) {} this.setState({ theme: value }); }
   cycleTheme() { const themes=['classic','night','sunset','ocean']; this.changeTheme(themes[(themes.indexOf(this.state.theme)+1)%themes.length]); }
-  toggleTask(id) { const task=this.state.tasks.find(t=>t.id===id); if (!task || task.list === 'trash') return; const completing=!task.done; this.setState(s => ({ swipeCompletingId: null, tasks: s.tasks.map(x => x.id === id ? { ...x, done: completing, doneAt: completing ? Date.now() : null, list: completing ? x.list : (x.list === 'done' ? 'today' : x.list), due: !completing && x.list === 'done' ? this.dkey(Date.now()) : x.due } : x) })); }
+  toggleTask(id) {
+    const task = this.state.tasks.find(t => t.id === id);
+    if (!task || task.list === 'trash') return;
+    const completing = !task.done;
+    if (completing && this.state.activeId === id) this.cancelPush(this.state.pomo.pushJobId);
+    this.setState(s => {
+      const stopTimer = completing && s.activeId === id;
+      return {
+        swipeCompletingId: null,
+        ...(stopTimer ? {
+          activeId: null,
+          stopwatch: false,
+          watchStartedAt: null,
+          pomo: { ...s.pomo, running: false, endsAt: null, pushJobId: null }
+        } : {}),
+        tasks: s.tasks.map(x => x.id === id ? {
+          ...x,
+          done: completing,
+          doneAt: completing ? Date.now() : null,
+          list: completing ? x.list : (x.list === 'done' ? 'today' : x.list),
+          due: !completing && x.list === 'done' ? this.dkey(Date.now()) : x.due
+        } : x)
+      };
+    });
+  }
   dkey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + this.pad(d.getMonth() + 1) + '-' + this.pad(d.getDate()); }
 
   componentDidMount() {
