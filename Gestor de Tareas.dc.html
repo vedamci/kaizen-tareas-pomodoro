@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kaizen</title>
+<meta name="theme-color" content="#f2381b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kaizen">
+<link rel="icon" href="./kaizen-icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="180x180" href="./kaizen-icon-180.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-454c18dc-45af-4299-9be2-71360d2b9a90/styles.css">
+<script src="_ds/modernist-454c18dc-45af-4299-9be2-71360d2b9a90/_ds_bundle.js"></script>
+<style>
+  html, body { height: 100%; width: 100%; margin: 0; max-width: 100%; min-width: 0; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
+  *, *::before, *::after { box-sizing: border-box; }
+  * { scrollbar-width: thin; }
+  input[type="checkbox"] { accent-color: var(--color-accent); }
+  a { color: var(--color-accent); }
+  a:hover { color: var(--color-accent-700); }
+  .mobile-nav-toggle, .mobile-nav-panel { display: none; }
+  .toast-message { display: block; position: fixed; z-index: 120; right: 20px; bottom: 20px; max-width: min(520px, calc(100vw - 40px)); padding: 12px 14px; background: var(--color-text); color: var(--color-bg); font-size: 12px; line-height: 1.35; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+  html[data-theme="night"] { --color-bg: #17202b; --color-surface: #202c3a; --color-text: #f2f5f7; --color-divider: #415064; --color-accent: #63d6c2; --color-accent-700: #8ce8d7; --color-neutral-500: #9aaabd; --color-neutral-600: #b4c0ce; --color-neutral-800: #e0e8ef; }
+  html[data-theme="sunset"] { --color-bg: #fff8f2; --color-surface: #fff0e5; --color-text: #44251d; --color-divider: #e4c8b8; --color-accent: #e05a3f; --color-accent-700: #b93d2b; --color-neutral-500: #9d7668; --color-neutral-600: #765146; --color-neutral-800: #3e241d; }
+  html[data-theme="ocean"] { --color-bg: #eefaff; --color-surface: #dff4fb; --color-text: #123344; --color-divider: #b6dbe7; --color-accent: #087ea4; --color-accent-700: #075d78; --color-neutral-500: #6d9eae; --color-neutral-600: #477b8e; --color-neutral-800: #163d4c; }
+  @media (max-width: 900px) {
+    html, body { height: auto; min-height: 100%; }
+    body { width: 100%; max-width: 100vw; overflow-x: hidden; padding: 0; }
+    input, select, textarea, button { font-size: 16px; }
+    .app-shell { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+    .app-shell { width: 100% !important; max-width: 100vw !important; height: auto !important; min-height: 100vh; overflow: visible !important; }
+    .topbar { display: block !important; width: 100%; padding: 10px 12px !important; }
+    .topbar > div:first-child { margin-bottom: 8px; }
+    .topbar-controls { width: 100%; padding-left: 0 !important; border-left: 0 !important; display: flex !important; flex-wrap: wrap !important; gap: 8px !important; }
+    .topbar-controls > * { min-width: 0 !important; max-width: 100%; }
+    .topbar-controls > div:first-child { font-size: 22px !important; }
+    .topbar-controls > div:nth-child(2) { min-width: 0 !important; flex: 1 1 120px !important; }
+    .topbar-controls > div:last-child { width: 100%; min-width: 0 !important; overflow: visible; padding-bottom: 2px; flex-wrap: wrap !important; gap: 6px !important; }
+    .topbar-controls > div:last-child > * { flex: 0 0 auto; }
+    .topbar-controls > div:nth-child(3) { width: 100%; min-width: 0 !important; max-width: 100%; display: flex !important; flex-wrap: wrap !important; overflow: hidden; }
+    .topbar-controls > div:nth-child(3) > div:first-child { max-width: 100%; overflow-x: auto; }
+    .user-chip { width: 100%; order: -1; padding: 4px 0; }
+    .topbar-controls > div:nth-child(3) { flex: 0 0 100% !important; align-items: center; }
+    .topbar-controls > div:nth-child(3) > button, .topbar-controls > div:nth-child(3) > select { flex: 0 1 auto !important; min-width: 0 !important; white-space: normal !important; }
+    .page-refresh-button { flex: 1 1 120px !important; min-width: 0 !important; white-space: nowrap !important; }
+    .topbar-controls > div:last-child { flex: 0 0 100% !important; display: flex !important; align-items: stretch !important; width: 100% !important; min-width: 0 !important; flex-wrap: wrap !important; gap: 6px !important; }
+    .topbar-controls > div:last-child > .user-chip { flex: 0 0 100% !important; width: 100% !important; min-width: 0 !important; }
+    .topbar-controls > div:last-child > div { flex: 0 0 100% !important; width: 100% !important; min-width: 0 !important; }
+    .topbar-controls > div:last-child > button { flex: 1 1 calc(50% - 6px) !important; min-width: 0 !important; white-space: normal !important; line-height: 1.1; }
+    .auth-controls { flex: 0 0 100% !important; width: 100% !important; min-width: 0 !important; display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center !important; gap: 8px !important; }
+    .auth-controls .auth-name { grid-column: 1 / -1 !important; width: 100% !important; min-width: 0 !important; order: 0 !important; }
+    .auth-controls .auth-workspace-picker, .auth-controls .auth-workspace { grid-column: 1 / -1 !important; width: 100% !important; min-width: 0 !important; flex: none !important; }
+    .auth-controls .auth-action { width: 100% !important; min-width: 0 !important; flex: none !important; white-space: normal !important; line-height: 1.1; }
+    .workspace { display: block !important; width: 100%; max-width: 100vw; min-width: 0 !important; }
+    .mobile-nav-toggle { display: block; width: 100%; text-align: left; }
+    .mobile-nav-panel { display: flex; position: absolute; z-index: 90; top: 104px; left: 0; right: 0; padding: 8px; flex-direction: column; gap: 2px; background: var(--color-surface); border-bottom: 2px solid var(--color-divider); box-shadow: 0 8px 18px rgba(0,0,0,.12); }
+    .mobile-nav-panel > button { width: 100% !important; }
+    .sidebar { display: none !important; }
+    .toast-message { display: block; position: fixed; z-index: 120; left: 12px; right: 12px; bottom: 14px; padding: 12px 14px; background: var(--color-text); color: var(--color-bg); font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+    .sidebar > div { display: none !important; }
+    .main-content { width: 100%; max-width: 100%; min-width: 0 !important; padding: 16px 12px 44px !important; overflow: visible !important; }
+    .main-content > div:first-child { align-items: flex-start !important; flex-direction: column !important; gap: 4px !important; }
+    .quick-add { flex-direction: column !important; }
+    .quick-add > * { width: 100% !important; box-sizing: border-box; }
+    .task-row { grid-template-columns: 20px minmax(0, 1fr) !important; gap: 10px !important; }
+    .task-row > div:last-child { grid-column: 2; min-width: 0; flex-wrap: wrap; justify-content: flex-start; gap: 6px !important; }
+    .task-row > div:last-child input[type="date"] { width: 132px !important; }
+    .matrix-grid, .stats-kpis, .stats-lower-grid, .project-grid { grid-template-columns: 1fr !important; }
+    .detail-panel { width: auto !important; border-left: 0 !important; border-top: 2px solid var(--color-divider); padding: 16px 12px 44px !important; }
+    .main-content input, .main-content select, .main-content button { max-width: 100%; }
+    .main-content .quick-add input, .main-content .quick-add button { width: 100% !important; }
+    .main-content [style*="min-width:180px"], .main-content [style*="min-width:240px"] { min-width: 0 !important; width: 100%; }
+    .main-content [style*="justify-content:space-between"] { align-items: flex-start; flex-direction: column; }
+  }
+  @media (max-width: 1600px) {
+    .topbar-controls { flex-wrap: wrap !important; align-items: flex-start !important; }
+    .topbar-controls > div:nth-child(3) { max-width: 100% !important; flex-wrap: wrap !important; }
+    .auth-controls { flex: 0 0 100% !important; width: 100% !important; min-width: 0 !important; display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center !important; gap: 8px !important; }
+    .auth-controls .auth-name { grid-column: 1 / -1 !important; width: 100% !important; min-width: 0 !important; order: 0 !important; }
+    .auth-controls .auth-workspace-picker, .auth-controls .auth-workspace { grid-column: 1 / -1 !important; width: 100% !important; min-width: 0 !important; flex: none !important; }
+    .auth-controls .auth-action { width: 100% !important; min-width: 0 !important; flex: none !important; white-space: normal !important; line-height: 1.1; }
+  }
+  .active-timer-banner {
+    display: flex; align-items: center; gap: 18px; margin: -6px 0 22px; padding: 20px 22px;
+    border: 2px solid var(--color-accent); border-left-width: 8px;
+    background: color-mix(in srgb, var(--color-accent) 9%, var(--color-bg));
+    box-shadow: var(--shadow-md);
+  }
+  .active-timer-banner__clock {
+    flex: none; font-family: var(--font-heading); font-weight: 800; font-size: clamp(38px, 5vw, 64px);
+    line-height: .95; letter-spacing: -.04em; font-variant-numeric: tabular-nums; color: var(--color-accent);
+  }
+  .active-timer-banner__content { flex: 1; min-width: 0; }
+  .active-timer-banner__eyebrow {
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--color-accent); font-weight: 800;
+  }
+  .active-timer-banner__title {
+    margin-top: 3px; font-family: var(--font-heading); font-weight: 800; font-size: clamp(22px, 2.6vw, 34px);
+    line-height: 1.08; overflow-wrap: anywhere;
+  }
+  .active-timer-banner__hint {
+    margin-top: 6px; font-size: 12px; color: color-mix(in srgb, var(--color-text) 62%, transparent);
+  }
+  .active-timer-banner__actions { flex: none; }
+  .active-timer-banner__actions .btn { padding: 11px 18px; font-size: 14px; }
+  @media (max-width: 900px) {
+    .active-timer-banner { margin: 0 0 18px; padding: 16px; gap: 12px; align-items: center; }
+    .main-content > .active-timer-banner { align-items: center !important; flex-direction: row !important; flex-wrap: wrap; gap: 12px !important; }
+    .active-timer-banner__clock { font-size: 42px; }
+    .active-timer-banner__title { font-size: 22px; }
+    .active-timer-banner__actions { flex: 1 0 100%; }
+    .active-timer-banner__actions .btn { width: 100%; }
+  }
+</style>
+</helmet>
+<div class="app-shell" style="display:flex;flex-direction:column;height:100vh;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body);overflow:hidden">
+
+  <sc-if value="{{ showAuth }}" hint-placeholder-val="{{ true }}">
+    <div class="auth-screen" style="position:fixed;inset:0;z-index:100;background:var(--color-bg);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto">
+      <div style="width:min(420px,100%);border:2px solid var(--color-divider);background:var(--color-surface);padding:28px">
+        <div style="font-family:var(--font-heading);font-weight:800;font-size:14px;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px">Kaizen</div>
+        <h2 style="margin:0 0 6px">{{ authTitle }}</h2>
+        <div style="font-size:13px;color:color-mix(in srgb, var(--color-text) 60%, transparent);margin-bottom:20px">Organiza tu trabajo dentro de un espacio seguro.</div>
+        <sc-if value="{{ inviteWorkspace }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:10px 12px;margin-bottom:16px;background:color-mix(in srgb, var(--color-accent) 10%, transparent);border-left:3px solid var(--color-accent);font-size:12px">Te estás registrando en el espacio: <strong>{{ inviteWorkspace }}</strong></div>
+        </sc-if>
+        <sc-if value="{{ showRegisterFields }}" hint-placeholder-val="{{ false }}">
+          <div class="field" style="margin-bottom:12px"><label>Nombre</label><input class="input" value="{{ authName }}" onInput="{{ onAuthName }}" autocomplete="name"></div>
+        </sc-if>
+        <div class="field" style="margin-bottom:12px"><label>Correo</label><input class="input" type="email" value="{{ authEmail }}" onInput="{{ onAuthEmail }}" autocomplete="email"></div>
+        <div class="field" style="margin-bottom:12px"><label>Contraseña</label><input class="input" type="password" value="{{ authPassword }}" onInput="{{ onAuthPassword }}" onKeyDown="{{ onAuthKey }}" autocomplete="{{ passwordAutocomplete }}"></div>
+        <div style="min-height:20px;color:var(--color-accent);font-size:12px;margin-bottom:8px">{{ authError }}</div>
+        <button class="btn btn-primary btn-block" onClick="{{ onSubmitAuth }}">{{ authSubmitLabel }}</button>
+        <button class="btn btn-ghost btn-block" onClick="{{ onToggleAuth }}" style="margin-top:8px">{{ authToggleLabel }}</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <div class="topbar" style="display:flex;align-items:center;gap:16px;padding:10px 20px;border-bottom:2px solid var(--color-divider);background:var(--color-bg);flex:none;min-width:0">
+    <div style="font-family:var(--font-heading);font-weight:800;font-size:16px;letter-spacing:0.1em;text-transform:uppercase">Kaizen</div>
+    <div class="topbar-controls" style="display:flex;align-items:center;gap:12px;padding-left:16px;border-left:2px solid var(--color-divider);flex:1;min-width:0">
+      <div style="font-family:var(--font-heading);font-weight:800;font-size:26px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-0.02em">{{ pomoClock }}</div>
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:110px;flex:0 1 220px;overflow:hidden">
+        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-accent)">{{ pomoModeLabel }}</div>
+        <div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ activeLabel }}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex:none;align-items:center">
+        <div style="display:flex;border:1px solid var(--color-divider);flex:none;margin-right:6px">
+          <sc-for list="{{ modeBtns }}" as="m" hint-placeholder-count="2">
+            <button onClick="{{ m.onClick }}" style="{{ m.style }}">{{ m.label }}</button>
+          </sc-for>
+        </div>
+        <button class="btn btn-primary" onClick="{{ onPomoToggle }}" style="white-space:nowrap">{{ pomoBtnLabel }}</button>
+        <button class="btn btn-secondary" onClick="{{ onPomoReset }}" style="white-space:nowrap">Reiniciar</button>
+        <sc-if value="{{ isPomoMode }}" hint-placeholder-val="{{ true }}">
+          <button class="btn btn-ghost" onClick="{{ onPomoSkip }}" style="white-space:nowrap">Saltar</button>
+        </sc-if>
+        <button class="btn btn-secondary" onClick="{{ onEnterFull }}" style="white-space:nowrap" title="Pantalla completa">⤢</button>
+        <button class="btn btn-secondary page-refresh-button" onClick="{{ onRefreshPage }}" style="white-space:nowrap" title="Actualizar la página">↻ Actualizar</button>
+        <button class="btn btn-secondary mobile-nav-toggle" onClick="{{ onToggleMobileNav }}">☰ Menú</button>
+        <button class="btn btn-secondary" onClick="{{ onOpenIdeas }}" title="Enviar una mejora o sugerencia">💡 Mejoras</button>
+        <select class="input timer-speed" value="{{ timerSpeed }}" onChange="{{ onTimerSpeed }}" title="Velocidad del reloj para pruebas" style="width:118px;flex:none"><option value="1">Reloj 1×</option><option value="10">Prueba 10×</option><option value="60">Prueba 60×</option></select>
+        <button class="btn btn-secondary" onClick="{{ onCycleTheme }}" title="Cambiar tema visual">🎨 {{ themeLabel }}</button>
+      </div>
+      <sc-if value="{{ hasAuth }}" hint-placeholder-val="{{ true }}">
+        <div class="auth-controls" style="display:flex;align-items:center;gap:6px;flex:0 1 290px;min-width:150px">
+          <div class="user-chip auth-name" style="font-size:12px;font-family:var(--font-heading);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ authUserLabel }}">{{ authUserLabel }}</div>
+          <sc-if value="{{ canSwitchWorkspace }}" hint-placeholder-val="{{ false }}">
+            <div class="auth-workspace-picker" style="display:flex;align-items:center;gap:5px;min-width:0;flex:1"><span style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-accent);white-space:nowrap">Espacio activo</span><select class="input" value="{{ workspaceId }}" onChange="{{ onWorkspaceChange }}" title="Cambiar espacio de trabajo" style="min-width:0;flex:1;border-color:var(--color-accent)"><sc-for list="{{ workspaceOptions }}" as="w" hint-placeholder-count="2"><option value="{{ w.id }}">{{ w.name }}</option></sc-for></select></div>
+          </sc-if>
+          <sc-if value="{{ isFixedWorkspace }}" hint-placeholder-val="{{ false }}"><div class="user-chip auth-workspace" title="Espacio de trabajo asignado" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ activeWorkspaceName }}</div></sc-if>
+          <button class="btn btn-ghost auth-action" onClick="{{ onEnableNotifications }}" title="Activar avisos del Pomodoro">{{ notificationLabel }}</button>
+          <button class="btn btn-ghost auth-action" onClick="{{ onTestNotification }}" title="Enviar un aviso de prueba">Probar aviso</button>
+          <button class="btn btn-ghost auth-action" onClick="{{ onLogout }}" title="Cerrar sesión">Salir</button>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{ mobileNavOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="mobile-nav-panel">
+      <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="6">
+        <button onClick="{{ item.onClick }}" style="{{ item.style }}"><span>{{ item.label }}</span><span style="{{ item.countStyle }}">{{ item.count }}</span></button>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}"><div class="toast-message">{{ toast }}</div></sc-if>
+
+  <div class="workspace" style="display:flex;flex:1;min-height:0">
+
+    <div class="sidebar" style="width:212px;flex:none;border-right:2px solid var(--color-divider);padding:16px 0;display:flex;flex-direction:column;gap:2px;overflow-y:auto">
+      <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="6">
+        <button onClick="{{ item.onClick }}" style="{{ item.style }}" style-hover="background:color-mix(in srgb, var(--color-text) 6%, transparent)">
+          <span>{{ item.label }}</span>
+          <span style="{{ item.countStyle }}">{{ item.count }}</span>
+        </button>
+      </sc-for>
+      <div style="margin-top:auto;padding:16px 18px 0;border-top:2px solid var(--color-divider);display:flex;flex-direction:column;gap:14px">
+        <div>
+          <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 55%, transparent)">Enfoque hoy</div>
+          <div style="font-family:var(--font-heading);font-weight:800;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums">{{ todayFocus }}</div>
+          <div style="font-size:11px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ todayPomos }} pomodoros · {{ todayDone }} completadas</div>
+        </div>
+        <div>
+          <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 55%, transparent)">Racha</div>
+          <div style="font-family:var(--font-heading);font-weight:800;font-size:22px;line-height:1.1">{{ streak }}</div>
+          <div style="font-size:11px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">días seguidos con enfoque</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1;min-width:0;display:flex">
+      <div class="main-content" style="flex:1;min-width:0;overflow-y:auto;padding:22px 28px 60px">
+
+        <sc-if value="{{ hasActiveTimer }}" hint-placeholder-val="{{ false }}">
+          <div class="active-timer-banner">
+            <div class="active-timer-banner__clock">{{ pomoClock }}</div>
+            <div class="active-timer-banner__content">
+              <div class="active-timer-banner__eyebrow">{{ pomoModeLabel }} · En curso</div>
+              <div class="active-timer-banner__title">{{ activeLabel }}</div>
+              <div class="active-timer-banner__hint">Esta es la tarea que se está cronometrando ahora.</div>
+            </div>
+            <div class="active-timer-banner__actions"><button class="btn btn-primary" onClick="{{ onPomoToggle }}">{{ pomoBtnLabel }}</button></div>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;align-items:flex-end;gap:16px">
+          <h2 style="margin:0">{{ viewTitle }}</h2>
+          <div style="font-size:12px;padding-bottom:4px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ viewSub }}</div>
+        </div>
+        <hr class="hr">
+
+        <sc-if value="{{ showPushPrompt }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px;padding:14px 16px;background:var(--color-surface);border-left:3px solid var(--color-accent)"><div><div style="font-family:var(--font-heading);font-weight:800">Activa las notificaciones de Kaizen</div><div style="font-size:12px;margin-top:4px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">{{ pushPromptText }}</div></div><button class="btn btn-primary" onClick="{{ onEnableNotifications }}" style="white-space:nowrap">Permitir notificaciones</button></div></sc-if>
+
+        <sc-if value="{{ showQuickAdd }}" hint-placeholder-val="{{ true }}">
+          <div class="quick-add" style="display:flex;gap:8px;margin-bottom:18px">
+            <input class="input" placeholder="Escribe una tarea y presiona Enter" value="{{ newTitle }}" onInput="{{ onNewInput }}" onKeyDown="{{ onNewKey }}">
+            <button class="btn btn-primary" onClick="{{ onAdd }}" style="flex:none">Agregar</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <sc-for list="{{ listTasks }}" as="item" hint-placeholder-count="5">
+              <div style="position:relative;overflow:hidden">
+                <div style="{{ item.swipeDeleteHintStyle }}"><span style="font-size:22px;line-height:1">🗑️</span><span>Borrar</span></div>
+                <div style="{{ item.swipeCompleteHintStyle }}"><span>Hecha</span><span style="font-size:22px;line-height:1">✅</span></div>
+                <div class="task-row" onTouchStart="{{ item.onTouchStart }}" onTouchMove="{{ item.onTouchMove }}" onTouchEnd="{{ item.onTouchEnd }}" onTouchCancel="{{ item.onTouchCancel }}" onPointerDown="{{ item.onPointerDown }}" onPointerMove="{{ item.onPointerMove }}" onPointerUp="{{ item.onPointerUp }}" onPointerCancel="{{ item.onPointerCancel }}" style="{{ item.rowStyle }}" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
+                <button onClick="{{ item.onToggle }}" style="{{ item.boxStyle }}" aria-label="Completar"></button>
+                <div onClick="{{ item.onOpen }}" style="cursor:pointer;min-width:0">
+                  <div style="{{ item.titleStyle }}">{{ item.title }}</div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap">
+                    <span style="{{ item.quadStyle }}">{{ item.quadShort }}</span>
+                    <span style="font-size:11px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ item.meta }}</span>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <input class="input" type="date" value="{{ item.due }}" onInput="{{ item.onDue }}" style="width:140px;flex:none" title="Fecha límite">
+                  <sc-if value="{{ item.showMove }}" hint-placeholder-val="{{ false }}">
+                    <button class="btn btn-secondary" onClick="{{ item.onSendToday }}" style="flex:none;white-space:nowrap">→ Hoy</button>
+                  </sc-if>
+                  <sc-if value="{{ item.showArchiveAction }}" hint-placeholder-val="{{ false }}">
+                    <button class="btn btn-secondary" onClick="{{ item.onArchiveAction }}" style="flex:none;white-space:nowrap">{{ item.archiveActionLabel }}</button>
+                  </sc-if>
+                  <span style="font-size:12px;font-variant-numeric:tabular-nums;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ item.time }}</span>
+                  <button class="btn btn-secondary" onClick="{{ item.onPlay }}" style="{{ item.playStyle }}">{{ item.playLabel }}</button>
+                  <sc-if value="{{ item.showDelete }}" hint-placeholder-val="{{ true }}">
+                    <button class="btn btn-ghost" onClick="{{ item.onDelete }}" style="flex:none;white-space:nowrap" title="Mover a Borrado">Borrar</button>
+                  </sc-if>
+                </div>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ listEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:40px 0;font-size:13px;color:color-mix(in srgb, var(--color-text) 50%, transparent)">Nada aquí todavía.</div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isMatrix }}" hint-placeholder-val="{{ false }}">
+          <div class="matrix-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--color-divider)">
+            <sc-for list="{{ quadCells }}" as="cell" hint-placeholder-count="4">
+              <div style="background:var(--color-bg);padding:16px 18px;min-height:230px;display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:baseline;gap:8px">
+                  <div style="{{ cell.dotStyle }}"></div>
+                  <div style="font-family:var(--font-heading);font-weight:800;font-size:15px">{{ cell.action }}</div>
+                  <div style="font-size:11px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ cell.label }}</div>
+                  <div style="margin-left:auto;font-size:12px;font-variant-numeric:tabular-nums;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ cell.count }}</div>
+                </div>
+                <div>
+                  <sc-for list="{{ cell.tasks }}" as="item" hint-placeholder-count="3">
+                    <div onClick="{{ item.onOpen }}" style="display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--color-divider);cursor:pointer;font-size:13px">
+                      <span style="{{ item.titleStyle }}">{{ item.title }}</span>
+                      <span style="margin-left:auto;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;color:color-mix(in srgb, var(--color-text) 50%, transparent)">{{ item.time }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isProjectDetail }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <button class="btn btn-secondary" onClick="{{ onBackProjects }}" style="align-self:flex-start">← Todos los proyectos</button>
+            <div style="padding:16px 18px;background:var(--color-surface);border-left:3px solid var(--color-accent)">
+              <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent)">Proyecto</div>
+              <div style="font-family:var(--font-heading);font-weight:800;font-size:24px">{{ projectDetailName }}</div>
+              <div style="font-size:12px;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ projectDetailStats }}</div>
+            </div>
+            <div>
+              <sc-for list="{{ listTasks }}" as="item" hint-placeholder-count="5">
+                <div class="task-row" style="{{ item.rowStyle }}" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
+                  <button onClick="{{ item.onToggle }}" style="{{ item.boxStyle }}" aria-label="Completar"></button>
+                  <div onClick="{{ item.onOpen }}" style="cursor:pointer;min-width:0">
+                    <div style="{{ item.titleStyle }}">{{ item.title }}</div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap">
+                      <span style="{{ item.quadStyle }}">{{ item.quadShort }}</span>
+                      <span style="font-size:11px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ item.meta }}</span>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <input class="input" type="date" value="{{ item.due }}" onInput="{{ item.onDue }}" style="width:140px;flex:none" title="Fecha límite">
+                    <span style="font-size:12px;font-variant-numeric:tabular-nums;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ item.time }}</span>
+                    <button class="btn btn-secondary" onClick="{{ item.onPlay }}" style="{{ item.playStyle }}">{{ item.playLabel }}</button>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ listEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:40px 0;font-size:13px;color:color-mix(in srgb, var(--color-text) 50%, transparent)">Este proyecto todavía no tiene tareas.</div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isProjects }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <div style="display:flex;gap:8px;margin-bottom:20px;max-width:520px">
+              <input class="input" placeholder="Nuevo proyecto" value="{{ newProject }}" onInput="{{ onProjInput }}" onKeyDown="{{ onProjKey }}">
+              <button class="btn btn-secondary" onClick="{{ onAddProject }}" style="flex:none;white-space:nowrap">Crear proyecto</button>
+            </div>
+            <div class="project-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0;background:var(--color-bg);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
+              <sc-for list="{{ projectCards }}" as="p" hint-placeholder-count="3">
+                <div onClick="{{ p.onClick }}" style="{{ p.style }}">
+                  <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent)">Proyecto</div>
+                  <div style="font-family:var(--font-heading);font-weight:800;font-size:19px">{{ p.name }}</div>
+                  <div style="font-size:12px;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ p.stats }}</div>
+                  <div style="height:6px;background:color-mix(in srgb, var(--color-text) 12%, transparent);margin-top:4px">
+                    <div style="{{ p.barStyle }}"></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isIdeas }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:18px;max-width:760px">
+            <div style="padding:16px 18px;background:var(--color-surface);border-left:3px solid var(--color-accent)"><div style="font-family:var(--font-heading);font-weight:800;font-size:18px">¿Cómo podemos mejorar Kaizen?</div><div style="font-size:13px;margin-top:5px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">Comparte una idea, una necesidad o algo que te gustaría que funcionara mejor.</div></div>
+            <div style="display:flex;flex-direction:column;gap:8px"><input class="input" placeholder="Título de la mejora" value="{{ suggestionTitle }}" onInput="{{ onSuggestionTitle }}"><textarea class="input" placeholder="Describe tu idea..." value="{{ suggestionBody }}" onInput="{{ onSuggestionBody }}" style="min-height:110px;resize:vertical"></textarea><button class="btn btn-primary" onClick="{{ onAddSuggestion }}" style="align-self:flex-start">Enviar mejora</button></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><h4 style="margin:0">Ideas del espacio</h4><button class="btn btn-secondary" onClick="{{ onExportSuggestions }}" style="white-space:nowrap">⬇ Exportar CSV</button></div><sc-for list="{{ suggestions }}" as="idea" hint-placeholder-count="3"><div style="padding:12px 0;border-top:1px solid var(--color-divider)"><div style="font-family:var(--font-heading);font-weight:800">{{ idea.title }}</div><div style="font-size:13px;margin-top:4px">{{ idea.body }}</div><div style="font-size:11px;margin-top:7px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ idea.name }} · {{ idea.status }}</div></div></sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isStats }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:28px">
+            <div class="stats-kpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:2px;background:var(--color-divider);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
+              <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+                <div style="background:var(--color-bg);padding:16px 18px">
+                  <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ k.label }}</div>
+                  <div style="font-family:var(--font-heading);font-weight:800;font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap">{{ k.value }}</div>
+                  <div style="font-size:11px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ k.note }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div>
+              <h4>Semana</h4>
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;align-items:end;height:190px;border-bottom:2px solid var(--color-divider)">
+                <sc-for list="{{ weekBars }}" as="d" hint-placeholder-count="7">
+                  <div onClick="{{ d.onClick }}" style="display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px;padding:0 6px;cursor:pointer">
+                    <div style="font-size:11px;font-variant-numeric:tabular-nums;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ d.value }}</div>
+                    <div style="{{ d.barStyle }}"></div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+                <sc-for list="{{ weekBars }}" as="d" hint-placeholder-count="7">
+                  <div onClick="{{ d.onClick }}" style="padding:6px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 60%, transparent);cursor:pointer">{{ d.label }} · {{ d.done }}✓</div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;padding:14px 16px;background:var(--color-surface);border-left:3px solid var(--color-accent)">
+              <div style="flex:1;min-width:180px"><div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 55%, transparent)">Detalle del día</div><div style="font-family:var(--font-heading);font-weight:800;font-size:20px;margin-top:3px">{{ selectedDayLabel }}</div></div>
+              <div style="min-width:110px"><div style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">Tiempo</div><div style="font-family:var(--font-heading);font-weight:800;font-size:20px">{{ selectedDayTime }}</div></div>
+              <div style="min-width:110px"><div style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">Pomodoros</div><div style="font-family:var(--font-heading);font-weight:800;font-size:20px">{{ selectedDayPomos }}</div></div>
+              <div style="min-width:110px"><div style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">Tareas hechas</div><div style="font-family:var(--font-heading);font-weight:800;font-size:20px">{{ selectedDayDone }}</div></div>
+            </div>
+
+            <div class="stats-lower-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:32px">
+              <div>
+                <h4>Tiempo por proyecto</h4>
+                <table class="table">
+                  <tbody>
+                    <sc-for list="{{ projectTime }}" as="r" hint-placeholder-count="4">
+                      <tr>
+                        <td style="width:34%">{{ r.name }}</td>
+                        <td>
+                          <div style="height:10px;background:color-mix(in srgb, var(--color-text) 10%, transparent)">
+                            <div style="{{ r.barStyle }}"></div>
+                          </div>
+                        </td>
+                        <td style="width:80px;text-align:right;font-variant-numeric:tabular-nums">{{ r.value }}</td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:24px">
+                <div>
+                  <h4>Pendientes vs. hechas</h4>
+                  <div style="display:flex;height:26px;border:1px solid var(--color-divider)">
+                    <div style="{{ doneSegStyle }}">{{ doneCount }}</div>
+                    <div style="{{ pendSegStyle }}">{{ pendCount }}</div>
+                  </div>
+                  <div style="font-size:11px;margin-top:6px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ donePct }}% del total completado</div>
+                </div>
+                <div>
+                  <h4>Hora más productiva</h4>
+                  <div style="font-family:var(--font-heading);font-weight:800;font-size:26px">{{ peakHour }}</div>
+                  <div style="display:flex;align-items:flex-end;gap:1px;height:54px;margin-top:8px;border-bottom:1px solid var(--color-divider)">
+                    <sc-for list="{{ hourBars }}" as="h" hint-placeholder-count="24">
+                      <div style="{{ h.style }}"></div>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:10px;margin-top:4px;color:color-mix(in srgb, var(--color-text) 50%, transparent)">
+                    <span>00</span><span>06</span><span>12</span><span>18</span><span>23</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isAdminView }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="font-size:13px;color:color-mix(in srgb, var(--color-text) 60%, transparent)">Rol: {{ authRoleLabel }} · Las tareas visibles pertenecen al espacio seleccionado.</div>
+            <button class="btn btn-secondary" onClick="{{ onRefreshAdmin }}" style="margin-left:auto">Actualizar</button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--color-divider);padding-bottom:16px">
+            <input class="input" placeholder="Nuevo espacio de trabajo" value="{{ newWorkspaceName }}" onInput="{{ onWorkspaceName }}" style="flex:1;min-width:180px">
+            <button class="btn btn-secondary" onClick="{{ onCreateWorkspace }}">Crear espacio</button>
+            <input class="input" type="email" placeholder="Correo del miembro" value="{{ inviteEmail }}" onInput="{{ onInviteEmail }}" style="flex:1;min-width:180px">
+            <select class="input" value="{{ memberRole }}" onChange="{{ onMemberRole }}" style="min-width:130px"><option value="member">Usuario</option><option value="admin">Admin</option></select>
+            <button class="btn btn-secondary" onClick="{{ onAddMember }}">Agregar al espacio activo</button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--color-divider);padding-bottom:16px">
+            <select class="input" value="{{ inviteWorkspaceId }}" onChange="{{ onInviteWorkspace }}" style="min-width:220px"><option value="">Selecciona el espacio</option><sc-for list="{{ workspaceOptions }}" as="w" hint-placeholder-count="2"><option value="{{ w.id }}">{{ w.name }}</option></sc-for></select>
+            <select class="input" value="{{ inviteRole }}" onChange="{{ onInviteRole }}" style="min-width:150px"><option value="member">Liga para usuario</option><option value="admin">Liga para admin</option></select>
+            <button class="btn btn-primary" onClick="{{ onCreateInvite }}">Generar liga de inscripción</button>
+            <input class="input" value="{{ inviteUrl }}" readonly placeholder="La liga aparecerá aquí" style="flex:1;min-width:240px">
+            <sc-if value="{{ inviteUrl }}" hint-placeholder-val="{{ false }}">
+              <button class="btn btn-secondary" onClick="{{ onCopyInvite }}">Copiar liga</button>
+              <button class="btn btn-secondary" onClick="{{ onShareInvite }}">Compartir</button>
+            </sc-if>
+          </div>
+          <div style="font-size:12px;color:color-mix(in srgb, var(--color-text) 60%, transparent);margin-top:-10px">Genera una liga, cópiala y envíala a la persona. Al registrarse quedará agregada automáticamente al espacio seleccionado.</div>
+          <div style="min-height:18px;color:var(--color-accent);font-size:12px">{{ authError }}</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:2px;background:var(--color-divider)">
+              <sc-for list="{{ adminSummary }}" as="w" hint-placeholder-count="3">
+                <div style="background:var(--color-bg);padding:16px 18px">
+                  <div style="font-family:var(--font-heading);font-weight:800;font-size:17px">{{ w.name }}</div>
+                  <div style="font-size:12px;color:color-mix(in srgb, var(--color-text) 60%, transparent);margin-top:5px">{{ w.members }} miembros · {{ w.tasks }} tareas</div>
+                  <button class="btn btn-secondary" onClick="{{ w.onOpen }}" style="margin-top:12px">Ver espacio</button>
+                  <sc-if value="{{ canClearWorkspaceTasks }}" hint-placeholder-val="{{ false }}"><button class="btn btn-ghost" onClick="{{ w.onClear }}" style="margin-top:12px;color:var(--color-accent)">Borrar tareas</button></sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <div style="border-top:2px solid var(--color-divider);padding-top:14px">
+              <h4 style="margin:0 0 10px">Miembros del espacio activo</h4>
+              <sc-for list="{{ adminMembers }}" as="m" hint-placeholder-count="2">
+                <div style="display:flex;gap:10px;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span>{{ m.name }} · {{ m.email }}</span><strong>{{ m.workspace_role }}</strong></div>
+              </sc-for>
+            </div>
+            <div style="border-top:2px solid var(--color-divider);padding-top:14px;font-size:13px;color:color-mix(in srgb, var(--color-text) 60%, transparent)">Selecciona “Hoy”, “Bandeja” o “Futuro” para revisar las tareas del equipo en el espacio activo.</div>
+          </div>
+        </sc-if>
+
+      </div>
+
+      <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+        <div class="detail-panel" style="width:340px;flex:none;border-left:2px solid var(--color-divider);overflow-y:auto;padding:18px 20px 60px;background:var(--color-surface)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-accent)">Detalle</div>
+            <button class="btn btn-ghost" onClick="{{ onCloseSel }}" style="margin-left:auto">Cerrar</button>
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <label>Tarea</label>
+            <input class="input" value="{{ sel.title }}" onInput="{{ onSelTitle }}">
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:12px">
+            <div class="field" style="flex:1">
+              <label>Fecha límite</label>
+              <input class="input" type="date" value="{{ sel.due }}" onInput="{{ onSelDue }}">
+            </div>
+            <div class="field" style="width:96px">
+              <label>Pomos est.</label>
+              <input class="input" type="number" min="0" value="{{ sel.estPomos }}" onInput="{{ onSelEst }}">
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <label>Proyecto</label>
+            <select class="input" value="{{ sel.project }}" onChange="{{ onSelProject }}">
+              <option value="">Sin proyecto</option>
+              <sc-for list="{{ projectOptions }}" as="o" hint-placeholder-count="3">
+                <option value="{{ o.id }}">{{ o.name }}</option>
+              </sc-for>
+            </select>
+          </div>
+          <div style="margin-bottom:14px">
+            <div style="font-size:12px;margin-bottom:6px;color:color-mix(in srgb, var(--color-text) 70%, transparent)">Cuadrante</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+              <sc-for list="{{ quadBtns }}" as="q" hint-placeholder-count="4">
+                <button onClick="{{ q.onClick }}" style="{{ q.style }}">{{ q.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="margin-bottom:14px">
+            <div style="font-size:12px;margin-bottom:6px;color:color-mix(in srgb, var(--color-text) 70%, transparent)">Lista</div>
+            <div style="display:flex;gap:4px">
+              <sc-for list="{{ listBtns }}" as="l" hint-placeholder-count="3">
+                <button onClick="{{ l.onClick }}" style="{{ l.style }}">{{ l.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:14px">
+            <label>Etiquetas (separadas por coma)</label>
+            <input class="input" value="{{ selTags }}" onInput="{{ onSelTags }}">
+          </div>
+          <div style="margin-bottom:14px">
+            <div style="font-size:12px;margin-bottom:6px;color:color-mix(in srgb, var(--color-text) 70%, transparent)">Subtareas</div>
+            <sc-for list="{{ selSubs }}" as="s" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--color-divider)">
+                <button onClick="{{ s.onToggle }}" style="{{ s.boxStyle }}" aria-label="Completar subtarea"></button>
+                <span style="{{ s.style }}">{{ s.title }}</span>
+              </div>
+            </sc-for>
+            <input class="input" placeholder="Agregar subtarea + Enter" value="{{ subDraft }}" onInput="{{ onSubInput }}" onKeyDown="{{ onSubKey }}" style="margin-top:8px">
+          </div>
+          <div class="field" style="margin-bottom:16px">
+            <label>Notas</label>
+            <textarea class="input" onInput="{{ onSelNotes }}" value="{{ sel.notes }}"></textarea>
+          </div>
+          <div style="border-top:2px solid var(--color-divider);padding-top:12px;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;font-size:12px">
+              <span style="color:color-mix(in srgb, var(--color-text) 60%, transparent)">Tiempo registrado</span>
+              <span style="font-variant-numeric:tabular-nums">{{ selTime }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px">
+              <span style="color:color-mix(in srgb, var(--color-text) 60%, transparent)">Pomodoros hechos</span>
+              <span style="font-variant-numeric:tabular-nums">{{ selPomos }}</span>
+            </div>
+            <button class="btn btn-primary btn-block" onClick="{{ onSelPlay }}">{{ selPlayLabel }}</button>
+            <button class="btn btn-secondary btn-block" onClick="{{ onSelDelete }}">{{ selDeleteLabel }}</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{ isFull }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:50;background:var(--color-bg);display:flex;flex-direction:column;padding:48px 56px">
+      <div style="display:flex;align-items:baseline;gap:16px;border-bottom:2px solid var(--color-divider);padding-bottom:16px">
+        <div style="font-family:var(--font-heading);font-weight:800;font-size:16px;letter-spacing:0.1em;text-transform:uppercase">{{ pomoModeLabel }}</div>
+        <div style="font-size:12px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ fullSub }}</div>
+        <button class="btn btn-ghost" onClick="{{ onExitFull }}" style="margin-left:auto;white-space:nowrap">Salir de pantalla completa</button>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:24px">
+        <div style="font-family:var(--font-heading);font-weight:800;font-size:clamp(90px,18vw,240px);line-height:0.9;letter-spacing:-0.04em;font-variant-numeric:tabular-nums">{{ pomoClock }}</div>
+        <div style="font-size:26px;max-width:22ch;line-height:1.15;font-family:var(--font-heading);font-weight:800">{{ activeLabel }}</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onClick="{{ onPomoToggle }}" style="white-space:nowrap;font-size:16px;padding:12px 20px">{{ pomoBtnLabel }}</button>
+          <button class="btn btn-secondary" onClick="{{ onPomoReset }}" style="white-space:nowrap;font-size:16px;padding:12px 20px">Reiniciar</button>
+          <sc-if value="{{ isPomoMode }}" hint-placeholder-val="{{ true }}">
+            <button class="btn btn-secondary" onClick="{{ onPomoSkip }}" style="white-space:nowrap;font-size:16px;padding:12px 20px">Saltar</button>
+          </sc-if>
+        </div>
+      </div>
+      <div style="border-top:2px solid var(--color-divider);padding-top:16px;display:flex;gap:40px">
+        <div>
+          <div style="font-family:var(--font-heading);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums">{{ todayFocus }}</div>
+          <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 55%, transparent)">Enfoque hoy</div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-heading);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums">{{ todayPomos }}</div>
+          <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 55%, transparent)">Pomodoros</div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-heading);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums">{{ todayDone }}</div>
+          <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 55%, transparent)">Completadas</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;focusMinutes&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:25,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:5,&quot;max&quot;:60,&quot;unit&quot;:&quot;min&quot;,&quot;section&quot;:&quot;Pomodoro&quot;},&quot;breakMinutes&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:5,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:1,&quot;max&quot;:30,&quot;unit&quot;:&quot;min&quot;,&quot;section&quot;:&quot;Pomodoro&quot;},&quot;showQuadrantColors&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Vista&quot;}}">
+class Component extends DCLogic {
+  state = {
+    tasks: [], projects: [], log: {}, view: 'today', selId: null,
+    newTitle: '', newProject: '', subDraft: '', projFilter: null,
+    pomo: { mode: 'focus', remaining: 1500, running: false, endsAt: null, pushJobId: null },
+    timerSpeed: 1,
+    pushReady: false,
+    activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, full: false,
+    auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '',
+    authName: '', authEmail: '', authPassword: '', adminSummary: [], adminMembers: [], adminOpen: false, statsDay: null,
+    newWorkspaceName: '', inviteEmail: '', memberRole: 'member', inviteRole: 'member', inviteWorkspaceId: null, inviteUrl: '', inviteWorkspace: '', inviteToken: '', suggestionTitle: '', suggestionBody: '', suggestions: [], mobileNavOpen: false, toast: '', notificationState: 'default', theme: 'classic'
+  };
+
+  KEY = 'tareas-modernist-v1';
+  QUADS = [
+    { id: 'q1', label: 'importante y urgente', short: 'Hacer primero', action: 'Hacer primero' },
+    { id: 'q2', label: 'importante, no urgente', short: 'Planificar', action: 'Planificar' },
+    { id: 'q3', label: 'no importante, urgente', short: 'Delegar', action: 'Delegar' },
+    { id: 'q4', label: 'no importante, no urgente', short: 'Eliminar', action: 'Eliminar' }
+  ];
+  LISTS = [{ id: 'inbox', label: 'Bandeja' }, { id: 'today', label: 'Hoy' }, { id: 'future', label: 'Futuro' }];
+
+  normalizeTaskBuckets(tasks) {
+    const today = this.dkey(Date.now());
+    return (tasks || []).map(task => {
+      const t = { ...task, tags: Array.isArray(task.tags) ? task.tags : [], subtasks: Array.isArray(task.subtasks) ? task.subtasks : [] };
+      // Las tareas hechas permanecen visibles el día que se completan. Al día
+      // siguiente pasan automáticamente a la bandeja histórica de Hechas.
+      if (t.done && t.doneAt && this.dkey(Number(t.doneAt)) < today && t.list !== 'trash') t.list = 'done';
+      // Toda tarea que pertenece a Hoy vence automáticamente hoy, incluso si
+      // proviene de datos guardados antes de esta regla.
+      if (t.list === 'today') t.due = today;
+      return t;
+    });
+  }
+
+  moveToTrash(id) {
+    if (this.state.activeId === id && (this.state.stopwatch || this.state.pomo.running)) {
+      this.cancelPush(this.state.pomo.pushJobId);
+      this.setState({ activeId: null, stopwatch: false, watchStartedAt: null, pomo: { ...this.state.pomo, running: false, endsAt: null, pushJobId: null } });
+    }
+    this.setState(s => ({ swipeDeletingId: null, swipeCompletingId: null, swipeId: null, swipeX: 0, tasks: s.tasks.map(t => t.id === id ? { ...t, list: 'trash', deletedAt: Date.now() } : t), selId: s.selId === id ? null : s.selId }));
+  }
+
+  animateSwipeDelete(id) {
+    if (this.swipeDeletePendingId === id) return;
+    this.swipeDeletePendingId = id;
+    this.setState({ swipeDeletingId: id, swipeId: null, swipeX: 0 });
+    clearTimeout(this.swipeDeleteTimer);
+    this.swipeDeleteTimer = setTimeout(() => {
+      this.swipeDeletePendingId = null;
+      this.moveToTrash(id);
+    }, 340);
+  }
+
+  animateSwipeComplete(id) {
+    if (this.swipeCompletePendingId === id) return;
+    this.swipeCompletePendingId = id;
+    this.setState({ swipeCompletingId: id, swipeId: null, swipeX: 0 });
+    clearTimeout(this.swipeCompleteTimer);
+    this.swipeCompleteTimer = setTimeout(() => {
+      this.swipeCompletePendingId = null;
+      this.toggleTask(id);
+      this.setState({ swipeCompletingId: null });
+    }, 340);
+  }
+
+  beginSwipe(id, x, y, target) {
+    if (target?.closest?.('button,input,select,textarea')) return;
+    this.swipeStartX = x;
+    this.swipeStartY = y;
+    this.swipeId = id;
+    this.setState({ swipeId: id, swipeX: 0 });
+  }
+
+  updateSwipe(id, x, y) {
+    if (this.swipeId !== id || this.swipeStartX === null || this.swipeStartX === undefined) return;
+    const dx = x - this.swipeStartX;
+    const dy = Math.abs(y - this.swipeStartY);
+    if (dy > 14 && dy > Math.abs(dx)) { this.cancelSwipe(); return; }
+    this.setState({ swipeX: Math.max(-160, Math.min(160, dx)) });
+  }
+
+  endSwipe(id, x, y, list, done) {
+    if (this.swipeId !== id || this.swipeStartX === null || this.swipeStartX === undefined) return;
+    const dx = x - this.swipeStartX;
+    const dy = Math.abs(y - this.swipeStartY);
+    this.swipeStartX = null;
+    this.swipeStartY = null;
+    this.swipeId = null;
+    if (dx >= 70 && dy <= 45 && list !== 'trash') this.animateSwipeDelete(id);
+    else if (dx <= -70 && dy <= 45 && list !== 'trash' && !done) this.animateSwipeComplete(id);
+    else this.setState({ swipeId: null, swipeX: 0 });
+  }
+
+  cancelSwipe() {
+    this.swipeStartX = null;
+    this.swipeStartY = null;
+    this.swipeId = null;
+    this.setState({ swipeId: null, swipeX: 0 });
+  }
+
+  restoreTask(id) {
+    this.setState(s => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, list: t.done ? 'done' : 'today', due: t.done ? t.due : this.dkey(Date.now()), deletedAt: null } : t) }));
+  }
+
+  focusSecs() { return Math.max(1, this.props.focusMinutes ?? 25) * 60; }
+  breakSecs() { return Math.max(1, this.props.breakMinutes ?? 5) * 60; }
+  changeTimerSpeed(value) { const speed=[1,10,60].includes(Number(value)) ? Number(value) : 1; this.setState(s => ({ timerSpeed: speed, pomo: s.pomo.running ? { ...s.pomo, endsAt: Date.now() + s.pomo.remaining * 1000 / speed } : s.pomo })); }
+  refreshPage() { try { window.location.reload(); } catch (e) { location.reload(); } }
+  async requestNotifications(silent=false) {
+    if (!('Notification' in window)) { this.setState({ notificationState: 'unsupported', toast: 'Este navegador no permite avisos web.' }); return 'unsupported'; }
+    let permission = Notification.permission;
+    if (permission === 'default') { try { permission = await Notification.requestPermission(); } catch (e) { permission = 'denied'; } }
+    this.setState(s => ({ notificationState: permission, ...(silent ? {} : { toast: permission === 'granted' ? 'Avisos activados.' : permission === 'denied' ? 'Avisos bloqueados: actívalos en Ajustes del navegador.' : 'Activa los avisos para recibir el Pomodoro.' }) }));
+    if (permission === 'granted' && navigator.serviceWorker?.ready) { try { this.swRegistration = await navigator.serviceWorker.ready; } catch (e) {} }
+    return permission;
+  }
+  pushKey(value) { const padding='='.repeat((4-value.length%4)%4); const raw=atob((value+padding).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from(raw,c=>c.charCodeAt(0)); }
+  deviceLabel() { const ua=navigator.userAgent||''; if(/iPhone/i.test(ua))return 'iPhone'; if(/iPad/i.test(ua))return 'iPad'; if(/Macintosh|Mac OS X/i.test(ua))return 'Mac'; if(/Android/i.test(ua))return 'Android'; return 'Chrome'; }
+  async ensurePushSubscription(silent=false) {
+    const permission=await this.requestNotifications(silent); if(permission!=='granted')return false;
+    if(!('serviceWorker' in navigator)||!('PushManager' in window)){this.setState({toast:'Este dispositivo no permite push web en este modo.'});return false;}
+    try {
+      const reg=this.swRegistration||await navigator.serviceWorker.ready; this.swRegistration=reg; const cfg=await this.api('push_config'); if(!cfg.ok||!cfg.public_key)throw new Error('Sin clave push');
+      let sub=await reg.pushManager.getSubscription(); if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:this.pushKey(cfg.public_key)});
+      const json=sub.toJSON(); const saved=await this.api('push_subscribe',{endpoint:sub.endpoint,keys:json.keys||{},expirationTime:sub.expirationTime,device_label:this.deviceLabel()}); if(!saved.ok)throw new Error(saved.error||'No se pudo guardar el dispositivo');
+      this.setState(s => ({pushReady:true, ...(silent ? {} : {toast:'Push activado en este dispositivo.'})})); return true;
+    } catch(e) { if(!silent)this.setState({toast:'No se pudo activar el push: '+(e?.message||'revisa los permisos del sitio')+'.'}); return false; }
+  }
+  async testNotification() { const ready=await this.ensurePushSubscription(); if(ready){const r=await this.api('push_test');if(r.ok){if(this.deviceLabel()==='Mac')this.notify('Aviso de prueba de Kaizen','El aviso también fue confirmado en este Mac.');this.setState({toast:'Push enviado a '+(r.sent||0)+' de '+(r.registered||0)+' dispositivos: '+((r.sent_devices||[]).join(', ')||'ninguno')+'.'});}else this.setState({pushReady:false,toast:r.error||'No se pudo enviar el push.'});} }
+  async schedulePush(fireAt,jobId,taskTitle) { if(!await this.ensurePushSubscription())return; await this.api('push_schedule',{job_id:jobId,fire_at:Math.ceil(fireAt/1000),title:'Pomodoro terminado',body:taskTitle?'Terminaste un ciclo de enfoque en «'+taskTitle+'».':'Terminaste un ciclo de enfoque.'}); }
+  async cancelPush(jobId) { if(jobId)await this.api('push_cancel',{job_id:jobId}); }
+  togglePomo() {
+    const s=this.state;
+    if(s.timerMode==='watch'){this.requestNotifications();const next=!s.stopwatch;this.setState({stopwatch:next,watchStartedAt:next?Date.now()-s.watchSecs*1000:null});return;}
+    if(s.pomo.running){this.cancelPush(s.pomo.pushJobId);this.setState({pomo:{...s.pomo,running:false,endsAt:null}});return;}
+    const jobId=this.uid(), fireAt=Date.now()+s.pomo.remaining*1000/s.timerSpeed, task=s.tasks.find(t=>t.id===s.activeId);
+    this.setState({pomo:{...s.pomo,running:true,endsAt:fireAt,pushJobId:jobId},stopwatch:false}); this.schedulePush(fireAt,jobId,task?.title||'');
+  }
+  toggleTaskFocus(id) {
+    const s=this.state,same=s.activeId===id,running=same&&(s.stopwatch||s.pomo.running),task=s.tasks.find(t=>t.id===id); if(s.timerMode==='watch'){this.requestNotifications();const next=!running;const taskSecs=same?s.watchSecs:0;this.setState({activeId:id,stopwatch:next,watchSecs:taskSecs,watchStartedAt:next?Date.now()-taskSecs*1000:null,pomo:{...s.pomo,running:false,endsAt:null}});return;}
+    if(running){this.cancelPush(s.pomo.pushJobId);this.setState({activeId:id,stopwatch:false,pomo:{...s.pomo,running:false,endsAt:null}});return;}
+    const jobId=this.uid(),fireAt=Date.now()+s.pomo.remaining*1000/s.timerSpeed;this.setState({activeId:id,stopwatch:false,pomo:{...s.pomo,running:true,endsAt:fireAt,pushJobId:jobId}});this.schedulePush(fireAt,jobId,task?.title||'');
+  }
+  notify(title, body) {
+    this.setState({ toast: title + ' · ' + body });
+    clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => this.setState({ toast: '' }), 7000);
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const macOS = /Macintosh|Mac OS X/.test(navigator.userAgent);
+        const options = { body, tag: 'tareas-pomodoro-' + Date.now(), icon: './kaizen-icon-180.png', badge: './kaizen-icon-180.png', renotify: true, requireInteraction: true, silent: false };
+        if (macOS) new Notification(title, options);
+        else if (this.swRegistration) this.swRegistration.showNotification(title, options).catch(() => { try { new Notification(title, options); } catch (e) {} });
+        else new Notification(title, options);
+      }
+    } catch (e) {}
+    try { const C = window.AudioContext || window.webkitAudioContext; if (C) { const c = new C(), o = c.createOscillator(), g = c.createGain(); o.frequency.value = 880; g.gain.value = 0.06; o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + 0.25); } } catch (e) {}
+  }
+  uid() { return Math.random().toString(36).slice(2, 9); }
+  pad(n) { return String(n).padStart(2, '0'); }
+  changeTheme(theme) { const value=['classic','night','sunset','ocean'].includes(theme) ? theme : 'classic'; document.documentElement.dataset.theme = value === 'classic' ? '' : value; try { localStorage.setItem(this.KEY + ':theme', value); } catch (e) {} this.setState({ theme: value }); }
+  cycleTheme() { const themes=['classic','night','sunset','ocean']; this.changeTheme(themes[(themes.indexOf(this.state.theme)+1)%themes.length]); }
+  toggleTask(id) { const task=this.state.tasks.find(t=>t.id===id); if (!task || task.list === 'trash') return; const completing=!task.done; this.setState(s => ({ swipeCompletingId: null, tasks: s.tasks.map(x => x.id === id ? { ...x, done: completing, doneAt: completing ? Date.now() : null, list: completing ? x.list : (x.list === 'done' ? 'today' : x.list), due: !completing && x.list === 'done' ? this.dkey(Date.now()) : x.due } : x) })); }
+  dkey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + this.pad(d.getMonth() + 1) + '-' + this.pad(d.getDate()); }
+
+  componentDidMount() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch (e) { saved = null; }
+    const base = saved && saved.tasks ? saved : this.seed();
+    base.tasks = this.normalizeTaskBuckets(base.tasks);
+    const defaultPomo = { mode: 'focus', remaining: this.focusSecs(), running: false, endsAt: null, pushJobId: null };
+    const restoredPomo = saved && saved.pomo && typeof saved.pomo === 'object' ? { ...defaultPomo, ...saved.pomo } : defaultPomo;
+    let savedTheme = 'classic'; try { savedTheme = localStorage.getItem(this.KEY + ':theme') || 'classic'; } catch (e) {}
+    document.documentElement.dataset.theme = savedTheme === 'classic' ? '' : savedTheme;
+    this.setState({
+      tasks: base.tasks, projects: base.projects, log: base.log || {},
+      view: base.view || 'today', projFilter: base.projFilter || null,
+      activeId: saved?.activeId || null, timerMode: saved?.timerMode === 'watch' ? 'watch' : 'pomo', stopwatch: !!saved?.stopwatch,
+      watchSecs: Number(saved?.watchSecs) || 0, watchStartedAt: Number(saved?.watchStartedAt) || null,
+      pomo: restoredPomo, theme: savedTheme
+    });
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(r => { this.swRegistration = r; }).catch(() => {});
+    this.timer = setInterval(() => this.tick(), 1000);
+    this.onVisibility = () => { if (!document.hidden) this.tick(); };
+    document.addEventListener('visibilitychange', this.onVisibility);
+    this.onKey = e => { if (e.key === 'Escape' && this.state.full) this.setState({ full: false }); };
+    window.addEventListener('keydown', this.onKey);
+    this.onPageHide = () => {
+      const s = this.state;
+      try { localStorage.setItem(this.KEY, JSON.stringify({ tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo })); if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId)); } catch (e) {}
+      if (s.auth && s.workspaceId && this.remoteReady) {
+        try { fetch('./api/index.php?action=tasks_sync', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ workspace_id: s.workspaceId, tasks: s.tasks, projects: s.projects }) }); } catch (e) {}
+      }
+    };
+    window.addEventListener('pagehide', this.onPageHide);
+    const inviteToken = new URLSearchParams(location.search).get('invite') || '';
+    if (inviteToken) { this.setState({ inviteToken, authMode: 'register' }); this.api('invite_info', { token: inviteToken }).then(r => { if (r.ok) this.setState({ inviteWorkspace: r.workspace }); else this.setState({ authError: r.error || 'Liga de invitación no válida.' }); }).catch(() => {}); }
+    this.bootstrapAuth();
+  }
+  componentWillUnmount() { clearInterval(this.timer); document.removeEventListener('visibilitychange', this.onVisibility); window.removeEventListener('keydown', this.onKey); window.removeEventListener('pagehide', this.onPageHide); }
+  componentDidUpdate() {
+    const s = this.state;
+    try {
+      localStorage.setItem(this.KEY, JSON.stringify({
+        tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo
+      }));
+      if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId));
+    } catch (e) {}
+    if (s.auth && s.workspaceId && this.remoteReady) {
+      const key = s.workspaceId + ':' + JSON.stringify(s.tasks) + ':' + JSON.stringify(s.projects);
+      if (key !== this.remoteSyncKey) {
+        this.remoteSyncKey = key;
+        clearTimeout(this.remoteSyncTimer);
+        this.remoteSyncTimer = setTimeout(() => this.syncRemoteTasks(s.workspaceId, s.tasks, s.projects), 120);
+      }
+    }
+  }
+
+  async api(action, payload = {}) {
+    let deviceToken = '';
+    try { deviceToken = localStorage.getItem(this.KEY + ':device') || ''; } catch (e) {}
+    const headers = { 'Content-Type': 'application/json' };
+    if (deviceToken) headers['X-Remember-Token'] = deviceToken;
+    const res = await fetch('./api/index.php?action=' + encodeURIComponent(action), {
+      method: 'POST', headers, credentials: 'same-origin', body: JSON.stringify(payload)
+    });
+    return await res.json();
+  }
+  preferredWorkspaceId(workspaces) {
+    let remembered = null;
+    try { remembered = Number(localStorage.getItem(this.KEY + ':workspace')) || Number(JSON.parse(localStorage.getItem(this.KEY) || '{}').workspaceId) || null; } catch (e) {}
+    return (workspaces || []).find(w => Number(w.id) === remembered)?.id || (workspaces || [])[0]?.id || null;
+  }
+  async bootstrapAuth() {
+    try {
+      const r = await this.api('me');
+      if (r.ok && r.user) {
+        const workspaceId = this.preferredWorkspaceId(r.workspaces || []);
+        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [] });
+        if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
+      }
+    } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
+  }
+  async loadRemoteTasks(workspaceId, options = {}) {
+    try {
+      const r = await this.api('tasks', { workspace_id: workspaceId });
+      if (r.ok) {
+        let tasks = this.normalizeTaskBuckets(r.tasks || []), projects = r.projects || [];
+        const fallback = options.fallback || null;
+        const hasRemoteData = tasks.length || projects.length;
+        if (options.migrate && !hasRemoteData && fallback?.tasks?.length) {
+          tasks = this.normalizeTaskBuckets(fallback.tasks);
+          projects = fallback.projects || [];
+          this.remoteReady = true;
+          this.setState({ tasks, projects, workspaceId });
+          await this.syncRemoteTasks(workspaceId, tasks, projects);
+          this.remoteSyncKey = workspaceId + ':' + JSON.stringify(tasks) + ':' + JSON.stringify(projects);
+          return;
+        }
+        if (!projects.length && tasks.some(t => t.project)) {
+          const known = fallback?.projects?.length ? fallback.projects : this.seed().projects;
+          projects = known.filter(p => tasks.some(t => t.project === p.id));
+        }
+        this.remoteReady = true;
+        this.remoteSyncKey = workspaceId + ':' + JSON.stringify(tasks) + ':' + JSON.stringify(projects);
+        this.setState({ tasks, projects, workspaceId });
+      }
+    } catch (e) { this.setState({ authError: 'No se pudieron cargar las tareas del espacio.' }); }
+  }
+  async syncRemoteTasks(workspaceId, tasks, projects) {
+    try { await this.api('tasks_sync', { workspace_id: workspaceId, tasks, projects }); } catch (e) {}
+  }
+  async submitAuth() {
+    const s = this.state;
+    try {
+      const r = await this.api(s.authMode === 'login' ? 'login' : 'register', { name: s.authName, email: s.authEmail, password: s.authPassword, invite_token: s.inviteToken });
+      if (!r.ok) { this.setState({ authError: r.error || 'No se pudo completar el registro.' }); return; }
+      try { if (r.remember_token) localStorage.setItem(this.KEY + ':device', r.remember_token); } catch (e) {}
+      const ws = r.workspaces || [];
+      this.remoteReady = true;
+      const workspaceId = this.preferredWorkspaceId(ws);
+      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [] });
+      // Las cuentas nuevas empiezan vacías; los datos de demostración nunca se copian al espacio del usuario.
+      if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
+    } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
+  }
+  async logout() { await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], authPassword: '' }); }
+  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', selId: null, tasks: [], projects: [], suggestions: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); }
+  async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], adminOpen: true }); } }
+  async clearWorkspaceTasks(workspaceId, workspaceName) { if (this.state.auth?.role !== 'super_admin') return; const r=await this.api('workspace_tasks_clear',{workspace_id:workspaceId}); if(r.ok){ if(Number(this.state.workspaceId)===Number(workspaceId)) this.setState({tasks:[],selId:null}); this.setState({authError:'Se borraron ' + (r.deleted||0) + ' tareas de «' + workspaceName + '».'}); await this.loadAdminSummary(); } else this.setState({authError:r.error||'No se pudieron borrar las tareas.'}); }
+  async createWorkspace() { const name=this.state.newWorkspaceName.trim(); if(!name)return; const r=await this.api('workspace_create',{name}); if(r.ok){this.setState({workspaces:r.workspaces||[],newWorkspaceName:''});await this.loadAdminSummary();}else this.setState({authError:r.error||'No se pudo crear el espacio.'}); }
+  async addMember() { const email=this.state.inviteEmail.trim(); if(!email||!this.state.workspaceId)return; const r=await this.api('member_add',{workspace_id:this.state.workspaceId,email,role:this.state.memberRole}); if(r.ok){this.setState({inviteEmail:'',authError:''});await this.loadAdminSummary();}else this.setState({authError:r.error||'No se pudo agregar la cuenta.'}); }
+  async createInvite() { const workspaceId=this.state.inviteWorkspaceId || this.state.workspaceId; if(!workspaceId)return; const r=await this.api('invite_create',{workspace_id:workspaceId,role:this.state.inviteRole}); if(r.ok)this.setState({inviteWorkspaceId:Number(workspaceId),inviteUrl:location.origin+location.pathname+'?invite='+r.token,authError:''});else this.setState({authError:r.error||'No se pudo crear la liga.'}); }
+  async loadSuggestions(workspaceId) { if(!workspaceId)return; const r=await this.api('suggestions',{workspace_id:workspaceId}); if(r.ok)this.setState({suggestions:r.suggestions||[]}); }
+  async addSuggestion() { const s=this.state; if(!s.workspaceId||!s.suggestionTitle.trim()||!s.suggestionBody.trim())return; const r=await this.api('suggestion_add',{workspace_id:s.workspaceId,title:s.suggestionTitle,body:s.suggestionBody}); if(r.ok){this.setState({suggestionTitle:'',suggestionBody:'',toast:'Mejora enviada. ¡Gracias!'});await this.loadSuggestions(s.workspaceId);}else this.setState({authError:r.error||'No se pudo enviar la mejora.'}); }
+  exportSuggestions() {
+    const s=this.state, ws=s.workspaces.find(w=>Number(w.id)===Number(s.workspaceId));
+    const esc=value => '"' + String(value ?? '').replace(/"/g,'""') + '"';
+    const rows=[['ID','Espacio de trabajo','Título','Descripción','Usuario','Estado','Fecha']];
+    s.suggestions.forEach(x=>rows.push([x.id,ws?.name||'',x.title,x.body,x.name,x.status,x.created_at]));
+    const csv='\ufeff'+rows.map(row=>row.map(esc).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}), url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download='kaizen-mejoras-'+(ws?.name||'espacio').toLowerCase().replace(/[^a-z0-9]+/gi,'-')+'.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    this.setState({toast:'CSV de mejoras descargado.'});
+  }
+  async copyInvite() { if(!this.state.inviteUrl)return; try { await navigator.clipboard.writeText(this.state.inviteUrl); this.setState({toast:'Liga copiada al portapapeles'}); } catch (e) { this.setState({authError:'No se pudo copiar automáticamente. Selecciona la liga y cópiala.'}); } }
+  async shareInvite() { if(!this.state.inviteUrl)return; try { if (navigator.share) await navigator.share({ title:'Invitación al espacio de trabajo', text:'Únete a mi espacio de trabajo:', url:this.state.inviteUrl }); else await this.copyInvite(); } catch (e) {} }
+
+  seed() {
+    const now = Date.now(), day = 86400000;
+    const projects = [
+      { id: 'p1', name: 'VEDAMCI' },
+      { id: 'p2', name: 'Nutrición UnADM' },
+      { id: 'p3', name: 'Libro' }
+    ];
+    const t = (o) => Object.assign({
+      id: this.uid(), title: '', list: 'inbox', project: '', due: '', quadrant: 'q2',
+      tags: [], estPomos: 1, notes: '', subtasks: [], done: false, doneAt: null,
+      seconds: 0, pomos: 0, createdAt: now
+    }, o);
+    const tasks = [
+      t({ title: 'Cerrar el plan de alimentación de Laura', list: 'today', project: 'p1', quadrant: 'q1', due: this.dkey(now), estPomos: 2, seconds: 2760, pomos: 2, tags: ['consulta'], subtasks: [{ id: 'a1', title: 'Revisar recordatorio de 24 h', done: true }, { id: 'a2', title: 'Calcular VET', done: false }] }),
+      t({ title: 'Responder mensajes de pacientes', list: 'today', project: 'p1', quadrant: 'q3', seconds: 900, pomos: 0 }),
+      t({ title: 'Actividad 2 — evidencia de aprendizaje', list: 'today', project: 'p2', quadrant: 'q1', due: this.dkey(now + day), estPomos: 3, seconds: 4380, pomos: 3 }),
+      t({ title: 'Escribir capítulo 4', list: 'today', project: 'p3', quadrant: 'q2', estPomos: 4, seconds: 6300, pomos: 4, notes: 'Continuar desde la sección de la repetición como recurso.' }),
+      t({ title: 'Cotizar impresión de recetarios', list: 'inbox', project: 'p1', quadrant: 'q4' }),
+      t({ title: 'Ordenar fotos del taller', list: 'inbox', quadrant: 'q4' }),
+      t({ title: 'Leer artículo de microbiota 2024', list: 'inbox', project: 'p2', quadrant: 'q2', tags: ['lectura'] }),
+      t({ title: 'Rediseñar el flujo de primera consulta', list: 'future', project: 'p1', quadrant: 'q2', estPomos: 5 }),
+      t({ title: 'Preparar el reto de 5 días', list: 'future', project: 'p3', quadrant: 'q2', estPomos: 6 }),
+      t({ title: 'Actualizar tabla de equivalencias SMAE', list: 'future', project: 'p2', quadrant: 'q2' }),
+      t({ title: 'Revisar laboratorios de Marco', list: 'today', project: 'p1', quadrant: 'q1', done: true, doneAt: now - 2 * 3600000, seconds: 1500, pomos: 1 }),
+      t({ title: 'Enviar indicaciones a Rosa', list: 'today', project: 'p1', quadrant: 'q1', done: true, doneAt: now - day, seconds: 1200, pomos: 1 }),
+      t({ title: 'Foro unidad 3', list: 'today', project: 'p2', quadrant: 'q1', done: true, doneAt: now - 2 * day, seconds: 2400, pomos: 2 }),
+      t({ title: 'Guion de video Govardhana', list: 'today', project: 'p3', quadrant: 'q2', done: true, doneAt: now - 3 * day, seconds: 3000, pomos: 2 })
+    ];
+    const secsByDay = [5400, 7200, 3600, 8100, 2700, 6300, 4500];
+    const hourShape = { 7: 0.1, 8: 0.16, 9: 0.22, 10: 0.24, 11: 0.1, 16: 0.08, 17: 0.06, 20: 0.04 };
+    const log = {};
+    for (let i = 6; i >= 0; i--) {
+      const k = this.dkey(now - i * day), secs = secsByDay[6 - i];
+      const hours = {};
+      Object.keys(hourShape).forEach(h => { hours[h] = Math.round(secs * hourShape[h]); });
+      log[k] = { seconds: secs, pomos: Math.round(secs / 1500), hours };
+    }
+    return { tasks, projects, log, view: 'today', projFilter: null };
+  }
+
+  tick() {
+    this.setState(s => {
+      const p = { ...s.pomo };
+      let tasks = s.tasks, log = s.log, creditSeconds = 0, finished = false, watchSecs = s.watchSecs;
+      const today = this.dkey(Date.now());
+      if (this.lastBucketDay !== today) { this.lastBucketDay = today; tasks = this.normalizeTaskBuckets(tasks); }
+      if (s.timerMode === 'watch') {
+        if (s.stopwatch) { watchSecs = s.watchStartedAt ? Math.max(0, Math.floor((Date.now() - s.watchStartedAt) / 1000)) : watchSecs + 1; creditSeconds = Math.max(0, watchSecs - s.watchSecs); }
+      } else if (p.running) {
+        p.remaining = p.endsAt ? Math.max(0, Math.ceil((p.endsAt - Date.now()) / 1000)) : p.remaining - 1;
+        if (p.mode === 'focus') creditSeconds = 1;
+        if (p.remaining <= 0) {
+          finished = p.mode === 'focus';
+          p.mode = p.mode === 'focus' ? 'break' : 'focus';
+          p.remaining = p.mode === 'focus' ? this.focusSecs() : this.breakSecs();
+          p.running = false; p.endsAt = null; p.pushJobId = null;
+        }
+      } else if (s.stopwatch) creditSeconds = 1;
+      if (creditSeconds) {
+        const k = this.dkey(Date.now()), h = new Date().getHours();
+        const prev = log[k] || { seconds: 0, pomos: 0, hours: {} };
+        log = { ...log, [k]: { ...prev, seconds: prev.seconds + creditSeconds, hours: { ...prev.hours, [h]: (prev.hours[h] || 0) + creditSeconds } } };
+        if (s.activeId) tasks = tasks.map(t => t.id === s.activeId ? { ...t, seconds: t.seconds + creditSeconds } : t);
+      }
+      if (finished) {
+        const k = this.dkey(Date.now());
+        const prev = log[k] || { seconds: 0, pomos: 0, hours: {} };
+        log = { ...log, [k]: { ...prev, pomos: prev.pomos + 1 } };
+        if (s.activeId) tasks = tasks.map(t => t.id === s.activeId ? { ...t, pomos: t.pomos + 1 } : t);
+        const activeTask = s.tasks.find(t => t.id === s.activeId);
+        this.notify('Pomodoro terminado', activeTask ? 'Terminaste un ciclo de enfoque en «' + activeTask.title + '». Toca continuar cuando estés listo.' : 'Terminaste un ciclo de enfoque. Es hora de tomar un descanso.');
+      }
+      return { pomo: p, tasks, log, watchSecs };
+    });
+  }
+
+  patch(id, obj) {
+    this.setState(s => ({ tasks: s.tasks.map(t => {
+      if (t.id !== id) return t;
+      const next = { ...t, ...obj };
+      return next.list === 'today' ? { ...next, due: this.dkey(Date.now()) } : next;
+    }) }));
+  }
+  fmtDur(sec) {
+    if (!sec) return '—';
+    if (sec < 60) return sec + ' s';
+    if (sec < 3600) return Math.round(sec / 60) + ' min';
+    const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+    return m ? h + ' h ' + m + ' m' : h + ' h';
+  }
+  fmtLong(sec) {
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), r = sec % 60;
+    return (h ? h + ':' : '') + this.pad(m) + ':' + this.pad(r);
+  }
+  fmtClock(sec) { const m = Math.floor(Math.max(0, sec) / 60), r = Math.max(0, sec) % 60; return this.pad(m) + ':' + this.pad(r); }
+  fmtDue(iso) {
+    if (!iso) return '';
+    const M = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const today = this.dkey(Date.now());
+    const parts = iso.split('-');
+    if (iso === today) return 'vence hoy';
+    if (iso < today) return 'atrasada';
+    return 'vence ' + Number(parts[2]) + ' ' + M[Number(parts[1]) - 1];
+  }
+  quadOf(id) { return this.QUADS.find(q => q.id === id) || this.QUADS[1]; }
+  projName(id) { const p = this.state.projects.find(x => x.id === id); return p ? p.name : ''; }
+
+  addTask() {
+    const title = this.state.newTitle.trim();
+    if (!title) return;
+    const v = this.state.view;
+    const list = v === 'today' ? 'today' : v === 'future' ? 'future' : 'inbox';
+    const project = (v === 'projects' || v === 'project') ? (this.state.projFilter || '') : '';
+    const due = v === 'today' ? this.dkey(Date.now()) : '';
+    const nt = {
+      id: this.uid(), title, list, project, due, quadrant: 'q2', tags: [], estPomos: 1,
+      notes: '', subtasks: [], done: false, doneAt: null, seconds: 0, pomos: 0, createdAt: Date.now()
+    };
+    this.setState(s => ({ tasks: [nt, ...s.tasks], newTitle: '' }));
+  }
+
+  taskRow(t) {
+    const q = this.quadOf(t.quadrant);
+    const bits = [];
+    const activeTimer = this.state.activeId === t.id && (this.state.stopwatch || this.state.pomo.running);
+    const timerLabel = activeTimer ? (this.state.timerMode === 'watch' ? 'CRONÓMETRO ACTIVO' : 'POMODORO ACTIVO') : '';
+    if (timerLabel) bits.push(timerLabel);
+    if (t.project) bits.push(this.projName(t.project));
+    if (t.due) bits.push(this.fmtDue(t.due));
+    if (t.subtasks.length) bits.push(t.subtasks.filter(s => s.done).length + '/' + t.subtasks.length + ' subtareas');
+    if (t.estPomos) bits.push(t.pomos + '/' + t.estPomos + ' pomos');
+    t.tags.forEach(g => bits.push('#' + g));
+    const playing = activeTimer;
+    const colors = { q1: 'var(--color-accent)', q2: 'var(--color-neutral-800)', q3: 'var(--color-neutral-600)', q4: 'var(--color-neutral-500)' };
+    const tint = this.props.showQuadrantColors ?? true;
+    return {
+      id: t.id, title: t.title, meta: bits.join(' · '), time: this.fmtDur(t.seconds),
+      due: t.due || '', showMove: t.list !== 'today' && t.list !== 'done' && t.list !== 'trash',
+      onDue: e => this.patch(t.id, e.target.value ? { due: e.target.value, list: 'future' } : { due: '' }),
+      onSendToday: () => this.patch(t.id, { list: 'today' }),
+      showArchiveAction: t.list === 'done' || t.list === 'trash',
+      archiveActionLabel: t.list === 'trash' ? 'Restaurar' : 'Reabrir',
+      onArchiveAction: () => t.list === 'trash' ? this.restoreTask(t.id) : this.toggleTask(t.id),
+      showDelete: t.list !== 'trash',
+      quadShort: q.short, playLabel: playing ? (this.state.timerMode === 'watch' ? 'Pausar cronómetro' : 'Pausar Pomodoro') : (this.state.timerMode === 'watch' ? 'Cronometrar' : 'Enfocar'),
+      quadStyle: {
+        fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '2px 7px',
+        color: tint ? colors[t.quadrant] : 'var(--color-text)',
+        border: '1px solid ' + (tint ? colors[t.quadrant] : 'var(--color-divider)')
+      },
+      titleStyle: {
+        fontSize: activeTimer ? 22 : 15, fontWeight: activeTimer ? 800 : 400, lineHeight: activeTimer ? 1.15 : 1.3,
+        color: activeTimer ? 'var(--color-accent)' : 'var(--color-text)',
+        textDecoration: t.done ? 'line-through' : 'none', opacity: t.done ? 0.45 : 1
+      },
+      boxStyle: {
+        width: 18, height: 18, marginTop: 3, padding: 0, cursor: 'pointer',
+        border: '2px solid ' + (t.done ? 'var(--color-accent)' : 'var(--color-neutral-500)'),
+        background: t.done ? 'var(--color-accent)' : 'transparent'
+      },
+      playStyle: { flex: 'none', borderColor: playing ? 'var(--color-accent)' : 'var(--color-divider)', color: playing ? 'var(--color-accent)' : 'var(--color-text)', fontWeight: playing ? 800 : 400 },
+      swipeDeleteHintStyle: {
+        position: 'absolute', left: 12, top: 0, bottom: 0, display: 'flex', alignItems: 'center', gap: 7,
+        color: '#ef4444', fontSize: 12, fontWeight: 800, pointerEvents: 'none',
+        opacity: Math.min(1, Math.max(0, (this.state.swipeId === t.id ? this.state.swipeX : 0)) / 70),
+        transform: 'scale(' + (0.82 + Math.min(0.18, Math.max(0, (this.state.swipeId === t.id ? this.state.swipeX : 0)) / 70 * 0.18)) + ')',
+        transformOrigin: 'left center'
+      },
+      swipeCompleteHintStyle: {
+        position: 'absolute', right: 12, top: 0, bottom: 0, display: 'flex', alignItems: 'center', gap: 7,
+        color: '#16a34a', fontSize: 12, fontWeight: 800, pointerEvents: 'none',
+        opacity: Math.min(1, Math.max(0, -(this.state.swipeId === t.id ? this.state.swipeX : 0)) / 70),
+        transform: 'scale(' + (0.82 + Math.min(0.18, Math.max(0, -(this.state.swipeId === t.id ? this.state.swipeX : 0)) / 70 * 0.18)) + ')',
+        transformOrigin: 'right center'
+      },
+      rowStyle: {
+        display: 'grid', gridTemplateColumns: '20px 1fr auto', gap: 14, alignItems: 'start',
+        padding: activeTimer ? '18px 14px' : '11px 2px', marginBottom: activeTimer ? 10 : 0,
+        border: activeTimer ? '2px solid var(--color-accent)' : 'none',
+        borderBottom: activeTimer ? '2px solid var(--color-accent)' : '1px solid var(--color-divider)', touchAction: 'pan-y',
+        transform: this.state.swipeDeletingId === t.id ? 'translateX(110%)' : this.state.swipeCompletingId === t.id ? 'translateX(-110%)' : 'translateX(' + (this.state.swipeId === t.id ? this.state.swipeX : 0) + 'px)',
+        opacity: this.state.swipeDeletingId === t.id || this.state.swipeCompletingId === t.id ? 0 : 1,
+        background: this.state.swipeDeletingId === t.id || (this.state.swipeId === t.id && this.state.swipeX > 0) ? 'color-mix(in srgb, #ef4444 18%, transparent)' : this.state.swipeCompletingId === t.id || (this.state.swipeId === t.id && this.state.swipeX < 0) ? 'color-mix(in srgb, #16a34a 18%, transparent)' : activeTimer ? 'color-mix(in srgb, var(--color-accent) 9%, var(--color-bg))' : 'transparent',
+        transition: this.state.swipeId === t.id && !this.state.swipeDeletingId && !this.state.swipeCompletingId ? 'none' : 'transform 340ms ease, opacity 340ms ease, background 180ms ease'
+      },
+      onToggle: () => this.toggleTask(t.id),
+      onOpen: () => this.setState({ selId: t.id }),
+      onPlay: () => this.toggleTaskFocus(t.id),
+      onDelete: () => this.animateSwipeDelete(t.id),
+      onTouchStart: e => {
+        const touch = e.touches?.[0];
+        if (touch) this.beginSwipe(t.id, touch.clientX, touch.clientY, e.target);
+      },
+      onTouchMove: e => { const touch = e.touches?.[0]; if (touch) this.updateSwipe(t.id, touch.clientX, touch.clientY); },
+      onTouchEnd: e => {
+        const touch = e.changedTouches?.[0];
+        if (touch) this.endSwipe(t.id, touch.clientX, touch.clientY, t.list, t.done);
+      },
+      onTouchCancel: () => this.cancelSwipe(),
+      onPointerDown: e => {
+        this.beginSwipe(t.id, e.clientX, e.clientY, e.target);
+      },
+      onPointerMove: e => this.updateSwipe(t.id, e.clientX, e.clientY),
+      onPointerUp: e => this.endSwipe(t.id, e.clientX, e.clientY, t.list, t.done),
+      onPointerCancel: () => this.cancelSwipe()
+    };
+  }
+
+  renderVals() {
+    const s = this.state, now = Date.now(), day = 86400000;
+    const activeTasks = s.tasks.filter(t => t.list !== 'trash');
+    const open = activeTasks.filter(t => !t.done);
+    const counts = {
+      today: open.filter(t => t.list === 'today').length,
+      inbox: open.filter(t => t.list === 'inbox').length,
+      future: open.filter(t => t.list === 'future').length,
+      matrix: open.length,
+      done: s.tasks.filter(t => t.list === 'done').length,
+      trash: s.tasks.filter(t => t.list === 'trash').length,
+      projects: s.projects.length,
+      stats: Object.keys(s.log).length,
+      ideas: s.suggestions.length,
+      admin: s.adminSummary.length
+    };
+    const navDefs = [
+      { id: 'today', label: 'Hoy' }, { id: 'inbox', label: 'Bandeja de entrada' },
+      { id: 'future', label: 'Futuro' }, { id: 'matrix', label: 'Matriz' },
+      { id: 'done', label: 'Hechas' }, { id: 'trash', label: 'Borrado' },
+      { id: 'projects', label: 'Proyectos' }, { id: 'stats', label: 'Estadísticas' }, { id: 'ideas', label: 'Mejoras' }
+    ];
+    const hasWorkspaceAdmin = s.auth && (s.auth.role === 'super_admin' || s.auth.role === 'admin' || s.workspaces.some(w => w.member_role === 'admin'));
+    if (hasWorkspaceAdmin) navDefs.push({ id: 'admin', label: 'Supervisión' });
+    const navItems = navDefs.map(n => {
+      const on = s.view === n.id || (n.id === 'projects' && s.view === 'project');
+      return {
+        label: n.label, count: counts[n.id] || 0, onClick: () => { this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, mobileNavOpen: false }); if (n.id === 'admin') this.loadAdminSummary(); },
+        style: {
+          display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', cursor: 'pointer',
+          padding: '9px 18px', border: 0, borderLeft: '3px solid ' + (on ? 'var(--color-accent)' : 'transparent'),
+          background: on ? 'color-mix(in srgb, var(--color-accent) 10%, transparent)' : 'transparent',
+          fontFamily: 'var(--font-heading)', fontWeight: on ? 800 : 400, fontSize: 14,
+          color: on ? 'var(--color-accent-700)' : 'var(--color-text)'
+        },
+        countStyle: { marginLeft: 'auto', fontSize: 11, fontVariantNumeric: 'tabular-nums', opacity: 0.55 }
+      };
+    });
+
+    const isList = ['today', 'inbox', 'future', 'done', 'trash'].includes(s.view);
+    const activeTimerId = (s.pomo.running || s.stopwatch) ? s.activeId : null;
+    const activeTimerFirst = (a, b) => (Number(b.id === activeTimerId) - Number(a.id === activeTimerId));
+    let listTasks = [];
+    if (isList) {
+      listTasks = s.tasks.filter(t => t.list === s.view).sort((a, b) => activeTimerFirst(a, b) || (s.view === 'done' || s.view === 'trash' ? (Number(b.doneAt || b.deletedAt || 0) - Number(a.doneAt || a.deletedAt || 0)) : ((a.done - b.done) || a.quadrant.localeCompare(b.quadrant))));
+    } else if ((s.view === 'projects' || s.view === 'project') && s.projFilter) {
+      listTasks = s.tasks.filter(t => t.project === s.projFilter && t.list !== 'done' && t.list !== 'trash').sort((a, b) => activeTimerFirst(a, b) || (a.done - b.done));
+    }
+    const rows = listTasks.map(t => this.taskRow(t));
+
+    const titles = {
+      today: ['Hoy', 'Lo que se trabaja en esta jornada'],
+      inbox: ['Bandeja de entrada', 'Captura rápida, sin clasificar'],
+      future: ['Futuro', 'Algún día / tal vez'],
+      done: ['Hechas', 'Completadas en días anteriores'],
+      trash: ['Borrado', 'Tareas retiradas; puedes restaurarlas'],
+      matrix: ['Matriz de Eisenhower', 'Urgencia contra importancia'],
+      projects: ['Proyectos', 'Tareas agrupadas por proyecto'],
+      project: [this.projName(s.projFilter) || 'Proyecto', 'Tareas del proyecto'],
+      stats: ['Estadísticas semanales', 'Últimos 7 días'],
+      ideas: ['Mejoras', 'Ideas y sugerencias del espacio'],
+      admin: ['Supervisión', 'Espacios de trabajo y tareas del equipo']
+    };
+    const tt = titles[s.view] || titles.today;
+
+    // La matriz muestra únicamente tareas pendientes; las hechas permanecen
+    // disponibles en sus listas correspondientes, pero no en los cuadrantes.
+    const matrixTasks = activeTasks.filter(t => !t.done);
+    const quadCells = this.QUADS.map(q => {
+      const list = matrixTasks.filter(t => t.quadrant === q.id).sort(activeTimerFirst);
+      const colors = { q1: 'var(--color-accent)', q2: 'var(--color-neutral-800)', q3: 'var(--color-neutral-600)', q4: 'var(--color-neutral-500)' };
+      return {
+        label: q.label, action: q.action, count: list.length,
+        dotStyle: { width: 10, height: 10, background: colors[q.id], flex: 'none' },
+        tasks: list.map(t => this.taskRow(t))
+      };
+    });
+
+    const projSecs = {};
+    s.tasks.filter(t => t.list !== 'done' && t.list !== 'trash').forEach(t => { const k = t.project || 'none'; projSecs[k] = (projSecs[k] || 0) + t.seconds; });
+    const maxProj = Math.max(1, ...Object.values(projSecs));
+    const projectCards = s.projects.map(p => {
+      const all = s.tasks.filter(t => t.project === p.id && t.list !== 'done' && t.list !== 'trash');
+      const done = all.filter(t => t.done).length;
+      const on = s.projFilter === p.id;
+      return {
+        name: p.name, stats: done + '/' + all.length + ' hechas · ' + this.fmtDur(projSecs[p.id] || 0),
+        onClick: () => this.setState({ view: 'project', projFilter: p.id, selId: null, mobileNavOpen: false }),
+        style: {
+          background: on ? 'var(--color-surface)' : 'var(--color-bg)', padding: '16px 18px', cursor: 'pointer',
+          display: 'flex', flexDirection: 'column', gap: 4,
+          borderRight: '2px solid var(--color-divider)',
+          boxShadow: on ? 'inset 3px 0 0 var(--color-accent)' : 'none'
+        },
+        barStyle: { height: '100%', width: (all.length ? (done / all.length) * 100 : 0) + '%', background: 'var(--color-accent)' }
+      };
+    });
+
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const ts = now - i * day, k = this.dkey(ts);
+      const e = s.log[k] || { seconds: 0, pomos: 0, hours: {} };
+      const doneN = s.tasks.filter(t => t.done && t.doneAt && this.dkey(t.doneAt) === k).length;
+      days.push({ key: k, ts, secs: e.seconds, pomos: e.pomos, done: doneN, hours: e.hours });
+    }
+    const maxSecs = Math.max(1, ...days.map(d => d.secs));
+    const DOW = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+    const selectedDay = days.find(d => d.key === s.statsDay) || days[days.length - 1];
+    const weekBars = days.map(d => ({
+      label: DOW[new Date(d.ts).getDay()], done: d.done,
+      value: d.secs ? Math.round(d.secs / 60) + 'm' : '',
+      onClick: () => this.setState({ statsDay: d.key }),
+      barStyle: { height: Math.max(2, (d.secs / maxSecs) * 150) + 'px', background: d.key === selectedDay.key ? 'var(--color-accent)' : 'color-mix(in srgb, var(--color-accent) 35%, transparent)', cursor: 'pointer' }
+    }));
+    const totalSecs = days.reduce((a, d) => a + d.secs, 0);
+    const totalPomos = days.reduce((a, d) => a + d.pomos, 0);
+    const weekDone = days.reduce((a, d) => a + d.done, 0);
+    let streak = 0;
+    for (let i = 0; i < 60; i++) {
+      const k = this.dkey(now - i * day);
+      const e = s.log[k];
+      if (e && e.seconds > 0) streak++;
+      else if (i > 0) break;
+    }
+    const hoursAgg = {};
+    days.forEach(d => Object.keys(d.hours || {}).forEach(h => { hoursAgg[h] = (hoursAgg[h] || 0) + d.hours[h]; }));
+    const maxHour = Math.max(1, ...Object.values(hoursAgg).concat([1]));
+    let peakH = null;
+    Object.keys(hoursAgg).forEach(h => { if (peakH === null || hoursAgg[h] > hoursAgg[peakH]) peakH = h; });
+    const hourBars = Array.from({ length: 24 }, (_, h) => ({
+      style: {
+        flex: 1, height: Math.max(1, ((hoursAgg[h] || 0) / maxHour) * 50) + 'px',
+        background: String(h) === String(peakH) ? 'var(--color-accent)' : 'color-mix(in srgb, var(--color-text) 25%, transparent)'
+      }
+    }));
+    const doneCount = s.tasks.filter(t => t.done).length;
+    const pendCount = s.tasks.length - doneCount;
+    const donePct = s.tasks.length ? Math.round((doneCount / s.tasks.length) * 100) : 0;
+    const projectTime = s.projects.map(p => ({
+      name: p.name, value: this.fmtDur(projSecs[p.id] || 0),
+      barStyle: { height: '100%', width: ((projSecs[p.id] || 0) / maxProj) * 100 + '%', background: 'var(--color-accent)' }
+    })).concat(projSecs.none ? [{ name: 'Sin proyecto', value: this.fmtDur(projSecs.none), barStyle: { height: '100%', width: (projSecs.none / maxProj) * 100 + '%', background: 'var(--color-neutral-500)' } }] : []);
+
+    const todayKey = this.dkey(now), tl = s.log[todayKey] || { seconds: 0, pomos: 0 };
+    const selectedDate = new Date(selectedDay.ts);
+    const selectedDayLabel = DOW[selectedDate.getDay()] + ' ' + this.pad(selectedDate.getDate()) + '/' + this.pad(selectedDate.getMonth() + 1) + '/' + selectedDate.getFullYear();
+    const active = s.tasks.find(t => t.id === s.activeId);
+    const running = s.pomo.running || s.stopwatch;
+    const watchMode = s.timerMode === 'watch';
+    const sel = s.tasks.find(t => t.id === s.selId) || null;
+
+    const detail = {};
+    if (sel) {
+      detail.sel = { title: sel.title, due: sel.due, estPomos: sel.estPomos, notes: sel.notes, project: sel.project };
+      detail.selTags = sel.tags.join(', ');
+      detail.selTime = this.fmtDur(sel.seconds);
+      detail.selPomos = sel.pomos + ' / ' + sel.estPomos;
+      detail.selPlayLabel = (s.activeId === sel.id && running) ? (watchMode ? 'Pausar cronómetro' : 'Pausar Pomodoro') : (watchMode ? 'Cronometrar esta tarea' : 'Enfocar esta tarea');
+      detail.onSelTitle = e => this.patch(sel.id, { title: e.target.value });
+      detail.onSelDue = e => this.patch(sel.id, { due: e.target.value });
+      detail.onSelEst = e => this.patch(sel.id, { estPomos: Number(e.target.value) || 0 });
+      detail.onSelNotes = e => this.patch(sel.id, { notes: e.target.value });
+      detail.onSelProject = e => this.patch(sel.id, { project: e.target.value });
+      detail.onSelTags = e => this.patch(sel.id, { tags: e.target.value.split(',').map(x => x.trim()).filter(Boolean) });
+      detail.selDeleteLabel = sel.list === 'trash' ? 'Restaurar tarea' : 'Mover a Borrado';
+      detail.onSelDelete = () => sel.list === 'trash' ? this.restoreTask(sel.id) : this.moveToTrash(sel.id);
+      detail.onSelPlay = () => this.toggleTaskFocus(sel.id);
+      detail.quadBtns = this.QUADS.map(q => ({
+        label: q.action, onClick: () => this.patch(sel.id, { quadrant: q.id }),
+        style: {
+          padding: '7px 9px', cursor: 'pointer', fontSize: 12, textAlign: 'left',
+          fontFamily: 'var(--font-heading)', fontWeight: sel.quadrant === q.id ? 800 : 400,
+          border: '1px solid ' + (sel.quadrant === q.id ? 'var(--color-accent)' : 'var(--color-divider)'),
+          background: sel.quadrant === q.id ? 'var(--color-accent)' : 'transparent',
+          color: sel.quadrant === q.id ? 'var(--color-bg)' : 'var(--color-text)'
+        }
+      }));
+      detail.listBtns = this.LISTS.map(l => ({
+        label: l.label, onClick: () => this.patch(sel.id, { list: l.id }),
+        style: {
+          flex: 1, padding: '7px 9px', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-heading)',
+          fontWeight: sel.list === l.id ? 800 : 400,
+          border: '1px solid ' + (sel.list === l.id ? 'var(--color-accent)' : 'var(--color-divider)'),
+          background: sel.list === l.id ? 'color-mix(in srgb, var(--color-accent) 12%, transparent)' : 'transparent',
+          color: 'var(--color-text)'
+        }
+      }));
+      detail.selSubs = sel.subtasks.map(sub => ({
+        title: sub.title,
+        style: { fontSize: 13, textDecoration: sub.done ? 'line-through' : 'none', opacity: sub.done ? 0.5 : 1 },
+        boxStyle: {
+          width: 14, height: 14, flex: 'none', padding: 0, cursor: 'pointer',
+          border: '2px solid ' + (sub.done ? 'var(--color-accent)' : 'var(--color-neutral-500)'),
+          background: sub.done ? 'var(--color-accent)' : 'transparent'
+        },
+        onToggle: () => this.patch(sel.id, { subtasks: sel.subtasks.map(x => x.id === sub.id ? { ...x, done: !x.done } : x) })
+      }));
+      detail.onSubInput = e => this.setState({ subDraft: e.target.value });
+      detail.onSubKey = e => {
+        if (e.key !== 'Enter') return;
+        const v = this.state.subDraft.trim();
+        if (!v) return;
+        this.patch(sel.id, { subtasks: [...sel.subtasks, { id: this.uid(), title: v, done: false }] });
+        this.setState({ subDraft: '' });
+      };
+    }
+
+    return Object.assign({
+      showAuth: !s.auth, hasAuth: !!s.auth, inviteWorkspace: s.inviteWorkspace,
+      authMode: s.authMode, authName: s.authName, authEmail: s.authEmail, authPassword: s.authPassword, authError: s.authError,
+      authTitle: s.authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta',
+      authSubmitLabel: s.authMode === 'login' ? 'Entrar' : 'Registrarme',
+      authToggleLabel: s.authMode === 'login' ? 'Crear una cuenta nueva' : 'Ya tengo una cuenta',
+      showRegisterFields: s.authMode === 'register', passwordAutocomplete: s.authMode === 'login' ? 'current-password' : 'new-password',
+      onAuthName: e => this.setState({ authName: e.target.value, authError: '' }),
+      onAuthEmail: e => this.setState({ authEmail: e.target.value, authError: '' }),
+      onAuthPassword: e => this.setState({ authPassword: e.target.value, authError: '' }),
+      onAuthKey: e => { if (e.key === 'Enter') this.submitAuth(); },
+      onSubmitAuth: () => this.submitAuth(),
+      onToggleAuth: () => this.setState(s2 => ({ authMode: s2.authMode === 'login' ? 'register' : 'login', authError: '' })),
+      onLogout: () => this.logout(),
+      workspaceId: s.workspaceId,
+      workspaceOptions: s.workspaces,
+      canSwitchWorkspace: s.auth?.role === 'super_admin', isFixedWorkspace: !!s.auth && s.auth.role !== 'super_admin', activeWorkspaceName: s.workspaces.find(w => Number(w.id) === Number(s.workspaceId))?.name || 'Espacio de trabajo',
+      onWorkspaceChange: e => this.changeWorkspace(e.target.value),
+      mobileNavOpen: s.mobileNavOpen, onToggleMobileNav: () => this.setState(s2 => ({ mobileNavOpen: !s2.mobileNavOpen })),
+      onRefreshPage: () => this.refreshPage(),
+      onTestNotification: () => this.testNotification(),
+      onOpenIdeas: () => this.setState({ view: 'ideas', projFilter: null, selId: null, mobileNavOpen: false }),
+      toast: s.toast, onEnableNotifications: () => this.ensurePushSubscription(), showPushPrompt: !!s.auth && !s.pushReady, pushPromptText: s.notificationState === 'denied' ? 'Chrome está bloqueando este sitio. Permítelo desde el candado de la barra de direcciones.' : 'Pulsa el botón para recibir avisos aunque Kaizen esté en segundo plano.',
+      notificationLabel: s.pushReady ? 'Push activo' : s.notificationState === 'denied' ? 'Push bloqueado' : s.notificationState === 'unsupported' ? 'Push no disponible' : 'Activar push',
+      timerSpeed: s.timerSpeed, onTimerSpeed: e => this.changeTimerSpeed(e.target.value),
+      theme: s.theme, themeLabel: ({classic:'Claro',night:'Noche',sunset:'Atardecer',ocean:'Océano'})[s.theme] || 'Claro', onThemeChange: e => this.changeTheme(e.target.value), onCycleTheme: () => this.cycleTheme(),
+      authUserLabel: s.auth?.name || s.auth?.email || '',
+      authRoleLabel: s.auth?.role === 'super_admin' ? 'Superadministrador' : (s.auth?.role === 'admin' || s.workspaces.find(w => w.id === s.workspaceId)?.member_role === 'admin' ? 'Administrador del espacio' : 'Miembro'),
+      newWorkspaceName: s.newWorkspaceName, inviteEmail: s.inviteEmail, memberRole: s.memberRole, inviteRole: s.inviteRole, inviteWorkspaceId: s.inviteWorkspaceId || s.workspaceId, inviteUrl: s.inviteUrl, adminMembers: s.adminMembers,
+      onWorkspaceName: e => this.setState({ newWorkspaceName: e.target.value }),
+      onInviteEmail: e => this.setState({ inviteEmail: e.target.value }),
+      onMemberRole: e => this.setState({ memberRole: e.target.value }),
+      onInviteRole: e => this.setState({ inviteRole: e.target.value }),
+      onInviteWorkspace: e => this.setState({ inviteWorkspaceId: Number(e.target.value) || null, inviteUrl: '' }),
+      onCreateWorkspace: () => this.createWorkspace(), onAddMember: () => this.addMember(), onCreateInvite: () => this.createInvite(),
+      onCopyInvite: () => this.copyInvite(), onShareInvite: () => this.shareInvite(),
+      canClearWorkspaceTasks: s.auth?.role === 'super_admin',
+      adminSummary: s.adminSummary.map(w => ({ ...w, onOpen: () => this.changeWorkspace(w.id), onClear: () => this.clearWorkspaceTasks(w.id, w.name) })),
+      onRefreshAdmin: () => this.loadAdminSummary(),
+      navItems, streak: streak,
+      viewTitle: tt[0], viewSub: tt[1],
+      isList, isMatrix: s.view === 'matrix', isProjects: s.view === 'projects', isProjectDetail: s.view === 'project', isIdeas: s.view === 'ideas', isStats: s.view === 'stats', isAdminView: s.view === 'admin',
+      projectDetailName: this.projName(s.projFilter) || 'Proyecto',
+      projectDetailStats: (() => { const a=s.tasks.filter(t=>t.project===s.projFilter && t.list !== 'done' && t.list !== 'trash'), d=a.filter(t=>t.done).length; return d + '/' + a.length + ' hechas · ' + this.fmtDur(a.reduce((sum,t)=>sum+t.seconds,0)); })(),
+      onBackProjects: () => this.setState({ view: 'projects', projFilter: null, selId: null }),
+      showQuickAdd: isList || s.view === 'project',
+      listTasks: rows, listEmpty: rows.length === 0 && (isList || s.view === 'projects'),
+      newTitle: s.newTitle, subDraft: s.subDraft,
+      onNewInput: e => this.setState({ newTitle: e.target.value }),
+      onNewKey: e => { if (e.key === 'Enter') this.addTask(); },
+      suggestionTitle: s.suggestionTitle, suggestionBody: s.suggestionBody, suggestions: s.suggestions,
+      onSuggestionTitle: e => this.setState({ suggestionTitle: e.target.value }), onSuggestionBody: e => this.setState({ suggestionBody: e.target.value }), onAddSuggestion: () => this.addSuggestion(), onExportSuggestions: () => this.exportSuggestions(),
+      onAdd: () => this.addTask(),
+      quadCells, projectCards,
+      projectOptions: s.projects.map(p => ({ id: p.id, name: p.name })),
+      newProject: s.newProject,
+      onProjInput: e => this.setState({ newProject: e.target.value }),
+      onProjKey: e => { if (e.key === 'Enter') this.addProject(); },
+      onAddProject: () => this.addProject(),
+      kpis: [
+        { label: 'Tiempo de hoy', value: this.fmtDur(tl.seconds), note: 'suma total del día' },
+        { label: 'Tiempo enfocado', value: this.fmtDur(totalSecs), note: 'suma de los 7 días' },
+        { label: 'Pomodoros', value: String(totalPomos), note: 'ciclos de enfoque completos' },
+        { label: 'Tareas hechas', value: String(weekDone), note: 'completadas esta semana' },
+        { label: 'Racha', value: streak + ' d', note: 'días seguidos con enfoque' }
+      ],
+      weekBars, hourBars, projectTime,
+      selectedDayLabel, selectedDayTime: this.fmtDur(selectedDay.secs), selectedDayPomos: String(selectedDay.pomos), selectedDayDone: String(selectedDay.done),
+      peakHour: peakH === null ? '—' : this.pad(peakH) + ':00 – ' + this.pad((Number(peakH) + 1) % 24) + ':00',
+      doneCount: String(doneCount), pendCount: String(pendCount), donePct: String(donePct),
+      doneSegStyle: { width: donePct + '%', background: 'var(--color-accent)', color: 'var(--color-bg)', fontSize: 11, display: 'flex', alignItems: 'center', paddingLeft: 6, fontVariantNumeric: 'tabular-nums' },
+      pendSegStyle: { flex: 1, background: 'color-mix(in srgb, var(--color-text) 12%, transparent)', fontSize: 11, display: 'flex', alignItems: 'center', paddingLeft: 6, fontVariantNumeric: 'tabular-nums' },
+      pomoClock: watchMode ? this.fmtLong(s.watchSecs) : this.fmtClock(s.pomo.remaining),
+      pomoModeLabel: watchMode ? 'Cronómetro' : (s.pomo.mode === 'focus' ? 'Enfoque' : 'Descanso'),
+      pomoBtnLabel: (watchMode ? s.stopwatch : s.pomo.running) ? 'Pausar' : 'Iniciar',
+      hasActiveTimer: !!active && running,
+      isPomoMode: !watchMode,
+      modeBtns: [{ id: 'pomo', label: 'Pomodoro' }, { id: 'watch', label: 'Cronómetro' }].map(m => ({
+        label: m.label,
+        onClick: () => this.setState(st => ({
+          timerMode: m.id, stopwatch: false, watchSecs: 0, watchStartedAt: null,
+          pomo: { mode: 'focus', running: false, remaining: this.focusSecs(), endsAt: null, pushJobId: null }
+        })),
+        style: {
+          padding: '7px 11px', cursor: 'pointer', border: 0, fontSize: 12, fontFamily: 'var(--font-heading)',
+          whiteSpace: 'nowrap', fontWeight: s.timerMode === m.id ? 800 : 400,
+          background: s.timerMode === m.id ? 'var(--color-accent)' : 'transparent',
+          color: s.timerMode === m.id ? 'var(--color-bg)' : 'var(--color-text)'
+        }
+      })),
+      isFull: s.full,
+      fullSub: active ? 'Midiendo tiempo de esta tarea' : 'Sin tarea activa',
+      onEnterFull: () => { this.setState({ full: true }); try { document.documentElement.requestFullscreen(); } catch (e) {} },
+      onExitFull: () => { this.setState({ full: false }); try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {} },
+      activeLabel: active ? active.title : 'Sin tarea activa — elige una con «Enfocar»',
+      onPomoToggle: () => this.togglePomo(),
+      onPomoReset: () => this.setState(st => (st.timerMode === 'watch'
+        ? { watchSecs: 0, stopwatch: false, watchStartedAt: null }
+        : { pomo: { mode: st.pomo.mode, running: false, remaining: st.pomo.mode === 'focus' ? this.focusSecs() : this.breakSecs(), endsAt: null, pushJobId: null } })),
+      onPomoSkip: () => this.setState(st => {
+        const mode = st.pomo.mode === 'focus' ? 'break' : 'focus';
+        return { pomo: { mode, running: false, remaining: mode === 'focus' ? this.focusSecs() : this.breakSecs(), endsAt: null, pushJobId: null } };
+      }),
+      todayFocus: this.fmtDur(tl.seconds), todayPomos: String(tl.pomos),
+      todayDone: String(s.tasks.filter(t => t.done && t.doneAt && this.dkey(t.doneAt) === todayKey).length),
+      hasSel: !!sel, onCloseSel: () => this.setState({ selId: null })
+    }, detail);
+  }
+
+  addProject() {
+    const name = this.state.newProject.trim();
+    if (!name) return;
+    this.setState(s => ({ projects: [...s.projects, { id: this.uid(), name }], newProject: '' }));
+  }
+}
+</script>
+</body>
+</html>

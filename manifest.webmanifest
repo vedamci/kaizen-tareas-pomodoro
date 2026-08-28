@@ -1,0 +1,23 @@
+{
+  "name": "Kaizen — Tareas y Pomodoro",
+  "short_name": "Kaizen",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fff8f2",
+  "theme_color": "#f2381b",
+  "description": "Organiza tus tareas y enfócate con Pomodoro.",
+  "icons": [
+    {
+      "src": "./kaizen-icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./kaizen-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
