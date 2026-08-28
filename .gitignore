@@ -1,3 +1,4 @@
 api/config.php
 .DS_Store
 *.log
+deploy-cpanel.sh
