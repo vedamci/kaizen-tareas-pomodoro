@@ -5,8 +5,6 @@ self.addEventListener('push', event => {
   try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data ? event.data.text() : '' }; }
   event.waitUntil(self.registration.showNotification(data.title || 'Kaizen', {
     body: data.body || 'Tienes un aviso nuevo.',
-    icon: './kaizen-icon-180.png',
-    badge: './kaizen-icon-180.png',
     tag: data.tag || ('kaizen-pomodoro-' + Date.now()),
     renotify: true,
     requireInteraction: true,

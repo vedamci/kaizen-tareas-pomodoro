@@ -8,15 +8,9 @@
   "description": "Organiza tus tareas y enfócate con Pomodoro.",
   "icons": [
     {
-      "src": "./kaizen-icon-180.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "./kaizen-icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "./kaizen-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ]
