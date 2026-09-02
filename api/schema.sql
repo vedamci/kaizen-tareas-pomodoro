@@ -39,6 +39,18 @@ CREATE TABLE tasks (
   INDEX idx_tasks_owner (owner_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE task_shares (
+  task_id VARCHAR(32) NOT NULL,
+  workspace_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  shared_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (task_id, user_id),
+  CONSTRAINT fk_task_shares_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+  CONSTRAINT fk_task_shares_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  CONSTRAINT fk_task_shares_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_task_shares_workspace_user (workspace_id, user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE workspace_invites (
   token CHAR(32) PRIMARY KEY,
   workspace_id INT UNSIGNED NOT NULL,
@@ -62,6 +74,13 @@ CREATE TABLE suggestions (
   CONSTRAINT fk_suggestions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_suggestions_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
   INDEX idx_suggestions_workspace (workspace_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE workspace_data (
+  workspace_id INT UNSIGNED PRIMARY KEY,
+  projects_json LONGTEXT NOT NULL,
+  improvement_checklist_json LONGTEXT NULL,
+  CONSTRAINT fk_workspace_data_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE push_subscriptions (

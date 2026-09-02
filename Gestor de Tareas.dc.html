@@ -361,9 +361,14 @@
         </sc-if>
 
         <sc-if value="{{ isIdeas }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;flex-direction:column;gap:18px;max-width:760px">
+          <div style="display:flex;flex-direction:column;gap:22px;max-width:760px">
             <div style="padding:16px 18px;background:var(--color-surface);border-left:3px solid var(--color-accent)"><div style="font-family:var(--font-heading);font-weight:800;font-size:18px">¿Cómo podemos mejorar Kaizen?</div><div style="font-size:13px;margin-top:5px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">Comparte una idea, una necesidad o algo que te gustaría que funcionara mejor.</div></div>
             <div style="display:flex;flex-direction:column;gap:8px"><input class="input" placeholder="Título de la mejora" value="{{ suggestionTitle }}" onInput="{{ onSuggestionTitle }}"><textarea class="input" placeholder="Describe tu idea..." value="{{ suggestionBody }}" onInput="{{ onSuggestionBody }}" style="min-height:110px;resize:vertical"></textarea><button class="btn btn-primary" onClick="{{ onAddSuggestion }}" style="align-self:flex-start">Enviar mejora</button></div>
+            <div style="border-top:2px solid var(--color-divider);padding-top:18px">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><h4 style="margin:0">Lo que ya hice</h4><div style="font-size:12px;margin-top:4px;color:color-mix(in srgb, var(--color-text) 60%, transparent)">Lleva el registro de las mejoras que ya completaste.</div></div></div>
+              <div style="display:flex;gap:8px;margin-top:12px"><input class="input" placeholder="Ej. Compartir tareas con el equipo" value="{{ checklistDraft }}" onInput="{{ onChecklistInput }}" onKeyDown="{{ onChecklistKey }}"><button class="btn btn-secondary" onClick="{{ onAddChecklist }}" style="flex:none;white-space:nowrap">Agregar</button></div>
+              <div style="margin-top:12px"><sc-for list="{{ checklistItems }}" as="item" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--color-divider)"><button onClick="{{ item.onToggle }}" style="{{ item.boxStyle }}" aria-label="Marcar mejora realizada">{{ item.mark }}</button><span style="{{ item.style }}">{{ item.text }}</span><button class="btn btn-ghost" onClick="{{ item.onRemove }}" style="margin-left:auto;padding:3px 7px" title="Quitar del checklist">×</button></div></sc-for><sc-if value="{{ checklistEmpty }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;padding:12px 0;color:color-mix(in srgb, var(--color-text) 50%, transparent)">Todavía no hay mejoras registradas.</div></sc-if></div>
+            </div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><h4 style="margin:0">Ideas del espacio</h4><button class="btn btn-secondary" onClick="{{ onExportSuggestions }}" style="white-space:nowrap">⬇ Exportar CSV</button></div><sc-for list="{{ suggestions }}" as="idea" hint-placeholder-count="3"><div style="padding:12px 0;border-top:1px solid var(--color-divider)"><div style="font-family:var(--font-heading);font-weight:800">{{ idea.title }}</div><div style="font-size:13px;margin-top:4px">{{ idea.body }}</div><div style="font-size:11px;margin-top:7px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ idea.name }} · {{ idea.status }}</div></div></sc-for>
           </div>
         </sc-if>
@@ -545,6 +550,15 @@
             <label>Etiquetas (separadas por coma)</label>
             <input class="input" value="{{ selTags }}" onInput="{{ onSelTags }}">
           </div>
+          <sc-if value="{{ showShareSection }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-bottom:16px;padding:12px;background:color-mix(in srgb, var(--color-accent) 7%, transparent);border-left:3px solid var(--color-accent)">
+              <div style="font-size:12px;font-family:var(--font-heading);font-weight:800">Compartir tarea</div>
+              <div style="font-size:11px;margin:4px 0 8px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">{{ shareHelp }}</div>
+              <sc-for list="{{ shareOptions }}" as="m" hint-placeholder-count="2">
+                <button onClick="{{ m.onToggle }}" style="{{ m.style }}"><span style="font-weight:800;width:18px">{{ m.mark }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span><span style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent);margin-left:auto">{{ m.email }}</span></button>
+              </sc-for>
+            </div>
+          </sc-if>
           <div style="margin-bottom:14px">
             <div style="font-size:12px;margin-bottom:6px;color:color-mix(in srgb, var(--color-text) 70%, transparent)">Subtareas</div>
             <sc-for list="{{ selSubs }}" as="s" hint-placeholder-count="2">
@@ -559,6 +573,7 @@
             <label>Notas</label>
             <textarea class="input" onInput="{{ onSelNotes }}" value="{{ sel.notes }}"></textarea>
           </div>
+          <div style="font-size:11px;color:color-mix(in srgb, var(--color-text) 55%, transparent);margin-bottom:12px">{{ autoStartText }}</div>
           <div style="border-top:2px solid var(--color-divider);padding-top:12px;display:flex;flex-direction:column;gap:8px">
             <div style="display:flex;justify-content:space-between;font-size:12px">
               <span style="color:color-mix(in srgb, var(--color-text) 60%, transparent)">Tiempo registrado</span>
@@ -622,8 +637,8 @@ class Component extends DCLogic {
     pushReady: false,
     activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, full: false,
     auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '',
-    authName: '', authEmail: '', authPassword: '', adminSummary: [], adminMembers: [], adminOpen: false, statsDay: null,
-    newWorkspaceName: '', inviteEmail: '', memberRole: 'member', inviteRole: 'member', inviteWorkspaceId: null, inviteUrl: '', inviteWorkspace: '', inviteToken: '', suggestionTitle: '', suggestionBody: '', suggestions: [], mobileNavOpen: false, toast: '', notificationState: 'default', theme: 'classic'
+    authName: '', authEmail: '', authPassword: '', adminSummary: [], adminMembers: [], workspaceMembers: [], adminOpen: false, statsDay: null,
+    newWorkspaceName: '', inviteEmail: '', memberRole: 'member', inviteRole: 'member', inviteWorkspaceId: null, inviteUrl: '', inviteWorkspace: '', inviteToken: '', suggestionTitle: '', suggestionBody: '', suggestions: [], improvementChecklist: [], checklistDraft: '', mobileNavOpen: false, toast: '', notificationState: 'default', theme: 'classic'
   };
 
   KEY = 'tareas-modernist-v1';
@@ -638,7 +653,8 @@ class Component extends DCLogic {
   normalizeTaskBuckets(tasks) {
     const today = this.dkey(Date.now());
     return (tasks || []).map(task => {
-      const t = { ...task, tags: Array.isArray(task.tags) ? task.tags : [], subtasks: Array.isArray(task.subtasks) ? task.subtasks : [] };
+      const sharedWith = Array.isArray(task.sharedWith) ? task.sharedWith : (Array.isArray(task._shared_user_ids) ? task._shared_user_ids : []);
+      const t = { ...task, sharedWith: sharedWith.map(Number).filter(Boolean), tags: Array.isArray(task.tags) ? task.tags : [], subtasks: Array.isArray(task.subtasks) ? task.subtasks : [] };
       // Las tareas hechas permanecen visibles el día que se completan. Al día
       // siguiente pasan automáticamente a la bandeja histórica de Hechas.
       if (t.done && t.doneAt && this.dkey(Number(t.doneAt)) < today && t.list !== 'trash') t.list = 'done';
@@ -754,9 +770,20 @@ class Component extends DCLogic {
     this.setState({pomo:{...s.pomo,running:true,endsAt:fireAt,pushJobId:jobId},stopwatch:false}); this.schedulePush(fireAt,jobId,task?.title||'');
   }
   toggleTaskFocus(id) {
-    const s=this.state,same=s.activeId===id,running=same&&(s.stopwatch||s.pomo.running),task=s.tasks.find(t=>t.id===id); if(s.timerMode==='watch'){this.requestNotifications();const next=!running;const taskSecs=same?s.watchSecs:0;this.setState({activeId:id,stopwatch:next,watchSecs:taskSecs,watchStartedAt:next?Date.now()-taskSecs*1000:null,pomo:{...s.pomo,running:false,endsAt:null}});return;}
+    const s=this.state,same=s.activeId===id,running=same&&(s.stopwatch||s.pomo.running),task=s.tasks.find(t=>t.id===id); if(!task||task.done||task.list==='trash')return; if(s.timerMode==='watch'){this.requestNotifications();const next=!running;const taskSecs=same?s.watchSecs:0;this.setState({activeId:id,stopwatch:next,watchSecs:taskSecs,watchStartedAt:next?Date.now()-taskSecs*1000:null,pomo:{...s.pomo,running:false,endsAt:null}});return;}
     if(running){this.cancelPush(s.pomo.pushJobId);this.setState({activeId:id,stopwatch:false,pomo:{...s.pomo,running:false,endsAt:null}});return;}
-    const jobId=this.uid(),fireAt=Date.now()+s.pomo.remaining*1000/s.timerSpeed;this.setState({activeId:id,stopwatch:false,pomo:{...s.pomo,running:true,endsAt:fireAt,pushJobId:jobId}});this.schedulePush(fireAt,jobId,task?.title||'');
+    this.startTaskTimer(id);
+  }
+  startTaskTimer(id) {
+    const s=this.state, task=s.tasks.find(t=>t.id===id); if(!task||task.done||task.list==='trash')return;
+    if(s.activeId===id&&(s.stopwatch||s.pomo.running))return;
+    if(s.pomo.running)this.cancelPush(s.pomo.pushJobId);
+    if(s.timerMode==='watch'){this.setState({activeId:id,stopwatch:true,watchSecs:0,watchStartedAt:Date.now(),pomo:{...s.pomo,running:false,endsAt:null}});return;}
+    const jobId=this.uid(),fireAt=Date.now()+s.pomo.remaining*1000/s.timerSpeed; this.setState({activeId:id,stopwatch:false,pomo:{...s.pomo,running:true,endsAt:fireAt,pushJobId:jobId}}); this.schedulePush(fireAt,jobId,task.title||'');
+  }
+  openTask(id) {
+    const task=this.state.tasks.find(t=>t.id===id); this.setState({selId:id});
+    if(task&&!task.done&&task.list!=='trash')this.startTaskTimer(id);
   }
   notify(title, body) {
     this.setState({ toast: title + ' · ' + body });
@@ -816,7 +843,7 @@ class Component extends DCLogic {
       tasks: base.tasks, projects: base.projects, log: base.log || {},
       view: base.view || 'today', projFilter: base.projFilter || null,
       activeId: saved?.activeId || null, timerMode: saved?.timerMode === 'watch' ? 'watch' : 'pomo', stopwatch: !!saved?.stopwatch,
-      watchSecs: Number(saved?.watchSecs) || 0, watchStartedAt: Number(saved?.watchStartedAt) || null,
+      watchSecs: Number(saved?.watchSecs) || 0, watchStartedAt: Number(saved?.watchStartedAt) || null, improvementChecklist: Array.isArray(saved?.improvementChecklist) ? saved.improvementChecklist : [],
       pomo: restoredPomo, theme: savedTheme
     });
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(r => { this.swRegistration = r; }).catch(() => {});
@@ -827,7 +854,7 @@ class Component extends DCLogic {
     window.addEventListener('keydown', this.onKey);
     this.onPageHide = () => {
       const s = this.state;
-      try { localStorage.setItem(this.KEY, JSON.stringify({ tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo })); if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId)); } catch (e) {}
+      try { localStorage.setItem(this.KEY, JSON.stringify({ tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist })); if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId)); } catch (e) {}
       if (s.auth && s.workspaceId && this.remoteReady) {
         try { fetch('./api/index.php?action=tasks_sync', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ workspace_id: s.workspaceId, tasks: s.tasks, projects: s.projects }) }); } catch (e) {}
       }
@@ -842,7 +869,7 @@ class Component extends DCLogic {
     const s = this.state;
     try {
       localStorage.setItem(this.KEY, JSON.stringify({
-        tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo
+        tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist
       }));
       if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId));
     } catch (e) {}
@@ -876,8 +903,8 @@ class Component extends DCLogic {
       const r = await this.api('me');
       if (r.ok && r.user) {
         const workspaceId = this.preferredWorkspaceId(r.workspaces || []);
-        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [] });
-        if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
+        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], improvementChecklist: [] });
+        if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
       }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
@@ -919,20 +946,28 @@ class Component extends DCLogic {
       const ws = r.workspaces || [];
       this.remoteReady = true;
       const workspaceId = this.preferredWorkspaceId(ws);
-      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [] });
+      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [], improvementChecklist: [] });
       // Las cuentas nuevas empiezan vacías; los datos de demostración nunca se copian al espacio del usuario.
-      if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
+      if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
-  async logout() { await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], authPassword: '' }); }
-  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', selId: null, tasks: [], projects: [], suggestions: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); }
-  async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], adminOpen: true }); } }
+  async logout() { await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], workspaceMembers: [], improvementChecklist: [], authPassword: '' }); }
+  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', selId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
+  async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return; const r=await this.api('workspace_members',{workspace_id:workspaceId}); if(r.ok)this.setState({workspaceMembers:r.members||[]}); }
+  async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], workspaceMembers: m.members || [], adminOpen: true }); } }
   async clearWorkspaceTasks(workspaceId, workspaceName) { if (this.state.auth?.role !== 'super_admin') return; const r=await this.api('workspace_tasks_clear',{workspace_id:workspaceId}); if(r.ok){ if(Number(this.state.workspaceId)===Number(workspaceId)) this.setState({tasks:[],selId:null}); this.setState({authError:'Se borraron ' + (r.deleted||0) + ' tareas de «' + workspaceName + '».'}); await this.loadAdminSummary(); } else this.setState({authError:r.error||'No se pudieron borrar las tareas.'}); }
   async createWorkspace() { const name=this.state.newWorkspaceName.trim(); if(!name)return; const r=await this.api('workspace_create',{name}); if(r.ok){this.setState({workspaces:r.workspaces||[],newWorkspaceName:''});await this.loadAdminSummary();}else this.setState({authError:r.error||'No se pudo crear el espacio.'}); }
   async addMember() { const email=this.state.inviteEmail.trim(); if(!email||!this.state.workspaceId)return; const r=await this.api('member_add',{workspace_id:this.state.workspaceId,email,role:this.state.memberRole}); if(r.ok){this.setState({inviteEmail:'',authError:''});await this.loadAdminSummary();}else this.setState({authError:r.error||'No se pudo agregar la cuenta.'}); }
   async createInvite() { const workspaceId=this.state.inviteWorkspaceId || this.state.workspaceId; if(!workspaceId)return; const r=await this.api('invite_create',{workspace_id:workspaceId,role:this.state.inviteRole}); if(r.ok)this.setState({inviteWorkspaceId:Number(workspaceId),inviteUrl:location.origin+location.pathname+'?invite='+r.token,authError:''});else this.setState({authError:r.error||'No se pudo crear la liga.'}); }
   async loadSuggestions(workspaceId) { if(!workspaceId)return; const r=await this.api('suggestions',{workspace_id:workspaceId}); if(r.ok)this.setState({suggestions:r.suggestions||[]}); }
   async addSuggestion() { const s=this.state; if(!s.workspaceId||!s.suggestionTitle.trim()||!s.suggestionBody.trim())return; const r=await this.api('suggestion_add',{workspace_id:s.workspaceId,title:s.suggestionTitle,body:s.suggestionBody}); if(r.ok){this.setState({suggestionTitle:'',suggestionBody:'',toast:'Mejora enviada. ¡Gracias!'});await this.loadSuggestions(s.workspaceId);}else this.setState({authError:r.error||'No se pudo enviar la mejora.'}); }
+  async loadChecklist(workspaceId) { if(!workspaceId)return; const r=await this.api('checklist',{workspace_id:workspaceId}); if(r.ok)this.setState({improvementChecklist:Array.isArray(r.items)?r.items:[]}); }
+  async saveChecklist(items) { const workspaceId=this.state.workspaceId; if(!workspaceId)return; const r=await this.api('checklist_sync',{workspace_id:workspaceId,items}); if(!r.ok)this.setState({toast:r.error||'No se pudo guardar el checklist.'}); }
+  addChecklistItem() { const text=this.state.checklistDraft.trim(); if(!text)return; const item={id:this.uid(),text,done:false,createdAt:Date.now()}; const items=[item,...this.state.improvementChecklist]; this.setState({improvementChecklist:items,checklistDraft:'',toast:'Mejora agregada al checklist.'}); this.saveChecklist(items); }
+  toggleChecklistItem(id) { const items=this.state.improvementChecklist.map(item=>item.id===id?{...item,done:!item.done}:item); this.setState({improvementChecklist:items}); this.saveChecklist(items); }
+  removeChecklistItem(id) { const items=this.state.improvementChecklist.filter(item=>item.id!==id); this.setState({improvementChecklist:items}); this.saveChecklist(items); }
+  async shareTask(id, userIds, rollback) { const workspaceId=this.state.workspaceId; if(!workspaceId)return; const r=await this.api('task_share',{workspace_id:workspaceId,task_id:id,user_ids:userIds}); if(r.ok){this.patch(id,{sharedWith:r.shared_user_ids||[]});this.setState({toast:'Personas con acceso actualizadas.'});}else{if(rollback)this.patch(id,{sharedWith:rollback});this.setState({toast:r.error||'No se pudo compartir la tarea.'});} }
+  toggleTaskShare(id, userId) { const task=this.state.tasks.find(t=>t.id===id); if(!task)return; const current=Array.isArray(task.sharedWith)?task.sharedWith.map(Number):[]; const next=current.includes(Number(userId))?current.filter(x=>x!==Number(userId)):[...current,Number(userId)]; this.patch(id,{sharedWith:next}); this.shareTask(id,next,current); }
   exportSuggestions() {
     const s=this.state, ws=s.workspaces.find(w=>Number(w.id)===Number(s.workspaceId));
     const esc=value => '"' + String(value ?? '').replace(/"/g,'""') + '"';
@@ -955,7 +990,7 @@ class Component extends DCLogic {
     ];
     const t = (o) => Object.assign({
       id: this.uid(), title: '', list: 'inbox', project: '', due: '', quadrant: 'q2',
-      tags: [], estPomos: 1, notes: '', subtasks: [], done: false, doneAt: null,
+      tags: [], estPomos: 1, notes: '', subtasks: [], sharedWith: [], done: false, doneAt: null,
       seconds: 0, pomos: 0, createdAt: now
     }, o);
     const tasks = [
@@ -1052,6 +1087,7 @@ class Component extends DCLogic {
   }
   quadOf(id) { return this.QUADS.find(q => q.id === id) || this.QUADS[1]; }
   projName(id) { const p = this.state.projects.find(x => x.id === id); return p ? p.name : ''; }
+  memberName(id) { const member=this.state.workspaceMembers.find(x=>Number(x.id)===Number(id)); return member?.name || member?.email || 'un miembro'; }
 
   addTask() {
     const title = this.state.newTitle.trim();
@@ -1062,7 +1098,7 @@ class Component extends DCLogic {
     const due = v === 'today' ? this.dkey(Date.now()) : '';
     const nt = {
       id: this.uid(), title, list, project, due, quadrant: 'q2', tags: [], estPomos: 1,
-      notes: '', subtasks: [], done: false, doneAt: null, seconds: 0, pomos: 0, createdAt: Date.now()
+      notes: '', subtasks: [], sharedWith: [], done: false, doneAt: null, seconds: 0, pomos: 0, createdAt: Date.now()
     };
     this.setState(s => ({ tasks: [nt, ...s.tasks], newTitle: '' }));
   }
@@ -1077,6 +1113,8 @@ class Component extends DCLogic {
     if (t.due) bits.push(this.fmtDue(t.due));
     if (t.subtasks.length) bits.push(t.subtasks.filter(s => s.done).length + '/' + t.subtasks.length + ' subtareas');
     if (t.estPomos) bits.push(t.pomos + '/' + t.estPomos + ' pomos');
+    if (t._owner_id && Number(t._owner_id) !== Number(this.state.auth?.id)) bits.push('Compartida por ' + this.memberName(t._owner_id));
+    else if (t.sharedWith?.length) bits.push('Compartida con ' + t.sharedWith.length);
     t.tags.forEach(g => bits.push('#' + g));
     const playing = activeTimer;
     const colors = { q1: 'var(--color-accent)', q2: 'var(--color-neutral-800)', q3: 'var(--color-neutral-600)', q4: 'var(--color-neutral-500)' };
@@ -1132,7 +1170,7 @@ class Component extends DCLogic {
         transition: this.state.swipeId === t.id && !this.state.swipeDeletingId && !this.state.swipeCompletingId ? 'none' : 'transform 340ms ease, opacity 340ms ease, background 180ms ease'
       },
       onToggle: () => this.toggleTask(t.id),
-      onOpen: () => this.setState({ selId: t.id }),
+      onOpen: () => this.openTask(t.id),
       onPlay: () => this.toggleTaskFocus(t.id),
       onDelete: () => this.animateSwipeDelete(t.id),
       onTouchStart: e => {
@@ -1321,6 +1359,12 @@ class Component extends DCLogic {
       detail.selDeleteLabel = sel.list === 'trash' ? 'Restaurar tarea' : 'Mover a Borrado';
       detail.onSelDelete = () => sel.list === 'trash' ? this.restoreTask(sel.id) : this.moveToTrash(sel.id);
       detail.onSelPlay = () => this.toggleTaskFocus(sel.id);
+      const ownerId=Number(sel._owner_id||s.auth?.id||0), currentId=Number(s.auth?.id||0), currentIsAdmin=s.auth?.role==='super_admin'||s.auth?.role==='admin'||s.workspaceMembers.find(m=>Number(m.id)===currentId)?.workspace_role==='admin';
+      const canShare=!ownerId||ownerId===currentId||currentIsAdmin;
+      const shareCandidates=s.workspaceMembers.filter(m=>Number(m.id)!==ownerId);
+      detail.showShareSection=canShare&&shareCandidates.length>0;
+      detail.shareHelp=ownerId&&ownerId!==currentId?'Solo la persona propietaria puede cambiar los accesos.':'Selecciona los miembros que podrán ver y actualizar esta tarea.';
+      detail.shareOptions=shareCandidates.map(m=>{const selected=(sel.sharedWith||[]).map(Number).includes(Number(m.id));return {name:m.name||m.email,email:m.email,mark:selected?'✓':'',onToggle:()=>this.toggleTaskShare(sel.id,m.id),style:{display:'flex',alignItems:'center',gap:7,width:'100%',padding:'7px 8px',marginTop:4,textAlign:'left',cursor:canShare?'pointer':'default',border:'1px solid '+(selected?'var(--color-accent)':'var(--color-divider)'),background:selected?'color-mix(in srgb, var(--color-accent) 12%, transparent)':'transparent',color:'var(--color-text)',opacity:canShare?1:.65}};});
       detail.quadBtns = this.QUADS.map(q => ({
         label: q.action, onClick: () => this.patch(sel.id, { quadrant: q.id }),
         style: {
@@ -1413,6 +1457,8 @@ class Component extends DCLogic {
       onNewKey: e => { if (e.key === 'Enter') this.addTask(); },
       suggestionTitle: s.suggestionTitle, suggestionBody: s.suggestionBody, suggestions: s.suggestions,
       onSuggestionTitle: e => this.setState({ suggestionTitle: e.target.value }), onSuggestionBody: e => this.setState({ suggestionBody: e.target.value }), onAddSuggestion: () => this.addSuggestion(), onExportSuggestions: () => this.exportSuggestions(),
+      checklistDraft: s.checklistDraft, checklistItems: s.improvementChecklist.map(item => ({ text:item.text, mark:item.done?'✓':'', style:{fontSize:13,textDecoration:item.done?'line-through':'none',opacity:item.done?0.5:1}, boxStyle:{width:22,height:22,flex:'none',padding:0,cursor:'pointer',border:'2px solid '+(item.done?'var(--color-accent)':'var(--color-neutral-500)'),background:item.done?'var(--color-accent)':'transparent',color:item.done?'var(--color-bg)':'var(--color-text)',fontSize:13}, onToggle:()=>this.toggleChecklistItem(item.id), onRemove:()=>this.removeChecklistItem(item.id) })), checklistEmpty: s.improvementChecklist.length===0,
+      onChecklistInput: e => this.setState({ checklistDraft: e.target.value }), onChecklistKey: e => { if(e.key==='Enter')this.addChecklistItem(); }, onAddChecklist: () => this.addChecklistItem(),
       onAdd: () => this.addTask(),
       quadCells, projectCards,
       projectOptions: s.projects.map(p => ({ id: p.id, name: p.name })),
@@ -1466,7 +1512,7 @@ class Component extends DCLogic {
       }),
       todayFocus: this.fmtDur(tl.seconds), todayPomos: String(tl.pomos),
       todayDone: String(s.tasks.filter(t => t.done && t.doneAt && this.dkey(t.doneAt) === todayKey).length),
-      hasSel: !!sel, onCloseSel: () => this.setState({ selId: null })
+      hasSel: !!sel, autoStartText: 'El Pomodoro inicia automáticamente al abrir una tarea pendiente. Puedes pausarlo cuando quieras.', onCloseSel: () => this.setState({ selId: null })
     }, detail);
   }
 
