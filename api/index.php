@@ -199,14 +199,31 @@ try {
     }
     if ($action === 'tasks') {
         $wid=(int)($data['workspace_id']??0); $access=workspaceAccess($wid,(int)$u['id']); if($u['role']!=='super_admin'&&!$access) out(['ok'=>false,'error'=>'Sin acceso a este espacio.'],403);
-        $canSeeAll=$u['role']==='super_admin'||(($access['member_role']??'')==='admin');
-        $sql=$canSeeAll ? 'SELECT id,owner_id,payload_json,updated_at FROM tasks WHERE workspace_id=? ORDER BY updated_at DESC' : 'SELECT t.id,t.owner_id,t.payload_json,t.updated_at FROM tasks t WHERE t.workspace_id=? AND (t.owner_id=? OR EXISTS (SELECT 1 FROM task_shares ts WHERE ts.task_id=t.id AND ts.workspace_id=t.workspace_id AND ts.user_id=?)) ORDER BY t.updated_at DESC';
-        $q=db()->prepare($sql); $canSeeAll ? $q->execute([$wid]) : $q->execute([$wid,$u['id'],$u['id']]); $tasks=[]; foreach($q as $r){$item=json_decode($r['payload_json'],true)?:[];$item['id']=$r['id'];$item['_owner_id']=$r['owner_id'];$tasks[]=$item;}
+        // El dashboard es personal para todos los roles. Las tareas de otra
+        // persona solo entran cuando existe un registro explícito de acceso.
+        $sql='SELECT t.id,t.owner_id,t.payload_json,t.updated_at FROM tasks t WHERE t.workspace_id=? AND (t.owner_id=? OR EXISTS (SELECT 1 FROM task_shares ts WHERE ts.task_id=t.id AND ts.workspace_id=t.workspace_id AND ts.user_id=?)) ORDER BY t.updated_at DESC';
+        $q=db()->prepare($sql); $q->execute([$wid,$u['id'],$u['id']]); $tasks=[]; foreach($q as $r){$item=json_decode($r['payload_json'],true)?:[];$item['id']=$r['id'];$item['_owner_id']=$r['owner_id'];$tasks[]=$item;}
         if($tasks){$ids=array_column($tasks,'id');$placeholders=implode(',',array_fill(0,count($ids),'?'));$sq=db()->prepare('SELECT task_id,user_id FROM task_shares WHERE workspace_id=? AND task_id IN ('.$placeholders.')');$sq->execute(array_merge([$wid],$ids));$sharedBy=[];foreach($sq as $share)$sharedBy[$share['task_id']][]=(int)$share['user_id'];foreach($tasks as &$item)$item['_shared_user_ids']=$sharedBy[$item['id']]??[];unset($item);}
         $p=db()->prepare('SELECT projects_json FROM workspace_data WHERE workspace_id=?');$p->execute([$wid]);$projects=$p->fetchColumn(); out(['ok'=>true,'tasks'=>$tasks,'projects'=>$projects?json_decode($projects,true):[]]);
     }
     if ($action === 'tasks_sync') {
-        $wid=(int)($data['workspace_id']??0); $access=workspaceAccess($wid,(int)$u['id']); if($u['role']!=='super_admin'&&!$access) out(['ok'=>false,'error'=>'Sin acceso a este espacio.'],403); $canSeeAll=$u['role']==='super_admin'||(($access['member_role']??'')==='admin'); $tasks=is_array($data['tasks']??null)?$data['tasks']:[]; $projects=is_array($data['projects']??null)?$data['projects']:[]; $pdo=db(); $pdo->beginTransaction(); $stmt=$pdo->prepare('INSERT INTO tasks(id,workspace_id,owner_id,title,done,payload_json) VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),done=VALUES(done),payload_json=VALUES(payload_json)'); $ownerCheck=$pdo->prepare('SELECT owner_id FROM tasks WHERE id=? AND workspace_id=?'); $shareCheck=$pdo->prepare('SELECT 1 FROM task_shares WHERE task_id=? AND workspace_id=? AND user_id=? LIMIT 1'); foreach($tasks as $t){$id=preg_replace('/[^a-zA-Z0-9_-]/','',substr((string)($t['id']??uniqid()),0,32)); if(!$canSeeAll){$ownerCheck->execute([$id,$wid]);$existing=$ownerCheck->fetchColumn();if($existing!==false&&(int)$existing!==(int)$u['id']){$shareCheck->execute([$id,$wid,$u['id']]);if($shareCheck->fetchColumn()===false)continue;}} $stmt->execute([$id,$wid,$u['id'],substr((string)($t['title']??''),0,255),!empty($t['done'])?1:0,json_encode($t,JSON_UNESCAPED_UNICODE)]);} $pdo->prepare('INSERT INTO workspace_data(workspace_id,projects_json) VALUES(?,?) ON DUPLICATE KEY UPDATE projects_json=VALUES(projects_json)')->execute([$wid,json_encode($projects,JSON_UNESCAPED_UNICODE)]); $pdo->commit(); out(['ok'=>true]);
+        $wid=(int)($data['workspace_id']??0); $access=workspaceAccess($wid,(int)$u['id']); if($u['role']!=='super_admin'&&!$access) out(['ok'=>false,'error'=>'Sin acceso a este espacio.'],403); $tasks=is_array($data['tasks']??null)?$data['tasks']:[]; $projects=is_array($data['projects']??null)?$data['projects']:[]; $pdo=db(); $pdo->beginTransaction();
+        $stmt=$pdo->prepare('INSERT INTO tasks(id,workspace_id,owner_id,title,done,payload_json) VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),done=VALUES(done),payload_json=VALUES(payload_json)');
+        // Nunca se cambia el propietario desde una sincronización. Además,
+        // se rechaza un ID que pertenezca a otro espacio para evitar cruces.
+        $existingQ=$pdo->prepare('SELECT workspace_id,owner_id FROM tasks WHERE id=?');
+        $shareCheck=$pdo->prepare('SELECT 1 FROM task_shares WHERE task_id=? AND workspace_id=? AND user_id=? LIMIT 1');
+        foreach($tasks as $t){
+            $id=preg_replace('/[^a-zA-Z0-9_-]/','',substr((string)($t['id']??''),0,32)); if($id==='')continue;
+            $existingQ->execute([$id]); $existing=$existingQ->fetch();
+            if($existing){
+                if((int)$existing['workspace_id']!==$wid)continue;
+                if((int)$existing['owner_id']!==(int)$u['id']){$shareCheck->execute([$id,$wid,$u['id']]);if($shareCheck->fetchColumn()===false)continue;}
+            }
+            $ownerId=$existing?(int)$existing['owner_id']:(int)$u['id'];
+            $stmt->execute([$id,$wid,$ownerId,substr((string)($t['title']??''),0,255),!empty($t['done'])?1:0,json_encode($t,JSON_UNESCAPED_UNICODE)]);
+        }
+        $pdo->prepare('INSERT INTO workspace_data(workspace_id,projects_json) VALUES(?,?) ON DUPLICATE KEY UPDATE projects_json=VALUES(projects_json)')->execute([$wid,json_encode($projects,JSON_UNESCAPED_UNICODE)]); $pdo->commit(); out(['ok'=>true]);
     }
     if ($action === 'admin_overview') {
         $pdo=db(); if($u['role']==='super_admin') { $where=''; $params=[]; } else { $where=' WHERE w.created_by=? OR (wm.user_id=? AND wm.role=?)'; $params=[$u['id'],$u['id'],'admin']; } $q=$pdo->prepare('SELECT w.id,w.name,COUNT(DISTINCT wm.user_id) members,COUNT(DISTINCT t.id) tasks FROM workspaces w LEFT JOIN workspace_members wm ON wm.workspace_id=w.id LEFT JOIN tasks t ON t.workspace_id=w.id'.$where.' GROUP BY w.id ORDER BY w.name');$q->execute($params); out(['ok'=>true,'workspaces'=>$q->fetchAll()]);

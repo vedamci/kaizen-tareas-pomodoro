@@ -251,9 +251,10 @@
               <div style="position:relative;overflow:hidden">
                 <div style="{{ item.swipeDeleteHintStyle }}"><span style="font-size:22px;line-height:1">🗑️</span><span>Borrar</span></div>
                 <div style="{{ item.swipeCompleteHintStyle }}"><span>Hecha</span><span style="font-size:22px;line-height:1">✅</span></div>
-                <div class="task-row" onTouchStart="{{ item.onTouchStart }}" onTouchMove="{{ item.onTouchMove }}" onTouchEnd="{{ item.onTouchEnd }}" onTouchCancel="{{ item.onTouchCancel }}" onPointerDown="{{ item.onPointerDown }}" onPointerMove="{{ item.onPointerMove }}" onPointerUp="{{ item.onPointerUp }}" onPointerCancel="{{ item.onPointerCancel }}" style="{{ item.rowStyle }}" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
+                <div class="task-row" onClick="{{ item.onRowOpen }}" onTouchStart="{{ item.onTouchStart }}" onTouchMove="{{ item.onTouchMove }}" onTouchEnd="{{ item.onTouchEnd }}" onTouchCancel="{{ item.onTouchCancel }}" onPointerDown="{{ item.onPointerDown }}" onPointerMove="{{ item.onPointerMove }}" onPointerUp="{{ item.onPointerUp }}" onPointerCancel="{{ item.onPointerCancel }}" style="{{ item.rowStyle }}" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
                 <button onClick="{{ item.onToggle }}" style="{{ item.boxStyle }}" aria-label="Completar"></button>
                 <div onClick="{{ item.onOpen }}" style="cursor:pointer;min-width:0">
+                  <sc-if value="{{ item.shareLabel }}" hint-placeholder-val="{{ false }}"><div style="{{ item.shareStyle }}">{{ item.shareLabel }}</div></sc-if>
                   <div style="{{ item.titleStyle }}">{{ item.title }}</div>
                   <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap">
                     <span style="{{ item.quadStyle }}">{{ item.quadShort }}</span>
@@ -296,7 +297,7 @@
                 <div>
                   <sc-for list="{{ cell.tasks }}" as="item" hint-placeholder-count="3">
                     <div onClick="{{ item.onOpen }}" style="display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--color-divider);cursor:pointer;font-size:13px">
-                      <span style="{{ item.titleStyle }}">{{ item.title }}</span>
+                      <div style="min-width:0"><sc-if value="{{ item.shareLabel }}" hint-placeholder-val="{{ false }}"><div style="{{ item.shareStyle }}">{{ item.shareLabel }}</div></sc-if><span style="{{ item.titleStyle }}">{{ item.title }}</span></div>
                       <span style="margin-left:auto;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;color:color-mix(in srgb, var(--color-text) 50%, transparent)">{{ item.time }}</span>
                     </div>
                   </sc-for>
@@ -316,9 +317,10 @@
             </div>
             <div>
               <sc-for list="{{ listTasks }}" as="item" hint-placeholder-count="5">
-                <div class="task-row" style="{{ item.rowStyle }}" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
+                <div class="task-row" onClick="{{ item.onRowOpen }}" style="{{ item.rowStyle }}" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
                   <button onClick="{{ item.onToggle }}" style="{{ item.boxStyle }}" aria-label="Completar"></button>
                   <div onClick="{{ item.onOpen }}" style="cursor:pointer;min-width:0">
+                    <sc-if value="{{ item.shareLabel }}" hint-placeholder-val="{{ false }}"><div style="{{ item.shareStyle }}">{{ item.shareLabel }}</div></sc-if>
                     <div style="{{ item.titleStyle }}">{{ item.title }}</div>
                     <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap">
                       <span style="{{ item.quadStyle }}">{{ item.quadShort }}</span>
@@ -653,7 +655,9 @@ class Component extends DCLogic {
   normalizeTaskBuckets(tasks) {
     const today = this.dkey(Date.now());
     return (tasks || []).map(task => {
-      const sharedWith = Array.isArray(task.sharedWith) ? task.sharedWith : (Array.isArray(task._shared_user_ids) ? task._shared_user_ids : []);
+      // La relación que devuelve el servidor es la fuente de verdad. El
+      // payload puede traer una copia vieja de sharedWith.
+      const sharedWith = Array.isArray(task._shared_user_ids) ? task._shared_user_ids : (Array.isArray(task.sharedWith) ? task.sharedWith : []);
       const t = { ...task, sharedWith: sharedWith.map(Number).filter(Boolean), tags: Array.isArray(task.tags) ? task.tags : [], subtasks: Array.isArray(task.subtasks) ? task.subtasks : [] };
       // Las tareas hechas permanecen visibles el día que se completan. Al día
       // siguiente pasan automáticamente a la bandeja histórica de Hechas.
@@ -662,6 +666,18 @@ class Component extends DCLogic {
       // proviene de datos guardados antes de esta regla.
       if (t.list === 'today') t.due = today;
       return t;
+    });
+  }
+
+  visibleRemoteTasks(tasks) {
+    const currentId=Number(this.state.auth?.id||0);
+    if(!currentId)return tasks||[];
+    return (tasks||[]).filter(task=>{
+      const ownerId=Number(task._owner_id||0);
+      if(!ownerId)return false;
+      if(ownerId===currentId)return true;
+      const sharedIds=Array.isArray(task._shared_user_ids)?task._shared_user_ids.map(Number):[];
+      return sharedIds.includes(currentId);
     });
   }
 
@@ -760,14 +776,14 @@ class Component extends DCLogic {
     } catch(e) { if(!silent)this.setState({toast:'No se pudo activar el push: '+(e?.message||'revisa los permisos del sitio')+'.'}); return false; }
   }
   async testNotification() { const ready=await this.ensurePushSubscription(); if(ready){const r=await this.api('push_test');if(r.ok){if(this.deviceLabel()==='Mac')this.notify('Aviso de prueba de Kaizen','El aviso también fue confirmado en este Mac.');this.setState({toast:'Push enviado a '+(r.sent||0)+' de '+(r.registered||0)+' dispositivos: '+((r.sent_devices||[]).join(', ')||'ninguno')+'.'});}else this.setState({pushReady:false,toast:r.error||'No se pudo enviar el push.'});} }
-  async schedulePush(fireAt,jobId,taskTitle) { if(!await this.ensurePushSubscription())return; await this.api('push_schedule',{job_id:jobId,fire_at:Math.ceil(fireAt/1000),title:'Pomodoro terminado',body:taskTitle?'Terminaste un ciclo de enfoque en «'+taskTitle+'».':'Terminaste un ciclo de enfoque.'}); }
+  async schedulePush(fireAt,jobId,taskTitle,mode='focus') { if(!await this.ensurePushSubscription())return; const isBreak=mode==='break'; await this.api('push_schedule',{job_id:jobId,fire_at:Math.ceil(fireAt/1000),title:isBreak?'Descanso terminado':'Pomodoro terminado',body:isBreak?(taskTitle?'Terminó tu descanso. Puedes volver a enfocarte en «'+taskTitle+'».':'Terminó tu descanso. Puedes volver a enfocarte.'): (taskTitle?'Terminaste un ciclo de enfoque en «'+taskTitle+'».':'Terminaste un ciclo de enfoque.')}); }
   async cancelPush(jobId) { if(jobId)await this.api('push_cancel',{job_id:jobId}); }
   togglePomo() {
     const s=this.state;
     if(s.timerMode==='watch'){this.requestNotifications();const next=!s.stopwatch;this.setState({stopwatch:next,watchStartedAt:next?Date.now()-s.watchSecs*1000:null});return;}
     if(s.pomo.running){this.cancelPush(s.pomo.pushJobId);this.setState({pomo:{...s.pomo,running:false,endsAt:null}});return;}
     const jobId=this.uid(), fireAt=Date.now()+s.pomo.remaining*1000/s.timerSpeed, task=s.tasks.find(t=>t.id===s.activeId);
-    this.setState({pomo:{...s.pomo,running:true,endsAt:fireAt,pushJobId:jobId},stopwatch:false}); this.schedulePush(fireAt,jobId,task?.title||'');
+    this.setState({pomo:{...s.pomo,running:true,endsAt:fireAt,pushJobId:jobId},stopwatch:false}); this.schedulePush(fireAt,jobId,task?.title||'',s.pomo.mode);
   }
   toggleTaskFocus(id) {
     const s=this.state,same=s.activeId===id,running=same&&(s.stopwatch||s.pomo.running),task=s.tasks.find(t=>t.id===id); if(!task||task.done||task.list==='trash')return; if(s.timerMode==='watch'){this.requestNotifications();const next=!running;const taskSecs=same?s.watchSecs:0;this.setState({activeId:id,stopwatch:next,watchSecs:taskSecs,watchStartedAt:next?Date.now()-taskSecs*1000:null,pomo:{...s.pomo,running:false,endsAt:null}});return;}
@@ -776,10 +792,21 @@ class Component extends DCLogic {
   }
   startTaskTimer(id) {
     const s=this.state, task=s.tasks.find(t=>t.id===id); if(!task||task.done||task.list==='trash')return;
-    if(s.activeId===id&&(s.stopwatch||s.pomo.running))return;
+    const sameTask=s.activeId===id;
+    if(sameTask&&(s.stopwatch||s.pomo.running))return;
     if(s.pomo.running)this.cancelPush(s.pomo.pushJobId);
-    if(s.timerMode==='watch'){this.setState({activeId:id,stopwatch:true,watchSecs:0,watchStartedAt:Date.now(),pomo:{...s.pomo,running:false,endsAt:null}});return;}
-    const jobId=this.uid(),fireAt=Date.now()+s.pomo.remaining*1000/s.timerSpeed; this.setState({activeId:id,stopwatch:false,pomo:{...s.pomo,running:true,endsAt:fireAt,pushJobId:jobId}}); this.schedulePush(fireAt,jobId,task.title||'');
+    if(s.timerMode==='watch'){
+      const taskSecs=sameTask?Math.max(0,Number(s.watchSecs)||0):0;
+      this.setState({activeId:id,stopwatch:true,watchSecs:taskSecs,watchStartedAt:Date.now()-taskSecs*1000,pomo:{...s.pomo,running:false,endsAt:null,pushJobId:null}});
+      return;
+    }
+    // Al cambiar de tarea siempre comienza un Pomodoro de enfoque nuevo.
+    // Si se retoma la misma tarea pausada, conserva su tiempo restante.
+    const mode=sameTask?s.pomo.mode:'focus';
+    const remaining=sameTask&&Number(s.pomo.remaining)>0?Number(s.pomo.remaining):this.focusSecs();
+    const jobId=this.uid(),fireAt=Date.now()+remaining*1000/s.timerSpeed;
+    this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,endsAt:fireAt,pushJobId:jobId}});
+    this.schedulePush(fireAt,jobId,task.title||'',mode);
   }
   openTask(id) {
     const task=this.state.tasks.find(t=>t.id===id); this.setState({selId:id});
@@ -856,7 +883,7 @@ class Component extends DCLogic {
       const s = this.state;
       try { localStorage.setItem(this.KEY, JSON.stringify({ tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist })); if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId)); } catch (e) {}
       if (s.auth && s.workspaceId && this.remoteReady) {
-        try { fetch('./api/index.php?action=tasks_sync', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ workspace_id: s.workspaceId, tasks: s.tasks, projects: s.projects }) }); } catch (e) {}
+        try { fetch('./api/index.php?action=tasks_sync', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ workspace_id: s.workspaceId, tasks: this.visibleRemoteTasks(s.tasks), projects: s.projects }) }); } catch (e) {}
       }
     };
     window.addEventListener('pagehide', this.onPageHide);
@@ -912,11 +939,11 @@ class Component extends DCLogic {
     try {
       const r = await this.api('tasks', { workspace_id: workspaceId });
       if (r.ok) {
-        let tasks = this.normalizeTaskBuckets(r.tasks || []), projects = r.projects || [];
+        let tasks = this.normalizeTaskBuckets(this.visibleRemoteTasks(r.tasks || [])), projects = r.projects || [];
         const fallback = options.fallback || null;
         const hasRemoteData = tasks.length || projects.length;
         if (options.migrate && !hasRemoteData && fallback?.tasks?.length) {
-          tasks = this.normalizeTaskBuckets(fallback.tasks);
+          tasks = this.normalizeTaskBuckets(this.visibleRemoteTasks(fallback.tasks));
           projects = fallback.projects || [];
           this.remoteReady = true;
           this.setState({ tasks, projects, workspaceId });
@@ -935,7 +962,7 @@ class Component extends DCLogic {
     } catch (e) { this.setState({ authError: 'No se pudieron cargar las tareas del espacio.' }); }
   }
   async syncRemoteTasks(workspaceId, tasks, projects) {
-    try { await this.api('tasks_sync', { workspace_id: workspaceId, tasks, projects }); } catch (e) {}
+    try { await this.api('tasks_sync', { workspace_id: workspaceId, tasks: this.visibleRemoteTasks(tasks), projects }); } catch (e) {}
   }
   async submitAuth() {
     const s = this.state;
@@ -1022,9 +1049,10 @@ class Component extends DCLogic {
   }
 
   tick() {
+    let breakPush=null;
     this.setState(s => {
       const p = { ...s.pomo };
-      let tasks = s.tasks, log = s.log, creditSeconds = 0, finished = false, watchSecs = s.watchSecs;
+      let tasks = s.tasks, log = s.log, creditSeconds = 0, finished = false, finishedBreak = false, watchSecs = s.watchSecs;
       const today = this.dkey(Date.now());
       if (this.lastBucketDay !== today) { this.lastBucketDay = today; tasks = this.normalizeTaskBuckets(tasks); }
       if (s.timerMode === 'watch') {
@@ -1036,7 +1064,17 @@ class Component extends DCLogic {
           finished = p.mode === 'focus';
           p.mode = p.mode === 'focus' ? 'break' : 'focus';
           p.remaining = p.mode === 'focus' ? this.focusSecs() : this.breakSecs();
-          p.running = false; p.endsAt = null; p.pushJobId = null;
+          if (finished) {
+            // El descanso comienza en el mismo instante en que termina el
+            // enfoque, sin requerir otro clic.
+            const jobId=this.uid(), fireAt=Date.now()+p.remaining*1000/s.timerSpeed;
+            p.running=true; p.endsAt=fireAt; p.pushJobId=jobId;
+            const activeTask=s.tasks.find(t=>t.id===s.activeId);
+            breakPush={jobId,fireAt,taskTitle:activeTask?.title||''};
+          } else {
+            finishedBreak=true;
+            p.running=false; p.endsAt=null; p.pushJobId=null;
+          }
         }
       } else if (s.stopwatch) creditSeconds = 1;
       if (creditSeconds) {
@@ -1051,10 +1089,12 @@ class Component extends DCLogic {
         log = { ...log, [k]: { ...prev, pomos: prev.pomos + 1 } };
         if (s.activeId) tasks = tasks.map(t => t.id === s.activeId ? { ...t, pomos: t.pomos + 1 } : t);
         const activeTask = s.tasks.find(t => t.id === s.activeId);
-        this.notify('Pomodoro terminado', activeTask ? 'Terminaste un ciclo de enfoque en «' + activeTask.title + '». Toca continuar cuando estés listo.' : 'Terminaste un ciclo de enfoque. Es hora de tomar un descanso.');
+        this.notify('Pomodoro terminado', activeTask ? 'Terminaste un ciclo de enfoque en «' + activeTask.title + '». Empieza tu descanso de ' + this.fmtClock(this.breakSecs()) + '.' : 'Terminaste un ciclo de enfoque. Empieza tu descanso de ' + this.fmtClock(this.breakSecs()) + '.');
       }
+      if (finishedBreak) this.notify('Descanso terminado', 'Tu descanso terminó. Puedes iniciar otro Pomodoro.');
       return { pomo: p, tasks, log, watchSecs };
     });
+    if (breakPush) this.schedulePush(breakPush.fireAt,breakPush.jobId,breakPush.taskTitle,'break');
   }
 
   patch(id, obj) {
@@ -1113,14 +1153,17 @@ class Component extends DCLogic {
     if (t.due) bits.push(this.fmtDue(t.due));
     if (t.subtasks.length) bits.push(t.subtasks.filter(s => s.done).length + '/' + t.subtasks.length + ' subtareas');
     if (t.estPomos) bits.push(t.pomos + '/' + t.estPomos + ' pomos');
-    if (t._owner_id && Number(t._owner_id) !== Number(this.state.auth?.id)) bits.push('Compartida por ' + this.memberName(t._owner_id));
-    else if (t.sharedWith?.length) bits.push('Compartida con ' + t.sharedWith.length);
     t.tags.forEach(g => bits.push('#' + g));
     const playing = activeTimer;
+    const ownerId=Number(t._owner_id||0), currentId=Number(this.state.auth?.id||0);
+    const receivedShare=ownerId>0&&currentId>0&&ownerId!==currentId;
+    const sharedCount=Array.isArray(t.sharedWith)?t.sharedWith.length:0;
+    const shareLabel=receivedShare ? 'Compartida por '+this.memberName(ownerId) : (sharedCount ? 'Compartida con '+sharedCount+' '+(sharedCount===1?'persona':'personas') : '');
+    const shareStyle={fontSize:10,letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:'var(--font-heading)',fontWeight:800,color:'var(--color-accent)',marginBottom:4};
     const colors = { q1: 'var(--color-accent)', q2: 'var(--color-neutral-800)', q3: 'var(--color-neutral-600)', q4: 'var(--color-neutral-500)' };
     const tint = this.props.showQuadrantColors ?? true;
     return {
-      id: t.id, title: t.title, meta: bits.join(' · '), time: this.fmtDur(t.seconds),
+      id: t.id, title: t.title, meta: bits.join(' · '), time: this.fmtDur(t.seconds), shareLabel, shareStyle,
       due: t.due || '', showMove: t.list !== 'today' && t.list !== 'done' && t.list !== 'trash',
       onDue: e => this.patch(t.id, e.target.value ? { due: e.target.value, list: 'future' } : { due: '' }),
       onSendToday: () => this.patch(t.id, { list: 'today' }),
@@ -1163,7 +1206,7 @@ class Component extends DCLogic {
         display: 'grid', gridTemplateColumns: '20px 1fr auto', gap: 14, alignItems: 'start',
         padding: activeTimer ? '18px 14px' : '11px 2px', marginBottom: activeTimer ? 10 : 0,
         border: activeTimer ? '2px solid var(--color-accent)' : 'none',
-        borderBottom: activeTimer ? '2px solid var(--color-accent)' : '1px solid var(--color-divider)', touchAction: 'pan-y',
+        borderBottom: activeTimer ? '2px solid var(--color-accent)' : '1px solid var(--color-divider)', touchAction: 'pan-y', cursor: 'pointer',
         transform: this.state.swipeDeletingId === t.id ? 'translateX(110%)' : this.state.swipeCompletingId === t.id ? 'translateX(-110%)' : 'translateX(' + (this.state.swipeId === t.id ? this.state.swipeX : 0) + 'px)',
         opacity: this.state.swipeDeletingId === t.id || this.state.swipeCompletingId === t.id ? 0 : 1,
         background: this.state.swipeDeletingId === t.id || (this.state.swipeId === t.id && this.state.swipeX > 0) ? 'color-mix(in srgb, #ef4444 18%, transparent)' : this.state.swipeCompletingId === t.id || (this.state.swipeId === t.id && this.state.swipeX < 0) ? 'color-mix(in srgb, #16a34a 18%, transparent)' : activeTimer ? 'color-mix(in srgb, var(--color-accent) 9%, var(--color-bg))' : 'transparent',
@@ -1171,6 +1214,7 @@ class Component extends DCLogic {
       },
       onToggle: () => this.toggleTask(t.id),
       onOpen: () => this.openTask(t.id),
+      onRowOpen: e => { if (e?.target?.closest?.('button,input,select,textarea')) return; this.openTask(t.id); },
       onPlay: () => this.toggleTaskFocus(t.id),
       onDelete: () => this.animateSwipeDelete(t.id),
       onTouchStart: e => {
@@ -1512,7 +1556,7 @@ class Component extends DCLogic {
       }),
       todayFocus: this.fmtDur(tl.seconds), todayPomos: String(tl.pomos),
       todayDone: String(s.tasks.filter(t => t.done && t.doneAt && this.dkey(t.doneAt) === todayKey).length),
-      hasSel: !!sel, autoStartText: 'El Pomodoro inicia automáticamente al abrir una tarea pendiente. Puedes pausarlo cuando quieras.', onCloseSel: () => this.setState({ selId: null })
+      hasSel: !!sel, autoStartText: 'El Pomodoro inicia automáticamente al seleccionar una tarea pendiente. Al terminar, el descanso empieza solo durante ' + this.fmtClock(this.breakSecs()) + '.', onCloseSel: () => this.setState({ selId: null })
     }, detail);
   }
 
