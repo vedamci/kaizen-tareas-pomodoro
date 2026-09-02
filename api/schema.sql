@@ -90,6 +90,7 @@ CREATE TABLE push_subscriptions (
   endpoint TEXT NOT NULL,
   p256dh VARCHAR(255) NOT NULL,
   auth VARCHAR(255) NOT NULL,
+  device_label VARCHAR(80) NOT NULL DEFAULT 'Navegador',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_push_subscriptions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -100,6 +101,7 @@ CREATE TABLE push_subscriptions (
 CREATE TABLE push_jobs (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id INT UNSIGNED NOT NULL,
+  subscription_hash CHAR(64) NULL,
   job_key VARCHAR(80) NOT NULL,
   fire_at INT UNSIGNED NOT NULL,
   title VARCHAR(180) NOT NULL,
@@ -107,5 +109,6 @@ CREATE TABLE push_jobs (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_push_jobs_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   UNIQUE KEY uq_push_job (user_id, job_key),
+  INDEX idx_push_subscription (subscription_hash),
   INDEX idx_push_due (fire_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -11,6 +11,7 @@ self.addEventListener('push', event => {
     renotify: true,
     requireInteraction: true,
     silent: false,
+    timestamp: Number(data.timestamp) || Date.now(),
     data: { url: data.url || './' }
   }));
 });

@@ -634,7 +634,7 @@ class Component extends DCLogic {
   state = {
     tasks: [], projects: [], log: {}, view: 'today', selId: null,
     newTitle: '', newProject: '', subDraft: '', projFilter: null,
-    pomo: { mode: 'focus', remaining: 1500, running: false, endsAt: null, pushJobId: null },
+    pomo: { mode: 'focus', remaining: 1500, running: false, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null },
     timerSpeed: 1,
     pushReady: false,
     activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, full: false,
@@ -683,8 +683,8 @@ class Component extends DCLogic {
 
   moveToTrash(id) {
     if (this.state.activeId === id && (this.state.stopwatch || this.state.pomo.running)) {
-      this.cancelPush(this.state.pomo.pushJobId);
-      this.setState({ activeId: null, stopwatch: false, watchStartedAt: null, pomo: { ...this.state.pomo, running: false, endsAt: null, pushJobId: null } });
+      this.cancelPushJobs(this.state.pomo);
+      this.setState({ activeId: null, stopwatch: false, watchStartedAt: null, pomo: { ...this.state.pomo, running: false, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null } });
     }
     this.setState(s => ({ swipeDeletingId: null, swipeCompletingId: null, swipeId: null, swipeX: 0, tasks: s.tasks.map(t => t.id === id ? { ...t, list: 'trash', deletedAt: Date.now() } : t), selId: s.selId === id ? null : s.selId }));
   }
@@ -753,7 +753,20 @@ class Component extends DCLogic {
 
   focusSecs() { return Math.max(1, this.props.focusMinutes ?? 25) * 60; }
   breakSecs() { return Math.max(1, this.props.breakMinutes ?? 5) * 60; }
-  changeTimerSpeed(value) { const speed=[1,10,60].includes(Number(value)) ? Number(value) : 1; this.setState(s => ({ timerSpeed: speed, pomo: s.pomo.running ? { ...s.pomo, endsAt: Date.now() + s.pomo.remaining * 1000 / speed } : s.pomo })); }
+  changeTimerSpeed(value) {
+    const speed=[1,10,60].includes(Number(value))?Number(value):1,s=this.state;
+    if(!s.pomo.running){this.setState({timerSpeed:speed});return;}
+    this.cancelPushJobs(s.pomo);
+    const fireAt=Date.now()+s.pomo.remaining*1000/speed,jobId=this.uid(),task=s.tasks.find(t=>t.id===s.activeId);
+    if(s.pomo.mode==='focus'){
+      const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/speed;
+      this.setState({timerSpeed:speed,pomo:{...s.pomo,endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
+      this.scheduleFocusCycle(fireAt,jobId,breakEndsAt,breakPushJobId,task?.title||'');
+    }else{
+      this.setState({timerSpeed:speed,pomo:{...s.pomo,endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null}});
+      this.schedulePush(fireAt,jobId,task?.title||'','break');
+    }
+  }
   refreshPage() { try { window.location.reload(); } catch (e) { location.reload(); } }
   async requestNotifications(silent=false) {
     if (!('Notification' in window)) { this.setState({ notificationState: 'unsupported', toast: 'Este navegador no permite avisos web.' }); return 'unsupported'; }
@@ -771,33 +784,66 @@ class Component extends DCLogic {
     try {
       const reg=this.swRegistration||await navigator.serviceWorker.ready; this.swRegistration=reg; const cfg=await this.api('push_config'); if(!cfg.ok||!cfg.public_key)throw new Error('Sin clave push');
       let sub=await reg.pushManager.getSubscription(); if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:this.pushKey(cfg.public_key)});
-      const json=sub.toJSON(); const saved=await this.api('push_subscribe',{endpoint:sub.endpoint,keys:json.keys||{},expirationTime:sub.expirationTime,device_label:this.deviceLabel()}); if(!saved.ok)throw new Error(saved.error||'No se pudo guardar el dispositivo');
+      const json=sub.toJSON(); const saved=await this.api('push_subscribe',{endpoint:sub.endpoint,keys:json.keys||{},expirationTime:sub.expirationTime,device_label:this.deviceLabel()}); if(!saved.ok||!saved.subscription_hash)throw new Error(saved.error||'No se pudo identificar este dispositivo');
+      this.pushSubscriptionHash=saved.subscription_hash; try { localStorage.setItem(this.KEY+':push-hash',saved.subscription_hash); } catch(e) {}
       this.setState(s => ({pushReady:true, ...(silent ? {} : {toast:'Push activado en este dispositivo.'})})); return true;
     } catch(e) { if(!silent)this.setState({toast:'No se pudo activar el push: '+(e?.message||'revisa los permisos del sitio')+'.'}); return false; }
   }
-  async testNotification() { const ready=await this.ensurePushSubscription(); if(ready){const r=await this.api('push_test');if(r.ok){if(this.deviceLabel()==='Mac')this.notify('Aviso de prueba de Kaizen','El aviso también fue confirmado en este Mac.');this.setState({toast:'Push enviado a '+(r.sent||0)+' de '+(r.registered||0)+' dispositivos: '+((r.sent_devices||[]).join(', ')||'ninguno')+'.'});}else this.setState({pushReady:false,toast:r.error||'No se pudo enviar el push.'});} }
-  async schedulePush(fireAt,jobId,taskTitle,mode='focus') { if(!await this.ensurePushSubscription())return; const isBreak=mode==='break'; await this.api('push_schedule',{job_id:jobId,fire_at:Math.ceil(fireAt/1000),title:isBreak?'Descanso terminado':'Pomodoro terminado',body:isBreak?(taskTitle?'Terminó tu descanso. Puedes volver a enfocarte en «'+taskTitle+'».':'Terminó tu descanso. Puedes volver a enfocarte.'): (taskTitle?'Terminaste un ciclo de enfoque en «'+taskTitle+'».':'Terminaste un ciclo de enfoque.')}); }
-  async cancelPush(jobId) { if(jobId)await this.api('push_cancel',{job_id:jobId}); }
+  async testNotification() { const ready=await this.ensurePushSubscription(); if(ready){const r=await this.api('push_test',{subscription_hash:this.pushSubscriptionHash});if(r.ok)this.setState({toast:'Aviso enviado únicamente a este '+this.deviceLabel()+'.'});else this.setState({pushReady:false,toast:r.error||'No se pudo enviar el push.'});} }
+  async schedulePush(fireAt,jobId,taskTitle,mode='focus',ensure=true) {
+    if(ensure&&!await this.ensurePushSubscription())return false;
+    if(!this.pushSubscriptionHash)return false;
+    const isBreak=mode==='break';
+    const r=await this.api('push_schedule',{subscription_hash:this.pushSubscriptionHash,job_id:jobId,fire_at:Math.ceil(fireAt/1000),title:isBreak?'Descanso terminado':'Pomodoro terminado',body:isBreak?(taskTitle?'Terminó tu descanso. Puedes volver a enfocarte en «'+taskTitle+'».':'Terminó tu descanso. Puedes volver a enfocarte.'): (taskTitle?'Terminaste un ciclo de enfoque en «'+taskTitle+'». Empieza tu descanso de '+this.fmtClock(this.breakSecs())+'.':'Terminaste un ciclo de enfoque. Empieza tu descanso de '+this.fmtClock(this.breakSecs())+'.')});
+    return !!r.ok;
+  }
+  async scheduleFocusCycle(focusFireAt,focusJobId,breakFireAt,breakJobId,taskTitle) {
+    if(!await this.ensurePushSubscription())return;
+    await Promise.all([this.schedulePush(focusFireAt,focusJobId,taskTitle,'focus',false),this.schedulePush(breakFireAt,breakJobId,taskTitle,'break',false)]);
+  }
+  currentPushHash() { if(this.pushSubscriptionHash)return this.pushSubscriptionHash; try { return localStorage.getItem(this.KEY+':push-hash')||''; } catch(e) { return ''; } }
+  async cancelPush(jobId) { const subscriptionHash=this.currentPushHash(); if(jobId&&subscriptionHash)await this.api('push_cancel',{subscription_hash:subscriptionHash,job_id:jobId}); }
+  cancelPushJobs(pomo=this.state.pomo) { [pomo?.pushJobId,pomo?.breakPushJobId].filter(Boolean).forEach(id=>this.cancelPush(id)); }
+  selectTimerMode(mode) {
+    this.cancelPushJobs(this.state.pomo);
+    this.setState({timerMode:mode,stopwatch:false,watchSecs:0,watchStartedAt:null,pomo:{mode:'focus',running:false,remaining:this.focusSecs(),endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
+  }
+  resetPomo() {
+    const s=this.state;this.cancelPushJobs(s.pomo);
+    if(s.timerMode==='watch')this.setState({watchSecs:0,stopwatch:false,watchStartedAt:null});
+    else this.setState({pomo:{mode:s.pomo.mode,running:false,remaining:s.pomo.mode==='focus'?this.focusSecs():this.breakSecs(),endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
+  }
+  skipPomo() {
+    const s=this.state;this.cancelPushJobs(s.pomo);const mode=s.pomo.mode==='focus'?'break':'focus';
+    this.setState({pomo:{mode,running:false,remaining:mode==='focus'?this.focusSecs():this.breakSecs(),endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
+  }
   togglePomo() {
     const s=this.state;
     if(s.timerMode==='watch'){this.requestNotifications();const next=!s.stopwatch;this.setState({stopwatch:next,watchStartedAt:next?Date.now()-s.watchSecs*1000:null});return;}
-    if(s.pomo.running){this.cancelPush(s.pomo.pushJobId);this.setState({pomo:{...s.pomo,running:false,endsAt:null}});return;}
+    if(s.pomo.running){this.cancelPushJobs(s.pomo);this.setState({pomo:{...s.pomo,running:false,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});return;}
     const jobId=this.uid(), fireAt=Date.now()+s.pomo.remaining*1000/s.timerSpeed, task=s.tasks.find(t=>t.id===s.activeId);
-    this.setState({pomo:{...s.pomo,running:true,endsAt:fireAt,pushJobId:jobId},stopwatch:false}); this.schedulePush(fireAt,jobId,task?.title||'',s.pomo.mode);
+    if(s.pomo.mode==='focus'){
+      const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/s.timerSpeed;
+      this.setState({pomo:{...s.pomo,running:true,endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId},stopwatch:false});
+      this.scheduleFocusCycle(fireAt,jobId,breakEndsAt,breakPushJobId,task?.title||'');
+    }else{
+      this.setState({pomo:{...s.pomo,running:true,endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null},stopwatch:false});
+      this.schedulePush(fireAt,jobId,task?.title||'','break');
+    }
   }
   toggleTaskFocus(id) {
     const s=this.state,same=s.activeId===id,running=same&&(s.stopwatch||s.pomo.running),task=s.tasks.find(t=>t.id===id); if(!task||task.done||task.list==='trash')return; if(s.timerMode==='watch'){this.requestNotifications();const next=!running;const taskSecs=same?s.watchSecs:0;this.setState({activeId:id,stopwatch:next,watchSecs:taskSecs,watchStartedAt:next?Date.now()-taskSecs*1000:null,pomo:{...s.pomo,running:false,endsAt:null}});return;}
-    if(running){this.cancelPush(s.pomo.pushJobId);this.setState({activeId:id,stopwatch:false,pomo:{...s.pomo,running:false,endsAt:null}});return;}
+    if(running){this.cancelPushJobs(s.pomo);this.setState({activeId:id,stopwatch:false,pomo:{...s.pomo,running:false,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});return;}
     this.startTaskTimer(id);
   }
   startTaskTimer(id) {
     const s=this.state, task=s.tasks.find(t=>t.id===id); if(!task||task.done||task.list==='trash')return;
     const sameTask=s.activeId===id;
     if(sameTask&&(s.stopwatch||s.pomo.running))return;
-    if(s.pomo.running)this.cancelPush(s.pomo.pushJobId);
+    if(s.pomo.running)this.cancelPushJobs(s.pomo);
     if(s.timerMode==='watch'){
       const taskSecs=sameTask?Math.max(0,Number(s.watchSecs)||0):0;
-      this.setState({activeId:id,stopwatch:true,watchSecs:taskSecs,watchStartedAt:Date.now()-taskSecs*1000,pomo:{...s.pomo,running:false,endsAt:null,pushJobId:null}});
+      this.setState({activeId:id,stopwatch:true,watchSecs:taskSecs,watchStartedAt:Date.now()-taskSecs*1000,pomo:{...s.pomo,running:false,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
       return;
     }
     // Al cambiar de tarea siempre comienza un Pomodoro de enfoque nuevo.
@@ -805,20 +851,26 @@ class Component extends DCLogic {
     const mode=sameTask?s.pomo.mode:'focus';
     const remaining=sameTask&&Number(s.pomo.remaining)>0?Number(s.pomo.remaining):this.focusSecs();
     const jobId=this.uid(),fireAt=Date.now()+remaining*1000/s.timerSpeed;
-    this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,endsAt:fireAt,pushJobId:jobId}});
-    this.schedulePush(fireAt,jobId,task.title||'',mode);
+    if(mode==='focus'){
+      const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/s.timerSpeed;
+      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
+      this.scheduleFocusCycle(fireAt,jobId,breakEndsAt,breakPushJobId,task.title||'');
+    }else{
+      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null}});
+      this.schedulePush(fireAt,jobId,task.title||'',mode);
+    }
   }
   openTask(id) {
     const task=this.state.tasks.find(t=>t.id===id); this.setState({selId:id});
     if(task&&!task.done&&task.list!=='trash')this.startTaskTimer(id);
   }
-  notify(title, body) {
+  notify(title, body, tag='tareas-pomodoro-'+Date.now()) {
     this.setState({ toast: title + ' · ' + body });
     clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => this.setState({ toast: '' }), 7000);
     try {
       if ('Notification' in window && Notification.permission === 'granted') {
         const macOS = /Macintosh|Mac OS X/.test(navigator.userAgent);
-        const options = { body, tag: 'tareas-pomodoro-' + Date.now(), icon: './kaizen-icon-180.png', badge: './kaizen-icon-180.png', renotify: true, requireInteraction: true, silent: false };
+        const options = { body, tag, icon: './kaizen-icon-180.png', badge: './kaizen-icon-180.png', renotify: true, requireInteraction: true, silent: false, timestamp: Date.now() };
         if (macOS) new Notification(title, options);
         else if (this.swRegistration) this.swRegistration.showNotification(title, options).catch(() => { try { new Notification(title, options); } catch (e) {} });
         else new Notification(title, options);
@@ -834,7 +886,7 @@ class Component extends DCLogic {
     const task = this.state.tasks.find(t => t.id === id);
     if (!task || task.list === 'trash') return;
     const completing = !task.done;
-    if (completing && this.state.activeId === id) this.cancelPush(this.state.pomo.pushJobId);
+    if (completing && this.state.activeId === id) this.cancelPushJobs(this.state.pomo);
     this.setState(s => {
       const stopTimer = completing && s.activeId === id;
       return {
@@ -843,7 +895,7 @@ class Component extends DCLogic {
           activeId: null,
           stopwatch: false,
           watchStartedAt: null,
-          pomo: { ...s.pomo, running: false, endsAt: null, pushJobId: null }
+          pomo: { ...s.pomo, running: false, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null }
         } : {}),
         tasks: s.tasks.map(x => x.id === id ? {
           ...x,
@@ -862,8 +914,9 @@ class Component extends DCLogic {
     try { saved = JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch (e) { saved = null; }
     const base = saved && saved.tasks ? saved : this.seed();
     base.tasks = this.normalizeTaskBuckets(base.tasks);
-    const defaultPomo = { mode: 'focus', remaining: this.focusSecs(), running: false, endsAt: null, pushJobId: null };
+    const defaultPomo = { mode: 'focus', remaining: this.focusSecs(), running: false, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null };
     const restoredPomo = saved && saved.pomo && typeof saved.pomo === 'object' ? { ...defaultPomo, ...saved.pomo } : defaultPomo;
+    try { this.pushSubscriptionHash=localStorage.getItem(this.KEY+':push-hash')||''; } catch(e) { this.pushSubscriptionHash=''; }
     let savedTheme = 'classic'; try { savedTheme = localStorage.getItem(this.KEY + ':theme') || 'classic'; } catch (e) {}
     document.documentElement.dataset.theme = savedTheme === 'classic' ? '' : savedTheme;
     this.setState({
@@ -1049,52 +1102,64 @@ class Component extends DCLogic {
   }
 
   tick() {
-    let breakPush=null;
+    let focusEvent=null,breakEvent=null;
     this.setState(s => {
       const p = { ...s.pomo };
       let tasks = s.tasks, log = s.log, creditSeconds = 0, finished = false, finishedBreak = false, watchSecs = s.watchSecs;
-      const today = this.dkey(Date.now());
+      const now=Date.now(),today = this.dkey(now);
       if (this.lastBucketDay !== today) { this.lastBucketDay = today; tasks = this.normalizeTaskBuckets(tasks); }
       if (s.timerMode === 'watch') {
-        if (s.stopwatch) { watchSecs = s.watchStartedAt ? Math.max(0, Math.floor((Date.now() - s.watchStartedAt) / 1000)) : watchSecs + 1; creditSeconds = Math.max(0, watchSecs - s.watchSecs); }
+        if (s.stopwatch) { watchSecs = s.watchStartedAt ? Math.max(0, Math.floor((now - s.watchStartedAt) / 1000)) : watchSecs + 1; creditSeconds = Math.max(0, watchSecs - s.watchSecs); }
       } else if (p.running) {
-        p.remaining = p.endsAt ? Math.max(0, Math.ceil((p.endsAt - Date.now()) / 1000)) : p.remaining - 1;
-        if (p.mode === 'focus') creditSeconds = 1;
-        if (p.remaining <= 0) {
-          finished = p.mode === 'focus';
-          p.mode = p.mode === 'focus' ? 'break' : 'focus';
-          p.remaining = p.mode === 'focus' ? this.focusSecs() : this.breakSecs();
-          if (finished) {
-            // El descanso comienza en el mismo instante en que termina el
-            // enfoque, sin requerir otro clic.
-            const jobId=this.uid(), fireAt=Date.now()+p.remaining*1000/s.timerSpeed;
-            p.running=true; p.endsAt=fireAt; p.pushJobId=jobId;
-            const activeTask=s.tasks.find(t=>t.id===s.activeId);
-            breakPush={jobId,fireAt,taskTitle:activeTask?.title||''};
-          } else {
-            finishedBreak=true;
-            p.running=false; p.endsAt=null; p.pushJobId=null;
+        const previousRemaining=Math.max(0,Number(p.remaining)||0);
+        const currentEndsAt=Number(p.endsAt)||now;
+        p.remaining=Math.max(0,Math.ceil((currentEndsAt-now)/1000));
+        if(p.mode==='focus')creditSeconds=Math.min(previousRemaining,Math.max(0,previousRemaining-p.remaining));
+        if(now>=currentEndsAt){
+          if(p.mode==='focus'){
+            finished=true; creditSeconds=previousRemaining;
+            const focusJobId=p.pushJobId;
+            const breakEndsAt=Number(p.breakEndsAt)||currentEndsAt+this.breakSecs()*1000/s.timerSpeed;
+            focusEvent={jobId:focusJobId,lateness:now-currentEndsAt};
+            if(now<breakEndsAt){
+              // La pausa se calcula desde la hora real en que acabó el enfoque,
+              // aunque iOS haya suspendido la página durante unos segundos.
+              p.mode='break';p.running=true;p.endsAt=breakEndsAt;p.breakEndsAt=breakEndsAt;
+              p.remaining=Math.max(1,Math.ceil((breakEndsAt-now)/1000));
+              p.pushJobId=p.breakPushJobId;p.breakPushJobId=null;
+            }else{
+              finishedBreak=true;breakEvent={jobId:p.breakPushJobId,lateness:now-breakEndsAt};
+              p.mode='focus';p.running=false;p.remaining=this.focusSecs();p.endsAt=null;p.breakEndsAt=null;p.pushJobId=null;p.breakPushJobId=null;
+            }
+          }else{
+            finishedBreak=true;breakEvent={jobId:p.pushJobId,lateness:now-currentEndsAt};
+            p.mode='focus';p.running=false;p.remaining=this.focusSecs();p.endsAt=null;p.breakEndsAt=null;p.pushJobId=null;p.breakPushJobId=null;
           }
         }
       } else if (s.stopwatch) creditSeconds = 1;
       if (creditSeconds) {
-        const k = this.dkey(Date.now()), h = new Date().getHours();
+        const k = this.dkey(now), h = new Date(now).getHours();
         const prev = log[k] || { seconds: 0, pomos: 0, hours: {} };
         log = { ...log, [k]: { ...prev, seconds: prev.seconds + creditSeconds, hours: { ...prev.hours, [h]: (prev.hours[h] || 0) + creditSeconds } } };
         if (s.activeId) tasks = tasks.map(t => t.id === s.activeId ? { ...t, seconds: t.seconds + creditSeconds } : t);
       }
       if (finished) {
-        const k = this.dkey(Date.now());
+        const k = this.dkey(now);
         const prev = log[k] || { seconds: 0, pomos: 0, hours: {} };
         log = { ...log, [k]: { ...prev, pomos: prev.pomos + 1 } };
         if (s.activeId) tasks = tasks.map(t => t.id === s.activeId ? { ...t, pomos: t.pomos + 1 } : t);
-        const activeTask = s.tasks.find(t => t.id === s.activeId);
-        this.notify('Pomodoro terminado', activeTask ? 'Terminaste un ciclo de enfoque en «' + activeTask.title + '». Empieza tu descanso de ' + this.fmtClock(this.breakSecs()) + '.' : 'Terminaste un ciclo de enfoque. Empieza tu descanso de ' + this.fmtClock(this.breakSecs()) + '.');
       }
-      if (finishedBreak) this.notify('Descanso terminado', 'Tu descanso terminó. Puedes iniciar otro Pomodoro.');
       return { pomo: p, tasks, log, watchSecs };
     });
-    if (breakPush) this.schedulePush(breakPush.fireAt,breakPush.jobId,breakPush.taskTitle,'break');
+    const activeTask=this.state.tasks.find(t=>t.id===this.state.activeId);
+    if(focusEvent){
+      this.cancelPush(focusEvent.jobId);
+      if(focusEvent.lateness<5000)this.notify('Pomodoro terminado',activeTask?'Terminaste un ciclo de enfoque en «'+activeTask.title+'». Empieza tu descanso de '+this.fmtClock(this.breakSecs())+'.':'Terminaste un ciclo de enfoque. Empieza tu descanso de '+this.fmtClock(this.breakSecs())+'.','kaizen-'+focusEvent.jobId);
+    }
+    if(breakEvent){
+      this.cancelPush(breakEvent.jobId);
+      if(breakEvent.lateness<5000)this.notify('Descanso terminado','Tu descanso terminó. Puedes iniciar otro Pomodoro.','kaizen-'+breakEvent.jobId);
+    }
   }
 
   patch(id, obj) {
@@ -1530,10 +1595,7 @@ class Component extends DCLogic {
       isPomoMode: !watchMode,
       modeBtns: [{ id: 'pomo', label: 'Pomodoro' }, { id: 'watch', label: 'Cronómetro' }].map(m => ({
         label: m.label,
-        onClick: () => this.setState(st => ({
-          timerMode: m.id, stopwatch: false, watchSecs: 0, watchStartedAt: null,
-          pomo: { mode: 'focus', running: false, remaining: this.focusSecs(), endsAt: null, pushJobId: null }
-        })),
+        onClick: () => this.selectTimerMode(m.id),
         style: {
           padding: '7px 11px', cursor: 'pointer', border: 0, fontSize: 12, fontFamily: 'var(--font-heading)',
           whiteSpace: 'nowrap', fontWeight: s.timerMode === m.id ? 800 : 400,
@@ -1547,13 +1609,8 @@ class Component extends DCLogic {
       onExitFull: () => { this.setState({ full: false }); try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {} },
       activeLabel: active ? active.title : 'Sin tarea activa — elige una con «Enfocar»',
       onPomoToggle: () => this.togglePomo(),
-      onPomoReset: () => this.setState(st => (st.timerMode === 'watch'
-        ? { watchSecs: 0, stopwatch: false, watchStartedAt: null }
-        : { pomo: { mode: st.pomo.mode, running: false, remaining: st.pomo.mode === 'focus' ? this.focusSecs() : this.breakSecs(), endsAt: null, pushJobId: null } })),
-      onPomoSkip: () => this.setState(st => {
-        const mode = st.pomo.mode === 'focus' ? 'break' : 'focus';
-        return { pomo: { mode, running: false, remaining: mode === 'focus' ? this.focusSecs() : this.breakSecs(), endsAt: null, pushJobId: null } };
-      }),
+      onPomoReset: () => this.resetPomo(),
+      onPomoSkip: () => this.skipPomo(),
       todayFocus: this.fmtDur(tl.seconds), todayPomos: String(tl.pomos),
       todayDone: String(s.tasks.filter(t => t.done && t.doneAt && this.dkey(t.doneAt) === todayKey).length),
       hasSel: !!sel, autoStartText: 'El Pomodoro inicia automáticamente al seleccionar una tarea pendiente. Al terminar, el descanso empieza solo durante ' + this.fmtClock(this.breakSecs()) + '.', onCloseSel: () => this.setState({ selId: null })
