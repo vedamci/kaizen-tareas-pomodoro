@@ -692,6 +692,11 @@ class Component extends DCLogic {
     });
   }
 
+  isDelegatedTask(task) {
+    const ownerId=Number(task?._owner_id||0), currentId=Number(this.state.auth?.id||0);
+    return !!currentId&&!!ownerId&&ownerId!==currentId;
+  }
+
   moveToTrash(id) {
     if (this.state.activeId === id && (this.state.stopwatch || this.state.pomo.running)) {
       this.cancelPushJobs(this.state.pomo);
@@ -1353,15 +1358,20 @@ class Component extends DCLogic {
 
   renderVals() {
     const s = this.state, now = Date.now(), day = 86400000;
-    const activeTasks = s.tasks.filter(t => t.list !== 'trash');
+    // Las tareas de otra persona siguen sincronizadas para poder consultar
+    // su avance, pero viven en "Delegadas" y no contaminan las listas propias.
+    const delegatedTasks = s.tasks.filter(t => this.isDelegatedTask(t) && t.list !== 'trash');
+    const personalTasks = s.tasks.filter(t => !this.isDelegatedTask(t));
+    const activeTasks = personalTasks.filter(t => t.list !== 'trash');
     const open = activeTasks.filter(t => !t.done);
     const counts = {
       today: open.filter(t => t.list === 'today').length,
       inbox: open.filter(t => t.list === 'inbox').length,
       future: open.filter(t => t.list === 'future').length,
       matrix: open.length,
-      done: s.tasks.filter(t => t.list === 'done').length,
-      trash: s.tasks.filter(t => t.list === 'trash').length,
+      delegated: delegatedTasks.filter(t => !t.done).length,
+      done: personalTasks.filter(t => t.list === 'done').length,
+      trash: personalTasks.filter(t => t.list === 'trash').length,
       projects: s.projects.length,
       stats: Object.keys(s.log).length,
       ideas: s.suggestions.length,
@@ -1369,7 +1379,7 @@ class Component extends DCLogic {
     };
     const navDefs = [
       { id: 'today', label: 'Hoy' }, { id: 'inbox', label: 'Bandeja de entrada' },
-      { id: 'future', label: 'Futuro' }, { id: 'matrix', label: 'Matriz' },
+      { id: 'future', label: 'Futuro' }, { id: 'delegated', label: 'Delegadas' }, { id: 'matrix', label: 'Matriz' },
       { id: 'done', label: 'Hechas' }, { id: 'trash', label: 'Borrado' },
       { id: 'projects', label: 'Proyectos' }, { id: 'stats', label: 'Estadísticas' }, { id: 'ideas', label: 'Mejoras' }
     ];
@@ -1390,14 +1400,14 @@ class Component extends DCLogic {
       };
     });
 
-    const isList = ['today', 'inbox', 'future', 'done', 'trash'].includes(s.view);
+    const isList = ['today', 'inbox', 'future', 'delegated', 'done', 'trash'].includes(s.view);
     const activeTimerId = (s.pomo.running || s.stopwatch) ? s.activeId : null;
     const activeTimerFirst = (a, b) => (Number(b.id === activeTimerId) - Number(a.id === activeTimerId));
     let listTasks = [];
     if (isList) {
-      listTasks = s.tasks.filter(t => t.list === s.view).sort((a, b) => activeTimerFirst(a, b) || (s.view === 'done' || s.view === 'trash' ? (Number(b.doneAt || b.deletedAt || 0) - Number(a.doneAt || a.deletedAt || 0)) : ((a.done - b.done) || a.quadrant.localeCompare(b.quadrant))));
+      listTasks = (s.view === 'delegated' ? delegatedTasks : s.tasks.filter(t => t.list === s.view && !this.isDelegatedTask(t))).sort((a, b) => activeTimerFirst(a, b) || (s.view === 'done' || s.view === 'trash' ? (Number(b.doneAt || b.deletedAt || 0) - Number(a.doneAt || a.deletedAt || 0)) : ((a.done - b.done) || a.quadrant.localeCompare(b.quadrant))));
     } else if ((s.view === 'projects' || s.view === 'project') && s.projFilter) {
-      listTasks = s.tasks.filter(t => t.project === s.projFilter && t.list !== 'done' && t.list !== 'trash').sort((a, b) => activeTimerFirst(a, b) || (a.done - b.done));
+      listTasks = s.tasks.filter(t => t.project === s.projFilter && !this.isDelegatedTask(t) && t.list !== 'done' && t.list !== 'trash').sort((a, b) => activeTimerFirst(a, b) || (a.done - b.done));
     }
     const rows = listTasks.map(t => this.taskRow(t));
 
@@ -1405,6 +1415,7 @@ class Component extends DCLogic {
       today: ['Hoy', 'Lo que se trabaja en esta jornada'],
       inbox: ['Bandeja de entrada', 'Captura rápida, sin clasificar'],
       future: ['Futuro', 'Algún día / tal vez'],
+      delegated: ['Delegadas', 'Tareas que otras personas te asignaron'],
       done: ['Hechas', 'Completadas en días anteriores'],
       trash: ['Borrado', 'Tareas retiradas; puedes restaurarlas'],
       matrix: ['Matriz de Eisenhower', 'Urgencia contra importancia'],
@@ -1430,10 +1441,10 @@ class Component extends DCLogic {
     });
 
     const projSecs = {};
-    s.tasks.filter(t => t.list !== 'done' && t.list !== 'trash').forEach(t => { const k = t.project || 'none'; projSecs[k] = (projSecs[k] || 0) + t.seconds; });
+    personalTasks.filter(t => t.list !== 'done' && t.list !== 'trash').forEach(t => { const k = t.project || 'none'; projSecs[k] = (projSecs[k] || 0) + t.seconds; });
     const maxProj = Math.max(1, ...Object.values(projSecs));
     const projectCards = s.projects.map(p => {
-      const all = s.tasks.filter(t => t.project === p.id && t.list !== 'done' && t.list !== 'trash');
+      const all = personalTasks.filter(t => t.project === p.id && t.list !== 'done' && t.list !== 'trash');
       const done = all.filter(t => t.done).length;
       const on = s.projFilter === p.id;
       return {
@@ -1453,7 +1464,7 @@ class Component extends DCLogic {
     for (let i = 6; i >= 0; i--) {
       const ts = now - i * day, k = this.dkey(ts);
       const e = s.log[k] || { seconds: 0, pomos: 0, hours: {} };
-      const doneN = s.tasks.filter(t => t.done && t.doneAt && this.dkey(t.doneAt) === k).length;
+      const doneN = personalTasks.filter(t => t.done && t.doneAt && this.dkey(t.doneAt) === k).length;
       days.push({ key: k, ts, secs: e.seconds, pomos: e.pomos, done: doneN, hours: e.hours });
     }
     const maxSecs = Math.max(1, ...days.map(d => d.secs));
@@ -1486,9 +1497,9 @@ class Component extends DCLogic {
         background: String(h) === String(peakH) ? 'var(--color-accent)' : 'color-mix(in srgb, var(--color-text) 25%, transparent)'
       }
     }));
-    const doneCount = s.tasks.filter(t => t.done).length;
-    const pendCount = s.tasks.length - doneCount;
-    const donePct = s.tasks.length ? Math.round((doneCount / s.tasks.length) * 100) : 0;
+    const doneCount = personalTasks.filter(t => t.done).length;
+    const pendCount = personalTasks.length - doneCount;
+    const donePct = personalTasks.length ? Math.round((doneCount / personalTasks.length) * 100) : 0;
     const projectTime = s.projects.map(p => ({
       name: p.name, value: this.fmtDur(projSecs[p.id] || 0),
       barStyle: { height: '100%', width: ((projSecs[p.id] || 0) / maxProj) * 100 + '%', background: 'var(--color-accent)' }
@@ -1607,9 +1618,9 @@ class Component extends DCLogic {
       viewTitle: tt[0], viewSub: tt[1],
       isList, isMatrix: s.view === 'matrix', isProjects: s.view === 'projects', isProjectDetail: s.view === 'project', isIdeas: s.view === 'ideas', isStats: s.view === 'stats', isAdminView: s.view === 'admin',
       projectDetailName: this.projName(s.projFilter) || 'Proyecto',
-      projectDetailStats: (() => { const a=s.tasks.filter(t=>t.project===s.projFilter && t.list !== 'done' && t.list !== 'trash'), d=a.filter(t=>t.done).length; return d + '/' + a.length + ' hechas · ' + this.fmtDur(a.reduce((sum,t)=>sum+t.seconds,0)); })(),
+      projectDetailStats: (() => { const a=personalTasks.filter(t=>t.project===s.projFilter && t.list !== 'done' && t.list !== 'trash'), d=a.filter(t=>t.done).length; return d + '/' + a.length + ' hechas · ' + this.fmtDur(a.reduce((sum,t)=>sum+t.seconds,0)); })(),
       onBackProjects: () => this.setState({ view: 'projects', projFilter: null, selId: null }),
-      showQuickAdd: isList || s.view === 'project',
+      showQuickAdd: (isList && s.view !== 'delegated') || s.view === 'project',
       listTasks: rows, listEmpty: rows.length === 0 && (isList || s.view === 'projects'),
       newTitle: s.newTitle, subDraft: s.subDraft,
       onNewInput: e => this.setState({ newTitle: e.target.value }),
@@ -1662,7 +1673,7 @@ class Component extends DCLogic {
       onPomoReset: () => this.resetPomo(),
       onPomoSkip: () => this.skipPomo(),
       todayFocus: this.fmtDur(tl.seconds), todayPomos: String(tl.pomos),
-      todayDone: String(s.tasks.filter(t => t.done && t.doneAt && this.dkey(t.doneAt) === todayKey).length),
+      todayDone: String(personalTasks.filter(t => t.done && t.doneAt && this.dkey(t.doneAt) === todayKey).length),
       hasSel: !!sel, autoStartText: 'El Pomodoro inicia automáticamente al seleccionar una tarea pendiente. Al terminar, el descanso empieza solo durante ' + this.fmtClock(this.breakSecs()) + '.', onCloseSel: () => this.setState({ selId: null })
     }, detail);
   }
