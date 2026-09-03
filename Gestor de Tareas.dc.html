@@ -248,7 +248,7 @@
         <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
           <div>
             <sc-for list="{{ listTasks }}" as="item" hint-placeholder-count="5">
-              <div style="position:relative;overflow:hidden">
+              <div style="position:relative;overflow:visible">
                 <div style="{{ item.swipeDeleteHintStyle }}"><span style="font-size:22px;line-height:1">🗑️</span><span>Borrar</span></div>
                 <div style="{{ item.swipeCompleteHintStyle }}"><span>Hecha</span><span style="font-size:22px;line-height:1">✅</span></div>
                 <div class="task-row" onClick="{{ item.onRowOpen }}" onTouchStart="{{ item.onTouchStart }}" onTouchMove="{{ item.onTouchMove }}" onTouchEnd="{{ item.onTouchEnd }}" onTouchCancel="{{ item.onTouchCancel }}" onPointerDown="{{ item.onPointerDown }}" onPointerMove="{{ item.onPointerMove }}" onPointerUp="{{ item.onPointerUp }}" onPointerCancel="{{ item.onPointerCancel }}" style="{{ item.rowStyle }}" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
@@ -270,7 +270,18 @@
                     <button class="btn btn-secondary" onClick="{{ item.onArchiveAction }}" style="flex:none;white-space:nowrap">{{ item.archiveActionLabel }}</button>
                   </sc-if>
                   <sc-if value="{{ item.showDelegate }}" hint-placeholder-val="{{ false }}">
-                    <button class="btn btn-secondary" onClick="{{ item.onDelegate }}" style="flex:none;white-space:nowrap;border-color:var(--color-accent);color:var(--color-accent)" title="Delegar esta tarea">Delegar</button>
+                    <div style="position:relative;flex:none">
+                      <button class="btn btn-secondary" onClick="{{ item.onDelegate }}" style="white-space:nowrap;border-color:var(--color-accent);color:var(--color-accent)" title="Delegar esta tarea">Delegar</button>
+                      <sc-if value="{{ item.showDelegatePopover }}" hint-placeholder-val="{{ false }}">
+                        <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:70;width:240px;max-width:calc(100vw - 32px);padding:10px;background:var(--color-surface);border:2px solid var(--color-accent);box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:default">
+                          <div style="font-size:12px;font-family:var(--font-heading);font-weight:800">Equipo</div>
+                          <div style="font-size:11px;margin:3px 0 7px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">Selecciona quién recibirá esta tarea.</div>
+                          <sc-for list="{{ item.delegateOptions }}" as="m" hint-placeholder-count="2">
+                            <button onClick="{{ m.onToggle }}" style="{{ m.style }}"><span style="font-weight:800;width:18px">{{ m.mark }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span><span style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent);margin-left:auto">{{ m.email }}</span></button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
                   </sc-if>
                   <span style="font-size:12px;font-variant-numeric:tabular-nums;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ item.time }}</span>
                   <button class="btn btn-secondary" onClick="{{ item.onPlay }}" style="{{ item.playStyle }}">{{ item.playLabel }}</button>
@@ -303,7 +314,18 @@
                       <div style="min-width:0"><sc-if value="{{ item.shareLabel }}" hint-placeholder-val="{{ false }}"><div style="{{ item.shareStyle }}">{{ item.shareLabel }}</div></sc-if><span style="{{ item.titleStyle }}">{{ item.title }}</span></div>
                       <span style="margin-left:auto;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;color:color-mix(in srgb, var(--color-text) 50%, transparent)">{{ item.time }}</span>
                       <sc-if value="{{ item.showDelegate }}" hint-placeholder-val="{{ false }}">
-                        <button class="btn btn-secondary" onClick="{{ item.onDelegate }}" style="flex:none;white-space:nowrap;padding:4px 8px;border-color:var(--color-accent);color:var(--color-accent)">Delegar</button>
+                        <div style="position:relative;flex:none">
+                          <button class="btn btn-secondary" onClick="{{ item.onDelegate }}" style="white-space:nowrap;padding:4px 8px;border-color:var(--color-accent);color:var(--color-accent)">Delegar</button>
+                          <sc-if value="{{ item.showDelegatePopover }}" hint-placeholder-val="{{ false }}">
+                            <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:70;width:240px;max-width:calc(100vw - 32px);padding:10px;background:var(--color-surface);border:2px solid var(--color-accent);box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:default">
+                              <div style="font-size:12px;font-family:var(--font-heading);font-weight:800">Equipo</div>
+                              <div style="font-size:11px;margin:3px 0 7px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">Selecciona quién recibirá esta tarea.</div>
+                              <sc-for list="{{ item.delegateOptions }}" as="m" hint-placeholder-count="2">
+                                <button onClick="{{ m.onToggle }}" style="{{ m.style }}"><span style="font-weight:800;width:18px">{{ m.mark }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span><span style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent);margin-left:auto">{{ m.email }}</span></button>
+                              </sc-for>
+                            </div>
+                          </sc-if>
+                        </div>
                       </sc-if>
                     </div>
                   </sc-for>
@@ -336,7 +358,18 @@
                   <div style="display:flex;align-items:center;gap:10px">
                     <input class="input" type="date" value="{{ item.due }}" onInput="{{ item.onDue }}" style="width:140px;flex:none" title="Fecha límite">
                     <sc-if value="{{ item.showDelegate }}" hint-placeholder-val="{{ false }}">
-                      <button class="btn btn-secondary" onClick="{{ item.onDelegate }}" style="flex:none;white-space:nowrap;border-color:var(--color-accent);color:var(--color-accent)" title="Delegar esta tarea">Delegar</button>
+                      <div style="position:relative;flex:none">
+                        <button class="btn btn-secondary" onClick="{{ item.onDelegate }}" style="white-space:nowrap;border-color:var(--color-accent);color:var(--color-accent)" title="Delegar esta tarea">Delegar</button>
+                        <sc-if value="{{ item.showDelegatePopover }}" hint-placeholder-val="{{ false }}">
+                          <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:70;width:240px;max-width:calc(100vw - 32px);padding:10px;background:var(--color-surface);border:2px solid var(--color-accent);box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:default">
+                            <div style="font-size:12px;font-family:var(--font-heading);font-weight:800">Equipo</div>
+                            <div style="font-size:11px;margin:3px 0 7px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">Selecciona quién recibirá esta tarea.</div>
+                            <sc-for list="{{ item.delegateOptions }}" as="m" hint-placeholder-count="2">
+                              <button onClick="{{ m.onToggle }}" style="{{ m.style }}"><span style="font-weight:800;width:18px">{{ m.mark }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span><span style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent);margin-left:auto">{{ m.email }}</span></button>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
                     </sc-if>
                     <span style="font-size:12px;font-variant-numeric:tabular-nums;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ item.time }}</span>
                     <button class="btn btn-secondary" onClick="{{ item.onPlay }}" style="{{ item.playStyle }}">{{ item.playLabel }}</button>
@@ -885,9 +918,9 @@ class Component extends DCLogic {
   openDelegate(id) {
     const task=this.state.tasks.find(t=>t.id===id);
     if(!task)return;
-    // Delegar no debe iniciar accidentalmente el cronómetro. Abre el detalle
-    // directamente en la sección visible del equipo.
-    this.setState({selId:id,delegatingId:id});
+    // Delegar no debe iniciar accidentalmente el cronómetro. Abre un recuadro
+    // pequeño en la propia tarea con las personas del equipo.
+    this.setState(s=>({selId:null,delegatingId:s.delegatingId===id?null:id}));
   }
   async showSystemNotification(title,options) {
     // Safari/macOS no permite de forma fiable `new Notification(...)` desde
@@ -1098,7 +1131,7 @@ class Component extends DCLogic {
       return;
     }
     const r=await this.api('task_share',{workspace_id:workspaceId,task_id:id,user_ids:userIds});
-    if(r.ok){this.patch(id,{sharedWith:r.shared_user_ids||[]});this.setState({toast:'Delegación actualizada.'});}
+    if(r.ok){this.patch(id,{sharedWith:r.shared_user_ids||[],_delegated_at:r.delegated_at||null});this.setState({toast:'Delegación actualizada.'});}
     else{if(rollback)this.patch(id,{sharedWith:rollback});this.setState({toast:r.error||'No se pudo delegar la tarea.'});}
   }
   toggleTaskShare(id, userId) { const task=this.state.tasks.find(t=>t.id===id); if(!task)return; const current=Array.isArray(task.sharedWith)?task.sharedWith.map(Number):[]; const next=current.includes(Number(userId))?current.filter(x=>x!==Number(userId)):[...current,Number(userId)]; this.patch(id,{sharedWith:next}); this.shareTask(id,next,current); }
@@ -1244,6 +1277,12 @@ class Component extends DCLogic {
     if (iso < today) return 'atrasada';
     return 'vence ' + Number(parts[2]) + ' ' + M[Number(parts[1]) - 1];
   }
+  fmtDelegatedAt(value) {
+    if (!value) return 'fecha no disponible';
+    const raw=String(value).replace(' ','T'), date=new Date(raw);
+    if (Number.isNaN(date.getTime())) return String(value).slice(0,10);
+    return date.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'});
+  }
   quadOf(id) { return this.QUADS.find(q => q.id === id) || this.QUADS[1]; }
   projName(id) { const p = this.state.projects.find(x => x.id === id); return p ? p.name : ''; }
   memberName(id) { const member=this.state.workspaceMembers.find(x=>Number(x.id)===Number(id)); return member?.name || member?.email || 'un miembro'; }
@@ -1279,13 +1318,19 @@ class Component extends DCLogic {
     const sharedCount=Array.isArray(t.sharedWith)?t.sharedWith.length:0;
     const sharedNames=(t.sharedWith||[]).map(id=>{const member=this.state.workspaceMembers.find(m=>Number(m.id)===Number(id));return member?.name||member?.email||'';}).filter(Boolean);
     const shareLabel=receivedShare ? 'Delegada por '+this.memberName(ownerId) : (sharedCount ? 'Delegada a '+(sharedNames.length?sharedNames.join(', '):sharedCount+' '+(sharedCount===1?'persona':'personas')) : '');
+    const delegatedAt=t._delegated_at||t.delegatedAt||'';
+    const delegatedMeta=this.state.view==='delegated' ? 'Delegada el '+this.fmtDelegatedAt(delegatedAt) : '';
+    const taskTime=this.state.view==='delegated' ? 'Dedicación: '+this.fmtDur(t.seconds) : this.fmtDur(t.seconds);
+    if (delegatedMeta) bits.push(delegatedMeta);
     const currentIsAdmin=this.state.auth?.role==='super_admin'||this.state.auth?.role==='admin'||this.state.workspaceMembers.some(m=>Number(m.id)===currentId&&m.workspace_role==='admin');
-    const canDelegate=!!this.state.auth&&t.list!=='trash'&&(!ownerId||ownerId===currentId||currentIsAdmin)&&this.state.workspaceMembers.some(m=>Number(m.id)!==ownerId);
+    const delegateCandidates=this.state.workspaceMembers.filter(m=>Number(m.id)!==ownerId);
+    const canDelegate=!!this.state.auth&&t.list!=='trash'&&(!ownerId||ownerId===currentId||currentIsAdmin)&&delegateCandidates.length>0;
+    const delegateOptions=delegateCandidates.map(m=>{const selected=(t.sharedWith||[]).map(Number).includes(Number(m.id));return {name:m.name||m.email,email:m.email,mark:selected?'✓':'',onToggle:e=>{e?.stopPropagation?.();this.toggleTaskShare(t.id,m.id);},style:{display:'flex',alignItems:'center',gap:7,width:'100%',padding:'7px 8px',marginTop:4,textAlign:'left',cursor:'pointer',border:'1px solid '+(selected?'var(--color-accent)':'var(--color-divider)'),background:selected?'color-mix(in srgb, var(--color-accent) 12%, transparent)':'transparent',color:'var(--color-text)'}};});
     const shareStyle={fontSize:10,letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:'var(--font-heading)',fontWeight:800,color:'var(--color-accent)',marginBottom:4};
     const colors = { q1: 'var(--color-accent)', q2: 'var(--color-neutral-800)', q3: 'var(--color-neutral-600)', q4: 'var(--color-neutral-500)' };
     const tint = this.props.showQuadrantColors ?? true;
     return {
-      id: t.id, title: t.title, meta: bits.join(' · '), time: this.fmtDur(t.seconds), shareLabel, shareStyle, showDelegate: canDelegate,
+      id: t.id, title: t.title, meta: bits.join(' · '), time: taskTime, shareLabel, shareStyle, showDelegate: canDelegate, showDelegatePopover: this.state.delegatingId===t.id, delegateOptions,
       due: t.due || '', showMove: t.list !== 'today' && t.list !== 'done' && t.list !== 'trash',
       onDue: e => this.patch(t.id, e.target.value ? { due: e.target.value, list: 'future' } : { due: '' }),
       onSendToday: () => this.patch(t.id, { list: 'today' }),
@@ -1361,9 +1406,10 @@ class Component extends DCLogic {
 
   renderVals() {
     const s = this.state, now = Date.now(), day = 86400000;
-    // Las tareas de otra persona siguen sincronizadas para poder consultar
-    // su avance, pero viven en "Delegadas" y no contaminan las listas propias.
-    const delegatedTasks = s.tasks.filter(t => this.isDelegatedTask(t) && t.list !== 'trash');
+    // Las tareas compartidas siguen sincronizadas para consultar su avance,
+    // pero la vista "Delegadas" las concentra y evita mezclar las recibidas
+    // con las listas propias.
+    const delegatedTasks = s.tasks.filter(t => t.list !== 'trash' && Array.isArray(t.sharedWith) && t.sharedWith.length > 0);
     const personalTasks = s.tasks.filter(t => !this.isDelegatedTask(t));
     const activeTasks = personalTasks.filter(t => t.list !== 'trash');
     const open = activeTasks.filter(t => !t.done);
@@ -1418,7 +1464,7 @@ class Component extends DCLogic {
       today: ['Hoy', 'Lo que se trabaja en esta jornada'],
       inbox: ['Bandeja de entrada', 'Captura rápida, sin clasificar'],
       future: ['Futuro', 'Algún día / tal vez'],
-      delegated: ['Delegadas', 'Tareas que otras personas te asignaron'],
+      delegated: ['Delegadas', 'Tareas que delegaste o recibiste'],
       done: ['Hechas', 'Completadas en días anteriores'],
       trash: ['Borrado', 'Tareas retiradas; puedes restaurarlas'],
       matrix: ['Matriz de Eisenhower', 'Urgencia contra importancia'],
