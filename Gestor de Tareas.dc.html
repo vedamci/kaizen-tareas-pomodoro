@@ -522,6 +522,15 @@
             <label>Tarea</label>
             <input class="input" value="{{ sel.title }}" onInput="{{ onSelTitle }}">
           </div>
+          <sc-if value="{{ showShareSection }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-bottom:16px;padding:12px;background:color-mix(in srgb, var(--color-accent) 7%, transparent);border-left:3px solid var(--color-accent)">
+              <div style="font-size:12px;font-family:var(--font-heading);font-weight:800">Delegar tarea</div>
+              <div style="font-size:11px;margin:4px 0 8px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">{{ shareHelp }}</div>
+              <sc-for list="{{ shareOptions }}" as="m" hint-placeholder-count="2">
+                <button onClick="{{ m.onToggle }}" style="{{ m.style }}"><span style="font-weight:800;width:18px">{{ m.mark }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span><span style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent);margin-left:auto">{{ m.email }}</span></button>
+              </sc-for>
+            </div>
+          </sc-if>
           <div style="display:flex;gap:10px;margin-bottom:12px">
             <div class="field" style="flex:1">
               <label>Fecha límite</label>
@@ -561,15 +570,6 @@
             <label>Etiquetas (separadas por coma)</label>
             <input class="input" value="{{ selTags }}" onInput="{{ onSelTags }}">
           </div>
-          <sc-if value="{{ showShareSection }}" hint-placeholder-val="{{ false }}">
-            <div style="margin-bottom:16px;padding:12px;background:color-mix(in srgb, var(--color-accent) 7%, transparent);border-left:3px solid var(--color-accent)">
-              <div style="font-size:12px;font-family:var(--font-heading);font-weight:800">Delegar tarea</div>
-              <div style="font-size:11px;margin:4px 0 8px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">{{ shareHelp }}</div>
-              <sc-for list="{{ shareOptions }}" as="m" hint-placeholder-count="2">
-                <button onClick="{{ m.onToggle }}" style="{{ m.style }}"><span style="font-weight:800;width:18px">{{ m.mark }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span><span style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent);margin-left:auto">{{ m.email }}</span></button>
-              </sc-for>
-            </div>
-          </sc-if>
           <div style="margin-bottom:14px">
             <div style="font-size:12px;margin-bottom:6px;color:color-mix(in srgb, var(--color-text) 70%, transparent)">Subtareas</div>
             <sc-for list="{{ selSubs }}" as="s" hint-placeholder-count="2">
@@ -647,7 +647,7 @@ class Component extends DCLogic {
     timerSpeed: 1,
     pushReady: false,
     activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, full: false,
-    auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '',
+    auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '', delegatingId: null,
     authName: '', authEmail: '', authPassword: '', adminSummary: [], adminMembers: [], workspaceMembers: [], adminOpen: false, statsDay: null,
     newWorkspaceName: '', inviteEmail: '', memberRole: 'member', inviteRole: 'member', inviteWorkspaceId: null, inviteUrl: '', inviteWorkspace: '', inviteToken: '', suggestionTitle: '', suggestionBody: '', suggestions: [], improvementChecklist: [], checklistDraft: '', mobileNavOpen: false, toast: '', notificationState: 'default', theme: 'classic'
   };
@@ -877,15 +877,17 @@ class Component extends DCLogic {
     }
   }
   openTask(id) {
-    const task=this.state.tasks.find(t=>t.id===id); this.setState({selId:id});
-    if(task&&!task.done&&task.list!=='trash')this.startTaskTimer(id);
+    if(!this.state.tasks.some(t=>t.id===id))return;
+    // Abrir una tarea solo muestra sus detalles. El tiempo empieza únicamente
+    // cuando se pulsa "Enfocar" o "Cronometrar".
+    this.setState({selId:id,delegatingId:null});
   }
   openDelegate(id) {
     const task=this.state.tasks.find(t=>t.id===id);
     if(!task)return;
-    // Delegar no debe iniciar accidentalmente el cronómetro: solo abre el
-    // detalle en la sección donde se eligen las personas con acceso.
-    this.setState({selId:id});
+    // Delegar no debe iniciar accidentalmente el cronómetro. Abre el detalle
+    // directamente en la sección visible del equipo.
+    this.setState({selId:id,delegatingId:id});
   }
   async showSystemNotification(title,options) {
     // Safari/macOS no permite de forma fiable `new Notification(...)` desde
@@ -1066,8 +1068,8 @@ class Component extends DCLogic {
       if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
-  async logout() { await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], workspaceMembers: [], improvementChecklist: [], authPassword: '' }); }
-  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', selId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
+  async logout() { await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], workspaceMembers: [], improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
+  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
   async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return; const r=await this.api('workspace_members',{workspace_id:workspaceId}); if(r.ok)this.setState({workspaceMembers:r.members||[]}); }
   async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], workspaceMembers: m.members || [], adminOpen: true }); } }
   async clearWorkspaceTasks(workspaceId, workspaceName) { if (this.state.auth?.role !== 'super_admin') return; const r=await this.api('workspace_tasks_clear',{workspace_id:workspaceId}); if(r.ok){ if(Number(this.state.workspaceId)===Number(workspaceId)) this.setState({tasks:[],selId:null}); this.setState({authError:'Se borraron ' + (r.deleted||0) + ' tareas de «' + workspaceName + '».'}); await this.loadAdminSummary(); } else this.setState({authError:r.error||'No se pudieron borrar las tareas.'}); }
@@ -1275,7 +1277,8 @@ class Component extends DCLogic {
     const ownerId=Number(t._owner_id||0), currentId=Number(this.state.auth?.id||0);
     const receivedShare=ownerId>0&&currentId>0&&ownerId!==currentId;
     const sharedCount=Array.isArray(t.sharedWith)?t.sharedWith.length:0;
-    const shareLabel=receivedShare ? 'Compartida por '+this.memberName(ownerId) : (sharedCount ? 'Compartida con '+sharedCount+' '+(sharedCount===1?'persona':'personas') : '');
+    const sharedNames=(t.sharedWith||[]).map(id=>{const member=this.state.workspaceMembers.find(m=>Number(m.id)===Number(id));return member?.name||member?.email||'';}).filter(Boolean);
+    const shareLabel=receivedShare ? 'Delegada por '+this.memberName(ownerId) : (sharedCount ? 'Delegada a '+(sharedNames.length?sharedNames.join(', '):sharedCount+' '+(sharedCount===1?'persona':'personas')) : '');
     const currentIsAdmin=this.state.auth?.role==='super_admin'||this.state.auth?.role==='admin'||this.state.workspaceMembers.some(m=>Number(m.id)===currentId&&m.workspace_role==='admin');
     const canDelegate=!!this.state.auth&&t.list!=='trash'&&(!ownerId||ownerId===currentId||currentIsAdmin)&&this.state.workspaceMembers.some(m=>Number(m.id)!==ownerId);
     const shareStyle={fontSize:10,letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:'var(--font-heading)',fontWeight:800,color:'var(--color-accent)',marginBottom:4};
@@ -1388,7 +1391,7 @@ class Component extends DCLogic {
     const navItems = navDefs.map(n => {
       const on = s.view === n.id || (n.id === 'projects' && s.view === 'project');
       return {
-        label: n.label, count: counts[n.id] || 0, onClick: () => { this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, mobileNavOpen: false }); if (n.id === 'admin') this.loadAdminSummary(); },
+        label: n.label, count: counts[n.id] || 0, onClick: () => { this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, delegatingId: null, mobileNavOpen: false }); if (n.id === 'admin') this.loadAdminSummary(); },
         style: {
           display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', cursor: 'pointer',
           padding: '9px 18px', border: 0, borderLeft: '3px solid ' + (on ? 'var(--color-accent)' : 'transparent'),
@@ -1449,7 +1452,7 @@ class Component extends DCLogic {
       const on = s.projFilter === p.id;
       return {
         name: p.name, stats: done + '/' + all.length + ' hechas · ' + this.fmtDur(projSecs[p.id] || 0),
-        onClick: () => this.setState({ view: 'project', projFilter: p.id, selId: null, mobileNavOpen: false }),
+        onClick: () => this.setState({ view: 'project', projFilter: p.id, selId: null, delegatingId: null, mobileNavOpen: false }),
         style: {
           background: on ? 'var(--color-surface)' : 'var(--color-bg)', padding: '16px 18px', cursor: 'pointer',
           display: 'flex', flexDirection: 'column', gap: 4,
@@ -1532,8 +1535,8 @@ class Component extends DCLogic {
       const ownerId=Number(sel._owner_id||s.auth?.id||0), currentId=Number(s.auth?.id||0), currentIsAdmin=s.auth?.role==='super_admin'||s.auth?.role==='admin'||s.workspaceMembers.find(m=>Number(m.id)===currentId)?.workspace_role==='admin';
       const canShare=!ownerId||ownerId===currentId||currentIsAdmin;
       const shareCandidates=s.workspaceMembers.filter(m=>Number(m.id)!==ownerId);
-      detail.showShareSection=canShare&&shareCandidates.length>0;
-      detail.shareHelp=ownerId&&ownerId!==currentId?'Solo la persona propietaria puede cambiar los accesos.':'Selecciona los miembros que podrán ver y actualizar esta tarea.';
+      detail.showShareSection=canShare&&shareCandidates.length>0&&s.delegatingId===sel.id;
+      detail.shareHelp=currentIsAdmin&&ownerId&&ownerId!==currentId?'Selecciona las personas que tendrán acceso.':'Selecciona las personas del equipo que recibirán esta tarea.';
       detail.shareOptions=shareCandidates.map(m=>{const selected=(sel.sharedWith||[]).map(Number).includes(Number(m.id));return {name:m.name||m.email,email:m.email,mark:selected?'✓':'',onToggle:()=>this.toggleTaskShare(sel.id,m.id),style:{display:'flex',alignItems:'center',gap:7,width:'100%',padding:'7px 8px',marginTop:4,textAlign:'left',cursor:canShare?'pointer':'default',border:'1px solid '+(selected?'var(--color-accent)':'var(--color-divider)'),background:selected?'color-mix(in srgb, var(--color-accent) 12%, transparent)':'transparent',color:'var(--color-text)',opacity:canShare?1:.65}};});
       detail.quadBtns = this.QUADS.map(q => ({
         label: q.action, onClick: () => this.patch(sel.id, { quadrant: q.id }),
@@ -1596,7 +1599,7 @@ class Component extends DCLogic {
       mobileNavOpen: s.mobileNavOpen, onToggleMobileNav: () => this.setState(s2 => ({ mobileNavOpen: !s2.mobileNavOpen })),
       onRefreshPage: () => this.refreshPage(),
       onTestNotification: () => this.testNotification(),
-      onOpenIdeas: () => this.setState({ view: 'ideas', projFilter: null, selId: null, mobileNavOpen: false }),
+      onOpenIdeas: () => this.setState({ view: 'ideas', projFilter: null, selId: null, delegatingId: null, mobileNavOpen: false }),
       toast: s.toast, onEnableNotifications: () => this.ensurePushSubscription(), showPushPrompt: !!s.auth && !s.pushReady, pushPromptText: s.notificationState === 'denied' ? 'Chrome está bloqueando este sitio. Permítelo desde el candado de la barra de direcciones.' : 'Pulsa el botón para recibir avisos aunque Kaizen esté en segundo plano.',
       notificationLabel: s.pushReady ? 'Push activo' : s.notificationState === 'denied' ? 'Push bloqueado' : s.notificationState === 'unsupported' ? 'Push no disponible' : 'Activar push',
       timerSpeed: s.timerSpeed, onTimerSpeed: e => this.changeTimerSpeed(e.target.value),
@@ -1619,7 +1622,7 @@ class Component extends DCLogic {
       isList, isMatrix: s.view === 'matrix', isProjects: s.view === 'projects', isProjectDetail: s.view === 'project', isIdeas: s.view === 'ideas', isStats: s.view === 'stats', isAdminView: s.view === 'admin',
       projectDetailName: this.projName(s.projFilter) || 'Proyecto',
       projectDetailStats: (() => { const a=personalTasks.filter(t=>t.project===s.projFilter && t.list !== 'done' && t.list !== 'trash'), d=a.filter(t=>t.done).length; return d + '/' + a.length + ' hechas · ' + this.fmtDur(a.reduce((sum,t)=>sum+t.seconds,0)); })(),
-      onBackProjects: () => this.setState({ view: 'projects', projFilter: null, selId: null }),
+      onBackProjects: () => this.setState({ view: 'projects', projFilter: null, selId: null, delegatingId: null }),
       showQuickAdd: (isList && s.view !== 'delegated') || s.view === 'project',
       listTasks: rows, listEmpty: rows.length === 0 && (isList || s.view === 'projects'),
       newTitle: s.newTitle, subDraft: s.subDraft,
@@ -1674,7 +1677,7 @@ class Component extends DCLogic {
       onPomoSkip: () => this.skipPomo(),
       todayFocus: this.fmtDur(tl.seconds), todayPomos: String(tl.pomos),
       todayDone: String(personalTasks.filter(t => t.done && t.doneAt && this.dkey(t.doneAt) === todayKey).length),
-      hasSel: !!sel, autoStartText: 'El Pomodoro inicia automáticamente al seleccionar una tarea pendiente. Al terminar, el descanso empieza solo durante ' + this.fmtClock(this.breakSecs()) + '.', onCloseSel: () => this.setState({ selId: null })
+      hasSel: !!sel, autoStartText: 'El temporizador solo inicia al pulsar «Enfocar» o «Cronometrar».', onCloseSel: () => this.setState({ selId: null, delegatingId: null })
     }, detail);
   }
 
