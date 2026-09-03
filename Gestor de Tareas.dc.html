@@ -269,6 +269,9 @@
                   <sc-if value="{{ item.showArchiveAction }}" hint-placeholder-val="{{ false }}">
                     <button class="btn btn-secondary" onClick="{{ item.onArchiveAction }}" style="flex:none;white-space:nowrap">{{ item.archiveActionLabel }}</button>
                   </sc-if>
+                  <sc-if value="{{ item.showDelegate }}" hint-placeholder-val="{{ false }}">
+                    <button class="btn btn-secondary" onClick="{{ item.onDelegate }}" style="flex:none;white-space:nowrap;border-color:var(--color-accent);color:var(--color-accent)" title="Delegar esta tarea">Delegar</button>
+                  </sc-if>
                   <span style="font-size:12px;font-variant-numeric:tabular-nums;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ item.time }}</span>
                   <button class="btn btn-secondary" onClick="{{ item.onPlay }}" style="{{ item.playStyle }}">{{ item.playLabel }}</button>
                   <sc-if value="{{ item.showDelete }}" hint-placeholder-val="{{ true }}">
@@ -296,9 +299,12 @@
                 </div>
                 <div>
                   <sc-for list="{{ cell.tasks }}" as="item" hint-placeholder-count="3">
-                    <div onClick="{{ item.onOpen }}" style="display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--color-divider);cursor:pointer;font-size:13px">
+                    <div onClick="{{ item.onRowOpen }}" style="display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--color-divider);cursor:pointer;font-size:13px">
                       <div style="min-width:0"><sc-if value="{{ item.shareLabel }}" hint-placeholder-val="{{ false }}"><div style="{{ item.shareStyle }}">{{ item.shareLabel }}</div></sc-if><span style="{{ item.titleStyle }}">{{ item.title }}</span></div>
                       <span style="margin-left:auto;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;color:color-mix(in srgb, var(--color-text) 50%, transparent)">{{ item.time }}</span>
+                      <sc-if value="{{ item.showDelegate }}" hint-placeholder-val="{{ false }}">
+                        <button class="btn btn-secondary" onClick="{{ item.onDelegate }}" style="flex:none;white-space:nowrap;padding:4px 8px;border-color:var(--color-accent);color:var(--color-accent)">Delegar</button>
+                      </sc-if>
                     </div>
                   </sc-for>
                 </div>
@@ -329,6 +335,9 @@
                   </div>
                   <div style="display:flex;align-items:center;gap:10px">
                     <input class="input" type="date" value="{{ item.due }}" onInput="{{ item.onDue }}" style="width:140px;flex:none" title="Fecha límite">
+                    <sc-if value="{{ item.showDelegate }}" hint-placeholder-val="{{ false }}">
+                      <button class="btn btn-secondary" onClick="{{ item.onDelegate }}" style="flex:none;white-space:nowrap;border-color:var(--color-accent);color:var(--color-accent)" title="Delegar esta tarea">Delegar</button>
+                    </sc-if>
                     <span style="font-size:12px;font-variant-numeric:tabular-nums;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ item.time }}</span>
                     <button class="btn btn-secondary" onClick="{{ item.onPlay }}" style="{{ item.playStyle }}">{{ item.playLabel }}</button>
                   </div>
@@ -554,7 +563,7 @@
           </div>
           <sc-if value="{{ showShareSection }}" hint-placeholder-val="{{ false }}">
             <div style="margin-bottom:16px;padding:12px;background:color-mix(in srgb, var(--color-accent) 7%, transparent);border-left:3px solid var(--color-accent)">
-              <div style="font-size:12px;font-family:var(--font-heading);font-weight:800">Compartir tarea</div>
+              <div style="font-size:12px;font-family:var(--font-heading);font-weight:800">Delegar tarea</div>
               <div style="font-size:11px;margin:4px 0 8px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">{{ shareHelp }}</div>
               <sc-for list="{{ shareOptions }}" as="m" hint-placeholder-count="2">
                 <button onClick="{{ m.onToggle }}" style="{{ m.style }}"><span style="font-weight:800;width:18px">{{ m.mark }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span><span style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent);margin-left:auto">{{ m.email }}</span></button>
@@ -674,7 +683,9 @@ class Component extends DCLogic {
     if(!currentId)return tasks||[];
     return (tasks||[]).filter(task=>{
       const ownerId=Number(task._owner_id||0);
-      if(!ownerId)return false;
+      // Las tareas recién creadas todavía no traen `_owner_id`; pertenecen al
+      // usuario actual y deben entrar en la primera sincronización.
+      if(!ownerId)return true;
       if(ownerId===currentId)return true;
       const sharedIds=Array.isArray(task._shared_user_ids)?task._shared_user_ids.map(Number):[];
       return sharedIds.includes(currentId);
@@ -864,6 +875,13 @@ class Component extends DCLogic {
     const task=this.state.tasks.find(t=>t.id===id); this.setState({selId:id});
     if(task&&!task.done&&task.list!=='trash')this.startTaskTimer(id);
   }
+  openDelegate(id) {
+    const task=this.state.tasks.find(t=>t.id===id);
+    if(!task)return;
+    // Delegar no debe iniciar accidentalmente el cronómetro: solo abre el
+    // detalle en la sección donde se eligen las personas con acceso.
+    this.setState({selId:id});
+  }
   async showSystemNotification(title,options) {
     // Safari/macOS no permite de forma fiable `new Notification(...)` desde
     // una aplicación web. La vía compatible es el Service Worker, igual que
@@ -1026,7 +1044,8 @@ class Component extends DCLogic {
     } catch (e) { this.setState({ authError: 'No se pudieron cargar las tareas del espacio.' }); }
   }
   async syncRemoteTasks(workspaceId, tasks, projects) {
-    try { await this.api('tasks_sync', { workspace_id: workspaceId, tasks: this.visibleRemoteTasks(tasks), projects }); } catch (e) {}
+    try { return await this.api('tasks_sync', { workspace_id: workspaceId, tasks: this.visibleRemoteTasks(tasks), projects }); }
+    catch (e) { return { ok: false, error: 'No se pudo conectar con el servidor.' }; }
   }
   async submitAuth() {
     const s = this.state;
@@ -1057,7 +1076,24 @@ class Component extends DCLogic {
   addChecklistItem() { const text=this.state.checklistDraft.trim(); if(!text)return; const item={id:this.uid(),text,done:false,createdAt:Date.now()}; const items=[item,...this.state.improvementChecklist]; this.setState({improvementChecklist:items,checklistDraft:'',toast:'Mejora agregada al checklist.'}); this.saveChecklist(items); }
   toggleChecklistItem(id) { const items=this.state.improvementChecklist.map(item=>item.id===id?{...item,done:!item.done}:item); this.setState({improvementChecklist:items}); this.saveChecklist(items); }
   removeChecklistItem(id) { const items=this.state.improvementChecklist.filter(item=>item.id!==id); this.setState({improvementChecklist:items}); this.saveChecklist(items); }
-  async shareTask(id, userIds, rollback) { const workspaceId=this.state.workspaceId; if(!workspaceId)return; const r=await this.api('task_share',{workspace_id:workspaceId,task_id:id,user_ids:userIds}); if(r.ok){this.patch(id,{sharedWith:r.shared_user_ids||[]});this.setState({toast:'Personas con acceso actualizadas.'});}else{if(rollback)this.patch(id,{sharedWith:rollback});this.setState({toast:r.error||'No se pudo compartir la tarea.'});} }
+  async shareTask(id, userIds, rollback) {
+    const workspaceId=this.state.workspaceId;
+    if(!workspaceId)return;
+    const task=this.state.tasks.find(t=>t.id===id);
+    if(!task){this.setState({toast:'No se encontró la tarea en este espacio.'});return;}
+    // Una tarea nueva puede seguir solo en el navegador cuando se pulsa
+    // "Delegar" inmediatamente después de crearla. Aseguramos primero su
+    // existencia remota para que task_share no responda "Tarea no encontrada".
+    const synced=await this.syncRemoteTasks(workspaceId,this.state.tasks,this.state.projects);
+    if(synced?.ok===false){
+      if(rollback)this.patch(id,{sharedWith:rollback});
+      this.setState({toast:synced.error||'No se pudo guardar la tarea antes de delegarla.'});
+      return;
+    }
+    const r=await this.api('task_share',{workspace_id:workspaceId,task_id:id,user_ids:userIds});
+    if(r.ok){this.patch(id,{sharedWith:r.shared_user_ids||[]});this.setState({toast:'Delegación actualizada.'});}
+    else{if(rollback)this.patch(id,{sharedWith:rollback});this.setState({toast:r.error||'No se pudo delegar la tarea.'});}
+  }
   toggleTaskShare(id, userId) { const task=this.state.tasks.find(t=>t.id===id); if(!task)return; const current=Array.isArray(task.sharedWith)?task.sharedWith.map(Number):[]; const next=current.includes(Number(userId))?current.filter(x=>x!==Number(userId)):[...current,Number(userId)]; this.patch(id,{sharedWith:next}); this.shareTask(id,next,current); }
   exportSuggestions() {
     const s=this.state, ws=s.workspaces.find(w=>Number(w.id)===Number(s.workspaceId));
@@ -1235,11 +1271,13 @@ class Component extends DCLogic {
     const receivedShare=ownerId>0&&currentId>0&&ownerId!==currentId;
     const sharedCount=Array.isArray(t.sharedWith)?t.sharedWith.length:0;
     const shareLabel=receivedShare ? 'Compartida por '+this.memberName(ownerId) : (sharedCount ? 'Compartida con '+sharedCount+' '+(sharedCount===1?'persona':'personas') : '');
+    const currentIsAdmin=this.state.auth?.role==='super_admin'||this.state.auth?.role==='admin'||this.state.workspaceMembers.some(m=>Number(m.id)===currentId&&m.workspace_role==='admin');
+    const canDelegate=!!this.state.auth&&t.list!=='trash'&&(!ownerId||ownerId===currentId||currentIsAdmin)&&this.state.workspaceMembers.some(m=>Number(m.id)!==ownerId);
     const shareStyle={fontSize:10,letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:'var(--font-heading)',fontWeight:800,color:'var(--color-accent)',marginBottom:4};
     const colors = { q1: 'var(--color-accent)', q2: 'var(--color-neutral-800)', q3: 'var(--color-neutral-600)', q4: 'var(--color-neutral-500)' };
     const tint = this.props.showQuadrantColors ?? true;
     return {
-      id: t.id, title: t.title, meta: bits.join(' · '), time: this.fmtDur(t.seconds), shareLabel, shareStyle,
+      id: t.id, title: t.title, meta: bits.join(' · '), time: this.fmtDur(t.seconds), shareLabel, shareStyle, showDelegate: canDelegate,
       due: t.due || '', showMove: t.list !== 'today' && t.list !== 'done' && t.list !== 'trash',
       onDue: e => this.patch(t.id, e.target.value ? { due: e.target.value, list: 'future' } : { due: '' }),
       onSendToday: () => this.patch(t.id, { list: 'today' }),
@@ -1290,6 +1328,7 @@ class Component extends DCLogic {
       },
       onToggle: () => this.toggleTask(t.id),
       onOpen: () => this.openTask(t.id),
+      onDelegate: e => { e?.stopPropagation?.(); this.openDelegate(t.id); },
       onRowOpen: e => { if (e?.target?.closest?.('button,input,select,textarea')) return; this.openTask(t.id); },
       onPlay: () => this.toggleTaskFocus(t.id),
       onDelete: () => this.animateSwipeDelete(t.id),
