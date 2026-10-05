@@ -1,0 +1,116 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, copyFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execFileSync, spawn } from 'node:child_process';
+
+const repo=fileURLToPath(new URL('../',import.meta.url));
+const base='http://127.0.0.1:4180/api/index.php';
+test('HTTP sessions, project access, delegation, persistence and concurrent edits', {timeout:90000}, async()=>{
+  const scratch=await mkdtemp(path.join(tmpdir(),'kaizen-http-'));
+  let server, count=0, logs='';
+  const check=(ok,label)=>{assert.ok(ok,label);count++;console.log('PASS '+label);};
+  const client=()=>({cookies:new Map(),token:''});
+  async function request(c,action,data={},expected=200,useToken=false){
+    const headers={'Content-Type':'application/json'};
+    if(c.cookies.size)headers.Cookie=[...c.cookies].map(([k,v])=>k+'='+v).join('; ');
+    if(useToken&&c.token)headers['X-Remember-Token']=c.token;
+    const res=await fetch(base+'?action='+action,{method:'POST',headers,body:JSON.stringify(data)});
+    for(const cookie of res.headers.getSetCookie()){const pair=cookie.split(';',1)[0],i=pair.indexOf('=');c.cookies.set(pair.slice(0,i),pair.slice(i+1));}
+    const json=await res.json();assert.equal(res.status,expected,action+': '+(json.error||'unexpected status'));check(json.ok===(expected<400),action+' HTTP '+expected);
+    if(json.remember_token)c.token=json.remember_token;
+    return json;
+  }
+  const list=(c,w=1)=>request(c,'tasks',{workspace_id:w});
+  const get=async(c,id,w=1)=>{const result=await list(c,w),task=result.tasks.find(t=>t.id===id);assert.ok(task,'fixture task '+id+' visible');return task;};
+  const sync=(c,tasks,status=200,w=1)=>request(c,'tasks_sync',{workspace_id:w,tasks},status);
+  const share=(c,id,ids,status=200)=>request(c,'task_share',{workspace_id:1,task_id:id,user_ids:ids},status);
+  const make=(id,project='')=>({id,title:id,project,list:'inbox',tags:[],subtasks:[],sharedWith:[],seconds:0,pomos:0,done:false});
+  try {
+    await mkdir(path.join(scratch,'api'));await mkdir(path.join(scratch,'sessions'));
+    for(const name of ['index.php','projects.php','project-policy.php'])await copyFile(path.join(repo,'api',name),path.join(scratch,'api',name));
+    execFileSync('php',[path.join(repo,'tests/http-fixture.php'),scratch],{stdio:'pipe'});
+    server=spawn('php',['-d','session.save_path='+path.join(scratch,'sessions'),'-S','127.0.0.1:4180','-t',scratch],{env:{...process.env,PHP_CLI_SERVER_WORKERS:'4'},detached:true,stdio:['ignore','pipe','pipe']});
+    server.stdout.on('data',d=>{logs+=d;});server.stderr.on('data',d=>{logs+=d;});
+    let ready=false;
+    for(let i=0;i<60;i++){try{await fetch(base+'?action=me');ready=true;break;}catch(_){await new Promise(r=>setTimeout(r,100));}}
+    assert.ok(ready,'PHP fixture server started');
+    const anon=client(),owner=client(),member=client(),other=client(),admin=client(),outsider=client();
+    await request(anon,'tasks',{workspace_id:1},401);
+    await request(anon,'login',{email:'fixture1@example.test',password:'wrong'},401);
+    const beforeCookie=anon.cookies.get('kaizen_http_fixture');
+    for(const [i,c] of [[1,owner],[2,member],[3,other],[4,admin],[5,outsider]])await request(c,'login',{email:`fixture${i}@example.test`,password:'disposable-http-fixture'});
+    check((await request(owner,'me')).user.id===1,'cookie session identifies user without password hash');
+    check((await request(owner,'me')).user.password_hash===undefined,'login payload never exposes password hash');
+    // Same cookie jar before/after login proves fixation protection.
+    await request(anon,'login',{email:'fixture1@example.test',password:'disposable-http-fixture'});
+    check(beforeCookie!==anon.cookies.get('kaizen_http_fixture'),'login rotates session id');
+    await request(outsider,'tasks',{workspace_id:1},403);
+    await request(outsider,'project_save',{workspace_id:1,name:'Denied',member_ids:[]},403);
+    const a=(await request(owner,'project_save',{workspace_id:1,name:'A',member_ids:[2]})).project;
+    const b=(await request(owner,'project_save',{workspace_id:1,name:'B',member_ids:[3]})).project;
+    await request(member,'project_save',{workspace_id:1,project_id:a.id,name:'Hijack',member_ids:[2,3]},403);
+    await request(owner,'project_save',{workspace_id:1,name:'Outsider',member_ids:[5]},422);
+    await sync(owner,[make('personal'),make('delegated'),make('project-task',a.id)]);
+    check(!(await list(other)).tasks.length,'project nonmember sees no private tasks');
+    check((await list(member)).tasks.map(t=>t.id).join(',')==='project-task','project member automatically receives project task');
+    await request(other,'task_members',{workspace_id:1,task_id:'project-task'},403);
+    await share(other,'project-task',[3],403);
+    await request(member,'task_members',{workspace_id:1,task_id:'personal'},403);
+    await sync(other,[{...make('project-task',a.id),_owner_id:3,_project_member:true}],403);
+    await sync(member,[make('forbidden',b.id)],403);
+    await share(owner,'delegated',[2]);
+    check((await get(member,'delegated'))._owner_id===1,'individual delegation preserves author');
+    const shared=await request(member,'task_members',{workspace_id:1,task_id:'delegated'});
+    check(shared.shared_user_ids.includes(2),'delegation accessible by direct id to recipient');
+    await share(member,'delegated',[3],403);
+    await share(owner,'delegated',[5],422);
+    check((await get(member,'delegated'))._shared_user_ids.includes(2),'invalid recipient leaves previous delegation intact');
+    await share(owner,'project-task',[3],422);
+    await share(owner,'project-task',[2]);
+    let task=await get(member,'project-task');task.notes='Member edit';await sync(member,[task]);
+    task=await get(member,'project-task');task.project='';await sync(member,[task],403);
+    task=await get(owner,'project-task');Object.assign(task,{seconds:1500,pomos:1,scheduledStart:'2026-10-05T15:00:00.000Z',scheduledEnd:'2026-10-05T17:00:00.000Z',scheduleTimeZone:'America/Mexico_City'});await sync(owner,[task]);
+    const snapshot=await get(member,'project-task');task=await get(owner,'project-task');task.project=b.id;await sync(owner,[task]);
+    await request(member,'task_members',{workspace_id:1,task_id:'project-task'},403);
+    await share(member,'project-task',[],403);
+    await sync(member,[snapshot],403);
+    const moved=await get(other,'project-task');check(moved.seconds===1500&&moved.pomos===1&&moved.notes==='Member edit','move preserves Pomodoro and collaborator notes');
+    check(moved.scheduledStart==='2026-10-05T15:00:00.000Z','UTC schedule persists across sessions and projects');
+    task=await get(owner,'project-task');task.project='';await sync(owner,[task]);
+    check(!(await list(other)).tasks.some(t=>t.id==='project-task'),'removal restores personal visibility for former project member');
+    check((await get(member,'project-task'))._shared_user_ids.includes(2),'removal preserves independent delegation');
+    task=await get(owner,'project-task');task.project=a.id;await sync(owner,[task]);
+    const first=await get(owner,'project-task'),second=await get(member,'project-task');first.title='Owner concurrent';second.title='Member concurrent';
+    async function race(c,t){const headers={'Content-Type':'application/json',Cookie:[...c.cookies].map(([k,v])=>k+'='+v).join('; ')};const res=await fetch(base+'?action=tasks_sync',{method:'POST',headers,body:JSON.stringify({workspace_id:1,tasks:[t]})});await res.json();return res.status;}
+    const statuses=await Promise.all([race(owner,first),race(member,second)]);check(statuses.sort().join(',')==='200,409','simultaneous HTTP editors cannot overwrite the same revision');
+    const winning=await get(owner,'project-task');check(['Owner concurrent','Member concurrent'].includes(winning.title),'winning concurrent edit persisted');
+    const invalid={...winning,scheduledEnd:winning.scheduledStart};await sync(owner,[invalid],422);
+    check((await get(owner,'project-task')).scheduledEnd===winning.scheduledEnd,'invalid schedule does not replace stored dates');
+    const personal=await get(owner,'personal');personal.title='Rollback sentinel';await sync(owner,[personal,{...winning,project:'missing'}],422);
+    check((await get(owner,'personal')).title==='personal','failed HTTP batch rolls back earlier personal task update');
+    await sync(outsider,[make('cross-workspace')],200,2);
+    await sync(owner,[make('cross-workspace')],403);
+    await request(owner,'task_members',{workspace_id:1,task_id:'cross-workspace'},404);
+    await request(admin,'task_members',{workspace_id:1,task_id:'project-task'},403);
+    await request(owner,'project_save',{workspace_id:1,project_id:a.id,name:'A',member_ids:[]});
+    await request(member,'task_members',{workspace_id:1,task_id:'project-task'},403);
+    await sync(member,[second],403);
+    await share(owner,'delegated',[]);await request(member,'task_members',{workspace_id:1,task_id:'delegated'},403);
+    check((await get(owner,'personal')).project===''&&!(await get(owner,'personal')).scheduledStart,'personal undated task remains undated');
+    const resumed=client();resumed.token=owner.token;
+    check((await request(resumed,'me',{},200,true)).user.id===1,'remember token resumes session without cookies');
+    await request(resumed,'logout',{},200,true);
+    check((await request(resumed,'me',{},200,true)).user===null,'logout revokes remember token and cookie session');
+    await request(resumed,'tasks',{workspace_id:1},401,true);
+    await request(owner,'logout');await request(owner,'tasks',{workspace_id:1},401);
+    console.log(`${count} HTTP checks passed`);
+  } finally {
+    if(server){try{process.kill(-server.pid,'SIGTERM');}catch(_){}await new Promise(r=>server.exitCode!==null?r():server.once('exit',r));}
+    await rm(scratch,{recursive:true,force:true});
+    // Only fixture diagnostics are printed on failure; no login responses/tokens.
+    if(logs.includes('Fatal error'))console.error(logs.split('\n').filter(x=>x.includes('Fatal error')).join('\n'));
+  }
+});

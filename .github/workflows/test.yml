@@ -21,14 +21,21 @@ jobs:
           php -l api/projects.php
           php -l api/project-policy.php
           php -l tests/projects-mysql.php
+          php -l tests/http-fixture.php
           php tests/project-policy.php
       - name: Start disposable test database
         run: |
           sudo systemctl start mysql.service
-          mysql --host=127.0.0.1 --user=root --password=root -e 'CREATE DATABASE kaizen_test_projects CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+          mysql --host=127.0.0.1 --user=root --password=root -e 'CREATE DATABASE kaizen_test_projects CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE DATABASE kaizen_test_http CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
       - name: MySQL persistence and authorization
         env:
           KAIZEN_TEST_DSN: mysql:host=127.0.0.1;dbname=kaizen_test_projects
           KAIZEN_TEST_DB_USER: root
           KAIZEN_TEST_DB_PASSWORD: root # Disposable runner default; no production credentials.
         run: php tests/projects-mysql.php
+      - name: HTTP sessions and delegation integration
+        env:
+          KAIZEN_TEST_DSN: mysql:host=127.0.0.1;dbname=kaizen_test_http
+          KAIZEN_TEST_DB_USER: root
+          KAIZEN_TEST_DB_PASSWORD: root # Disposable runner default.
+        run: node --test tests/http.test.mjs

@@ -208,15 +208,21 @@ try {
     }
     if ($action === 'task_share') {
         $wid=(int)($data['workspace_id']??0); $access=workspaceAccess($wid,(int)$u['id']); if($u['role']!=='super_admin'&&!$access) out(['ok'=>false,'error'=>'Sin acceso a este espacio.'],403);
+        $pdo=db(); $pdo->beginTransaction();
+        $projects=workspaceProjects($pdo,$wid,true);
         $taskId=substr(preg_replace('/[^a-zA-Z0-9_-]/','',(string)($data['task_id']??'')),0,32); $tq=db()->prepare('SELECT owner_id,payload_json FROM tasks WHERE id=? AND workspace_id=?'); $tq->execute([$taskId,$wid]); $task=$tq->fetch(); if(!$task)out(['ok'=>false,'error'=>'Tarea no encontrada.'],404);
-        $projects=workspaceProjects(db(),$wid); $taskPayload=json_decode($task['payload_json'],true)?:[]; $taskPayload['_owner_id']=(int)$task['owner_id'];
+        $taskPayload=json_decode($task['payload_json'],true)?:[]; $taskPayload['_owner_id']=(int)$task['owner_id'];
         $project=projectFind($projects,(string)($taskPayload['project']??''));
         if(!projectTaskAccess($taskPayload,$projects,(int)$u['id'],sharedIds(workspaceShares(db(),$wid),$taskId)))out(['ok'=>false,'error'=>'No tienes acceso a esta tarea.'],403);
         $canAdmin=$u['role']==='super_admin'||(($access['member_role']??'')==='admin'); if(!$canAdmin&&(int)$task['owner_id']!==(int)$u['id'])out(['ok'=>false,'error'=>'Solo quien creó la tarea puede compartirla.'],403);
-        $requested=is_array($data['user_ids']??null)?$data['user_ids']:[]; $requested=array_values(array_unique(array_filter(array_map('intval',$requested),fn($id)=>$id>0&&(int)$id!==(int)$task['owner_id'])));
+        $requested=$data['user_ids']??null;
+        if(!is_array($requested)||count($requested)>500)throw new DomainException('Selecciona destinatarios válidos del equipo.',422);
+        foreach($requested as $value)if((!is_int($value)&&!is_string($value))||filter_var($value,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])===false)throw new DomainException('Selecciona destinatarios válidos del equipo.',422);
+        $requested=array_values(array_unique(array_filter(array_map('intval',$requested),fn($id)=>(int)$id!==(int)$task['owner_id'])));
         if($project && projectIsShared($project))foreach($requested as $member)if(!projectMember($project,$member))out(['ok'=>false,'error'=>'Para delegar una tarea del proyecto, la persona debe ser miembro del proyecto.'],422);
         $valid=[]; if($requested){$placeholders=implode(',',array_fill(0,count($requested),'?'));$mq=db()->prepare('SELECT user_id FROM workspace_members WHERE workspace_id=? AND user_id IN ('.$placeholders.')');$mq->execute(array_merge([$wid],$requested));$valid=array_map('intval',$mq->fetchAll(PDO::FETCH_COLUMN));}
-        $pdo=db();$existingQ=$pdo->prepare('SELECT user_id FROM task_shares WHERE task_id=? AND workspace_id=?');$existingQ->execute([$taskId,$wid]);$existing=array_map('intval',$existingQ->fetchAll(PDO::FETCH_COLUMN));$pdo->beginTransaction();
+        if(count($valid)!==count($requested))throw new DomainException('Todos los destinatarios deben pertenecer al equipo de este espacio.',422);
+        $existingQ=$pdo->prepare('SELECT user_id FROM task_shares WHERE task_id=? AND workspace_id=?');$existingQ->execute([$taskId,$wid]);$existing=array_map('intval',$existingQ->fetchAll(PDO::FETCH_COLUMN));
         if($valid){$placeholders=implode(',',array_fill(0,count($valid),'?'));$delete=$pdo->prepare('DELETE FROM task_shares WHERE task_id=? AND workspace_id=? AND user_id NOT IN ('.$placeholders.')');$delete->execute(array_merge([$taskId,$wid],$valid));}else{$pdo->prepare('DELETE FROM task_shares WHERE task_id=? AND workspace_id=?')->execute([$taskId,$wid]);}
         $ins=$pdo->prepare('INSERT IGNORE INTO task_shares(task_id,workspace_id,user_id) VALUES(?,?,?)');foreach($valid as $id)if(!in_array($id,$existing,true))$ins->execute([$taskId,$wid,$id]);$dateQ=$pdo->prepare('SELECT MIN(shared_at) FROM task_shares WHERE task_id=? AND workspace_id=?');$dateQ->execute([$taskId,$wid]);$delegatedAt=$dateQ->fetchColumn()?:null;$pdo->commit();out(['ok'=>true,'shared_user_ids'=>$valid,'delegated_at'=>$delegatedAt]);
     }
