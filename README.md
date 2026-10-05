@@ -43,7 +43,9 @@ no se eliminan ni se pueden crear nuevas asociaciones a un proyecto desconocido.
 `project_save` modifica solo el proyecto solicitado dentro de una transacción
 y bloquea la fila del espacio. `tasks_sync` ya no sobrescribe la lista completa
 de proyectos que manda un navegador. Solo el endpoint de proyectos modifica
-miembros. La interfaz envía solo tareas cambiadas; el servidor exige una revisión
+miembros. Las delegaciones también bloquean esa fila; un destinatario inválido
+se rechaza sin eliminar delegaciones previas. La interfaz envía solo tareas
+cambiadas; el servidor exige una revisión
 SHA-256 del JSON anterior para editar tareas existentes y devuelve **409** si cambió.
 El lote se revierte si falla una validación. Se conserva siempre el propietario.
 
@@ -82,7 +84,7 @@ persistencia tras recargar y tareas sin planificación. No se alteraron cuentas
 ni tareas reales.
 
 No ejecutado en este Mac por falta de PHP/MySQL; el workflow de GitHub Actions
-ejecuta estas comprobaciones en Ubuntu 24.04, además de la suite MySQL:
+ejecuta estas comprobaciones en Ubuntu 24.04, además de las suites MySQL y HTTP:
 
 ```sh
 php -l api/index.php
@@ -96,9 +98,29 @@ no miembros, administradores, traslados, datos antiguos, fechas, zona y conflict
 La suite `tests/projects-mysql.php` usa los mismos servicios PHP que los endpoints
 y comprueba creación/membresía, lectura, edición, persistencia, traslados,
 revocación, conflictos y rollback en una base vacía `kaizen_test_*` de loopback.
-La prueba HTTP integral de sesiones y `task_share` queda pendiente antes de publicar.
-No se usó la configuración privada del servidor para estas pruebas.
+La suite `tests/http.test.mjs` levanta cuatro workers PHP en loopback con una
+copia temporal de la API y configuración ficticia. Usa una segunda base vacía
+`kaizen_test_http`, cookies y cinco usuarios `example.test`; no carga configuración
+privada, no crea grants ni usa cuentas de producción. Detiene el servidor y elimina
+la copia y las sesiones al terminar. La base desaparece con el runner desechable.
+
+Resultado confirmado en CI: **13 pruebas JavaScript, 28 comprobaciones de políticas
+PHP, 21 comprobaciones MySQL y 95 comprobaciones HTTP**. La suite HTTP cubre login
+válido/inválido, rotación del ID de sesión, cookie y token persistente, logout y
+revocación, miembros/no miembros, lectura/escritura por ID, delegación/revocación,
+destinatarios inválidos, creación/asignación/traslado, cruce de espacios, conservación
+de autoría/fechas/tiempo Pomodoro, datos personales sin fechas, rollback de lotes y
+dos peticiones simultáneas que producen un éxito y un conflicto 409.
+
+Para ejecutar HTTP en un entorno aislado con PHP/MySQL, preparar una base vacía de
+loopback `kaizen_test_http` y configurar `KAIZEN_TEST_DSN`, `KAIZEN_TEST_DB_USER` y
+`KAIZEN_TEST_DB_PASSWORD`; ejecutar `node --test tests/http.test.mjs`. El workflow
+ya prepara esa infraestructura con credenciales desechables del runner.
+
+Límite: la prueba HTTP usa el servidor integrado de PHP; no valida la configuración
+Apache/cPanel/HTTPS de producción ni la entrega de notificaciones push. La vista
+previa en Chrome sigue usando datos ficticios. No se probó ni publicó en producción.
 
 Archivos para una futura publicación: HTML principal, `planning.js`, `support.js`,
 `api/index.php`, `api/projects.php` y `api/project-policy.php`. Publicación pendiente
-de confirmación separada y de completar las comprobaciones del backend.
+de confirmación separada. El PR permanece en borrador; no se mezcló con `main`.
