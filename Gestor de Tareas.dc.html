@@ -11,6 +11,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="./kaizen-icon-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
 <script src="./support.js"></script>
+<script src="./planning.js"></script>
 </head>
 <body>
 <x-dc>
@@ -21,6 +22,13 @@
   html, body { height: 100%; width: 100%; margin: 0; max-width: 100%; min-width: 0; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
   *, *::before, *::after { box-sizing: border-box; }
   * { scrollbar-width: thin; }
+  .timeline-row { width:100%; display:block; text-align:left; color:var(--color-text); background:var(--color-bg); border:0; border-bottom:2px solid var(--color-divider); padding:16px 0; cursor:pointer; font-family:var(--font-body); }
+  .timeline-row:hover { background:var(--color-neutral-100); }
+  .timeline-row:focus-visible { outline:2px solid var(--color-accent); outline-offset:2px; }
+  .timeline-range { display:flex; justify-content:space-between; gap:12px; font-size:12px; border-bottom:2px solid var(--color-divider); padding-bottom:8px; }
+  .timeline-track { height:12px; margin:12px 0; background:var(--color-neutral-200); position:relative; }
+  .quick-add { flex-wrap:wrap; }
+  .quick-add > input { flex:1; min-width:180px; }
   input[type="checkbox"] { accent-color: var(--color-accent); }
   a { color: var(--color-accent); }
   a:hover { color: var(--color-accent-700); }
@@ -235,12 +243,14 @@
           <div style="font-size:12px;padding-bottom:4px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ viewSub }}</div>
         </div>
         <hr class="hr">
+        <sc-if value="{{ syncError }}" hint-placeholder-val="{{ false }}"><div role="alert" class="card" style="margin-bottom:16px">{{ syncError }} <button class="btn btn-secondary" onClick="{{ onRetrySync }}">Reintentar guardar</button><button class="btn btn-ghost" onClick="{{ onDiscardAndReload }}">Descartar cambios pendientes y recargar</button></div></sc-if>
 
         <sc-if value="{{ showPushPrompt }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px;padding:14px 16px;background:var(--color-surface);border-left:3px solid var(--color-accent)"><div><div style="font-family:var(--font-heading);font-weight:800">Activa las notificaciones de Kaizen</div><div style="font-size:12px;margin-top:4px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">{{ pushPromptText }}</div></div><button class="btn btn-primary" onClick="{{ onEnableNotifications }}" style="white-space:nowrap">Permitir notificaciones</button></div></sc-if>
 
         <sc-if value="{{ showQuickAdd }}" hint-placeholder-val="{{ true }}">
           <div class="quick-add" style="display:flex;gap:8px;margin-bottom:18px">
             <input class="input" placeholder="Escribe una tarea y presiona Enter" value="{{ newTitle }}" onInput="{{ onNewInput }}" onKeyDown="{{ onNewKey }}">
+            <sc-if value="{{ showNewProjectPicker }}" hint-placeholder-val="{{ true }}"><select class="input" aria-label="Proyecto para la nueva tarea" value="{{ newTaskProject }}" onChange="{{ onNewTaskProject }}" style="max-width:220px"><option value="">Sin proyecto</option><sc-for list="{{ projectOptions }}" as="p"><option value="{{ p.id }}" label="{{ p.name }}">{{ p.name }}</option></sc-for></select></sc-if>
             <button class="btn btn-primary" onClick="{{ onAdd }}" style="flex:none">Agregar</button>
           </div>
         </sc-if>
@@ -343,6 +353,15 @@
               <div style="font-family:var(--font-heading);font-weight:800;font-size:24px">{{ projectDetailName }}</div>
               <div style="font-size:12px;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ projectDetailStats }}</div>
             </div>
+            <div class="card" style="margin-bottom:16px">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><strong>{{ projectSharingLabel }}</strong><button class="btn btn-secondary" onClick="{{ onRefreshTasks }}">Actualizar tareas</button><sc-if value="{{ canManageProject }}"><button class="btn btn-secondary" onClick="{{ onEditProjectMembers }}">Elegir miembros</button></sc-if></div>
+              <div style="font-size:12px;margin-top:8px">{{ projectMemberNames }}</div>
+              <sc-if value="{{ isEditingProjectMembers }}">
+                <p style="font-size:12px">Las personas seleccionadas podrán ver y editar todas las tareas del proyecto, incluidas las existentes. El creador de cada tarea conserva su autoría. Solo el creador o un administrador puede moverla a otro proyecto.</p>
+                <sc-for list="{{ projectMemberOptions }}" as="m"><label style="display:flex;gap:8px;padding:6px 0"><input type="checkbox" checked="{{ m.selected }}" disabled="{{ m.locked }}" onChange="{{ m.onToggle }}">{{ m.name }} {{ m.ownerLabel }}</label></sc-for>
+                <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" disabled="{{ projectBusy }}" onClick="{{ onSaveProjectMembers }}">Guardar miembros</button><button class="btn btn-secondary" disabled="{{ projectBusy }}" onClick="{{ onCancelProjectMembers }}">Cancelar</button></div>
+              </sc-if>
+            </div>
             <div>
               <sc-for list="{{ listTasks }}" as="item" hint-placeholder-count="5">
                 <div class="task-row" onClick="{{ item.onRowOpen }}" style="{{ item.rowStyle }}" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
@@ -387,7 +406,7 @@
           <div>
             <div style="display:flex;gap:8px;margin-bottom:20px;max-width:520px">
               <input class="input" placeholder="Nuevo proyecto" value="{{ newProject }}" onInput="{{ onProjInput }}" onKeyDown="{{ onProjKey }}">
-              <button class="btn btn-secondary" onClick="{{ onAddProject }}" style="flex:none;white-space:nowrap">Crear proyecto</button>
+              <button class="btn btn-secondary" onClick="{{ onAddProject }}" disabled="{{ projectBusy }}" style="flex:none;white-space:nowrap">Crear proyecto</button>
             </div>
             <div class="project-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0;background:var(--color-bg);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
               <sc-for list="{{ projectCards }}" as="p" hint-placeholder-count="3">
@@ -402,6 +421,18 @@
               </sc-for>
             </div>
           </div>
+        </sc-if>
+
+        <sc-if value="{{ isTimeline }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center"><label for="timeline-project">Proyecto</label><select id="timeline-project" class="input" value="{{ timelineProject }}" onChange="{{ onTimelineProject }}" style="max-width:280px"><option value="">Todos los proyectos</option><option value="__none__">Sin proyecto</option><sc-for list="{{ allProjectOptions }}" as="p"><option value="{{ p.id }}" label="{{ p.name }}">{{ p.name }}</option></sc-for></select><button class="btn btn-secondary" onClick="{{ onRefreshTasks }}">Actualizar tareas</button></div>
+          <p style="font-size:12px">{{ scheduleZoneLabel }}. Las barras muestran la planificación; el tiempo real proviene de Pomodoro y cronómetro.</p>
+          <sc-if value="{{ hasScheduledTasks }}"><div class="timeline-range"><span>{{ timelineStartLabel }}</span><span>{{ timelineEndLabel }}</span></div></sc-if>
+          <sc-for list="{{ timelineRows }}" as="t">
+            <button class="timeline-row" onClick="{{ t.onOpen }}"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><strong>{{ t.title }}</strong><span>{{ t.projectName }} · {{ t.status }}</span></div><div class="timeline-track"><div style="{{ t.barStyle }}"></div></div><div style="font-size:12px;display:flex;gap:16px;flex-wrap:wrap"><span>Inicio: {{ t.start }}</span><span>Fin: {{ t.end }}</span><span>Plan: {{ t.duration }}</span><span>Real: {{ t.actual }}</span></div></button>
+          </sc-for>
+          <sc-if value="{{ noScheduledTasks }}"><p>Todavía no hay tareas planificadas con inicio y fin.</p></sc-if>
+          <h4 style="margin-top:24px">Sin planificación · {{ unscheduledCount }}</h4>
+          <sc-for list="{{ unscheduledRows }}" as="t"><button class="btn btn-secondary" onClick="{{ t.onOpen }}" style="display:block;width:100%;margin-bottom:6px">{{ t.title }} · {{ t.projectName }} · Añadir inicio y fin</button></sc-for>
         </sc-if>
 
         <sc-if value="{{ isIdeas }}" hint-placeholder-val="{{ false }}">
@@ -576,12 +607,19 @@
           </div>
           <div class="field" style="margin-bottom:12px">
             <label>Proyecto</label>
-            <select class="input" value="{{ sel.project }}" onChange="{{ onSelProject }}">
+            <select class="input" disabled="{{ cannotMoveProject }}" value="{{ sel.project }}" onChange="{{ onSelProject }}">
               <option value="">Sin proyecto</option>
               <sc-for list="{{ projectOptions }}" as="o" hint-placeholder-count="3">
-                <option value="{{ o.id }}">{{ o.name }}</option>
+                <option value="{{ o.id }}" label="{{ o.name }}">{{ o.name }}</option>
               </sc-for>
             </select>
+          </div>
+          <div class="card" style="margin-bottom:14px">
+            <strong>Planificación</strong><div style="font-size:11px;margin:6px 0">{{ scheduleZoneLabel }} · independiente del tiempo Pomodoro.</div>
+            <div class="field"><label for="planned-start">Inicio</label><input id="planned-start" class="input" type="datetime-local" value="{{ scheduleStartDraft }}" onInput="{{ onScheduleStart }}"></div>
+            <div class="field" style="margin-top:8px"><label for="planned-end">Fin</label><input id="planned-end" class="input" type="datetime-local" value="{{ scheduleEndDraft }}" onInput="{{ onScheduleEnd }}"></div>
+            <div role="alert" style="font-size:12px;margin:8px 0">{{ scheduleError }}</div>
+            <button class="btn btn-secondary" onClick="{{ onSaveSchedule }}">Guardar planificación</button><button class="btn btn-ghost" onClick="{{ onClearSchedule }}">Quitar fechas</button>
           </div>
           <div style="margin-bottom:14px">
             <div style="font-size:12px;margin-bottom:6px;color:color-mix(in srgb, var(--color-text) 70%, transparent)">Cuadrante</div>
@@ -675,7 +713,8 @@
 class Component extends DCLogic {
   state = {
     tasks: [], projects: [], log: {}, view: 'today', selId: null,
-    newTitle: '', newProject: '', subDraft: '', projFilter: null,
+    newTitle: '', newProject: '', subDraft: '', projFilter: null, newTaskProject: '', timelineProject: '',
+    projectEditId: null, projectMemberDraft: [], projectBusy: false, scheduleEditId: null, scheduleStartDraft: '', scheduleEndDraft: '', scheduleError: '', syncError: '',
     pomo: { mode: 'focus', remaining: 1500, running: false, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null },
     timerSpeed: 1,
     pushReady: false,
@@ -719,6 +758,7 @@ class Component extends DCLogic {
       // Las tareas recién creadas todavía no traen `_owner_id`; pertenecen al
       // usuario actual y deben entrar en la primera sincronización.
       if(!ownerId)return true;
+      if(task._project_member)return true;
       if(ownerId===currentId)return true;
       const sharedIds=Array.isArray(task._shared_user_ids)?task._shared_user_ids.map(Number):[];
       return sharedIds.includes(currentId);
@@ -913,7 +953,8 @@ class Component extends DCLogic {
     if(!this.state.tasks.some(t=>t.id===id))return;
     // Abrir una tarea solo muestra sus detalles. El tiempo empieza únicamente
     // cuando se pulsa "Enfocar" o "Cronometrar".
-    this.setState({selId:id,delegatingId:null});
+    const t = this.state.tasks.find(t => t.id === id);
+    this.setState({ selId: id, delegatingId: null, scheduleEditId: id, scheduleStartDraft: KaizenPlanning.localInput(t.scheduledStart), scheduleEndDraft: KaizenPlanning.localInput(t.scheduledEnd), scheduleError: '' });
   }
   openDelegate(id) {
     const task=this.state.tasks.find(t=>t.id===id);
@@ -1005,7 +1046,13 @@ class Component extends DCLogic {
       const s = this.state;
       try { localStorage.setItem(this.KEY, JSON.stringify({ tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist })); if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId)); } catch (e) {}
       if (s.auth && s.workspaceId && this.remoteReady) {
-        try { fetch('./api/index.php?action=tasks_sync', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ workspace_id: s.workspaceId, tasks: this.visibleRemoteTasks(s.tasks), projects: s.projects }) }); } catch (e) {}
+        const saved=this.remoteSaved?.[s.workspaceId];
+        const dirty=this.visibleRemoteTasks(s.tasks).filter(t=>saved?.get(t.id)!==this.taskFingerprint(t));
+        if(dirty.length)try {
+          const headers={'Content-Type':'application/json'},token=localStorage.getItem(this.KEY+':device');
+          if(token)headers['X-Remember-Token']=token;
+          fetch('./api/index.php?action=tasks_sync',{method:'POST',keepalive:true,headers,credentials:'same-origin',body:JSON.stringify({workspace_id:s.workspaceId,tasks:dirty})});
+        } catch (e) {}
       }
     };
     window.addEventListener('pagehide', this.onPageHide);
@@ -1023,7 +1070,7 @@ class Component extends DCLogic {
       if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId));
     } catch (e) {}
     if (s.auth && s.workspaceId && this.remoteReady) {
-      const key = s.workspaceId + ':' + JSON.stringify(s.tasks) + ':' + JSON.stringify(s.projects);
+      const key = this.remoteStateKey(s.workspaceId,s.tasks);
       if (key !== this.remoteSyncKey) {
         this.remoteSyncKey = key;
         clearTimeout(this.remoteSyncTimer);
@@ -1048,6 +1095,7 @@ class Component extends DCLogic {
     return (workspaces || []).find(w => Number(w.id) === remembered)?.id || (workspaces || [])[0]?.id || null;
   }
   async bootstrapAuth() {
+    this.remoteSaved = {};
     try {
       const r = await this.api('me');
       if (r.ok && r.user) {
@@ -1070,24 +1118,106 @@ class Component extends DCLogic {
           this.remoteReady = true;
           this.setState({ tasks, projects, workspaceId });
           await this.syncRemoteTasks(workspaceId, tasks, projects);
-          this.remoteSyncKey = workspaceId + ':' + JSON.stringify(tasks) + ':' + JSON.stringify(projects);
+          this.remoteSyncKey = this.remoteStateKey(workspaceId,tasks);
           return;
         }
-        if (!projects.length && tasks.some(t => t.project)) {
+        if (!this.state.auth && !projects.length && tasks.some(t => t.project)) {
           const known = fallback?.projects?.length ? fallback.projects : this.seed().projects;
           projects = known.filter(p => tasks.some(t => t.project === p.id));
         }
         this.remoteReady = true;
-        this.remoteSyncKey = workspaceId + ':' + JSON.stringify(tasks) + ':' + JSON.stringify(projects);
+        this.remoteSyncKey = this.remoteStateKey(workspaceId,tasks);
+        this.remoteSaved ||= {}; this.remoteSaved[workspaceId] = new Map(tasks.map(t=>[t.id,this.taskFingerprint(t)]));
         this.setState({ tasks, projects, workspaceId });
       }
-    } catch (e) { this.setState({ authError: 'No se pudieron cargar las tareas del espacio.' }); }
+    else this.setState({ syncError: r.error || 'No se pudieron cargar las tareas.' });
+    } catch (e) { this.setState({ syncError: 'No se pudieron cargar las tareas del espacio.' }); }
   }
+  taskFingerprint(task) {
+    return JSON.stringify(Object.fromEntries(Object.entries(task).filter(([key])=>!key.startsWith('_'))));
+  }
+  remoteStateKey(workspaceId, tasks) { return workspaceId + ':' + tasks.map(t=>this.taskFingerprint(t)).join('|'); }
   async syncRemoteTasks(workspaceId, tasks, projects) {
-    try { return await this.api('tasks_sync', { workspace_id: workspaceId, tasks: this.visibleRemoteTasks(tasks), projects }); }
-    catch (e) { return { ok: false, error: 'No se pudo conectar con el servidor.' }; }
+    const snapshot = this.visibleRemoteTasks(tasks).map(t=>({...t}));
+    const run = async () => {
+      this.remoteSaved ||= {};
+      const saved = this.remoteSaved[workspaceId] || new Map();
+      const dirty = snapshot.filter(t=>saved.get(t.id)!==this.taskFingerprint(t));
+      if (!dirty.length) return {ok:true};
+      const payload = { workspace_id: workspaceId, tasks: dirty.map(t=>{
+        const current = Number(this.state.workspaceId)===Number(workspaceId) ? this.state.tasks.find(x=>x.id===t.id) : null;
+        return {...t,_revision:current?._revision || t._revision};
+      }) };
+      let result;
+      try { result = await this.api('tasks_sync', payload); }
+      catch (e) { result = { ok: false, error: 'No se pudo conectar con el servidor.' }; }
+      if (result.ok) {
+        dirty.forEach(t=>saved.set(t.id,this.taskFingerprint(t))); this.remoteSaved[workspaceId]=saved;
+        if (result.revisions && Number(this.state.workspaceId)===Number(workspaceId)) this.setState(s=>({tasks:s.tasks.map(t=>result.revisions[t.id]?{...t,_revision:result.revisions[t.id]}:t)}));
+      }
+      if (Number(this.state.workspaceId) === Number(workspaceId)) this.setState({ syncError: result.ok ? '' : (result.error || 'No se guardaron los cambios. Vuelve a intentar.') });
+      return result;
+    };
+    this.syncQueue = (this.syncQueue || Promise.resolve()).then(run, run);
+    return this.syncQueue;
+  }
+  async discardAndReload() {
+    clearTimeout(this.remoteSyncTimer); this.remoteReady = false;
+    if (this.syncQueue) await this.syncQueue;
+    this.setState({ syncError: '', selId: null, projectEditId: null });
+    await this.loadRemoteTasks(this.state.workspaceId);
+  }
+  async refreshTasks() {
+    const s = this.state;
+    if (!s.auth || !s.workspaceId) return;
+    clearTimeout(this.remoteSyncTimer);
+    const result = await this.syncRemoteTasks(s.workspaceId, s.tasks, s.projects);
+    if (!result.ok) return;
+    await this.loadRemoteTasks(s.workspaceId);
+    await this.loadWorkspaceMembers(s.workspaceId);
+  }
+  async moveTaskProject(id, project) {
+    const task = this.state.tasks.find(t => t.id === id);
+    if (!task || task.project === project) return;
+    if (task._can_move === false) { this.setState({ toast: 'Solo el creador de la tarea o un administrador puede moverla.' }); return; }
+    if (project && !this.state.projects.some(p => p.id === project && p._can_assign !== false)) { this.setState({ toast: 'No tienes acceso al proyecto de destino.' }); return; }
+    const previous = task.project || '';
+    this.patch(id, { project });
+    if (!this.state.auth || !this.state.workspaceId) return;
+    clearTimeout(this.remoteSyncTimer);
+    const tasks = this.state.tasks.map(t => t.id === id ? { ...t, project } : t);
+    const r = await this.syncRemoteTasks(this.state.workspaceId, tasks, this.state.projects);
+    if (!r.ok) { this.patch(id, { project: previous }); this.setState({ toast: r.error || 'No se pudo mover la tarea.' }); }
+    else this.setState({ toast: project ? 'Tarea enviada al proyecto. Sus miembros pueden verla.' : 'Tarea retirada del proyecto. Conserva sus delegaciones individuales.' });
+  }
+  beginProjectMembers() {
+    const project = this.state.projects.find(p => p.id === this.state.projFilter);
+    if (!project || !project._can_manage) return;
+    this.setState({ projectEditId: project.id, projectMemberDraft: project.member_ids || [Number(this.state.auth?.id)], toast: '' });
+  }
+  async saveProjectMembers() {
+    const s = this.state, p = s.projects.find(p => p.id === s.projectEditId);
+    if (!p || s.projectBusy) return;
+    this.setState({ projectBusy: true });
+    try {
+      clearTimeout(this.remoteSyncTimer);
+      const sync = await this.syncRemoteTasks(s.workspaceId, s.tasks, s.projects);
+      if (!sync.ok) return;
+      const r = await this.api('project_save', { workspace_id: s.workspaceId, project_id: p.id, name: p.name, member_ids: s.projectMemberDraft });
+      if (!r.ok) { this.setState({ toast: r.error || 'No se pudieron guardar los miembros.' }); return; }
+      this.setState({ projectEditId: null, toast: 'Miembros guardados. Todas las tareas del proyecto se comparten con ellos.' });
+      await this.loadRemoteTasks(s.workspaceId);
+    } catch (e) { this.setState({ toast: 'No se pudo conectar. Los miembros no se guardaron.' }); }
+    finally { this.setState({ projectBusy: false }); }
+  }
+
+  saveTaskSchedule() {
+    const s = this.state; if (!s.selId) return;
+    try { this.patch(s.selId, KaizenPlanning.schedule(s.scheduleStartDraft, s.scheduleEndDraft)); this.setState({ scheduleError: '', toast: 'Planificación guardada en este dispositivo; se sincronizará con el equipo.' }); }
+    catch (e) { this.setState({ scheduleError: e.message }); }
   }
   async submitAuth() {
+    this.remoteSaved = {};
     const s = this.state;
     try {
       const r = await this.api(s.authMode === 'login' ? 'login' : 'register', { name: s.authName, email: s.authEmail, password: s.authPassword, invite_token: s.inviteToken });
@@ -1101,7 +1231,7 @@ class Component extends DCLogic {
       if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
-  async logout() { await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], workspaceMembers: [], improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
+  async logout() { this.remoteSaved = {};  await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], workspaceMembers: [], improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
   async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
   async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return; const r=await this.api('workspace_members',{workspace_id:workspaceId}); if(r.ok)this.setState({workspaceMembers:r.members||[]}); }
   async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], workspaceMembers: m.members || [], adminOpen: true }); } }
@@ -1292,7 +1422,8 @@ class Component extends DCLogic {
     if (!title) return;
     const v = this.state.view;
     const list = v === 'today' ? 'today' : v === 'future' ? 'future' : 'inbox';
-    const project = (v === 'projects' || v === 'project') ? (this.state.projFilter || '') : '';
+    const project = v === 'project' ? (this.state.projFilter || '') : this.state.newTaskProject;
+    if (project && !this.state.projects.some(p => p.id === project && p._can_assign !== false)) { this.setState({ toast: 'Selecciona un proyecto al que tengas acceso.' }); return; }
     const due = v === 'today' ? this.dkey(Date.now()) : '';
     const nt = {
       id: this.uid(), title, list, project, due, quadrant: 'q2', tags: [], estPomos: 1,
@@ -1313,17 +1444,18 @@ class Component extends DCLogic {
     if (t.estPomos) bits.push(t.pomos + '/' + t.estPomos + ' pomos');
     t.tags.forEach(g => bits.push('#' + g));
     const playing = activeTimer;
-    const ownerId=Number(t._owner_id||0), currentId=Number(this.state.auth?.id||0);
+    const ownerId=Number(t._owner_id||this.state.auth?.id||0), currentId=Number(this.state.auth?.id||0);
     const receivedShare=ownerId>0&&currentId>0&&ownerId!==currentId;
     const sharedCount=Array.isArray(t.sharedWith)?t.sharedWith.length:0;
     const sharedNames=(t.sharedWith||[]).map(id=>{const member=this.state.workspaceMembers.find(m=>Number(m.id)===Number(id));return member?.name||member?.email||'';}).filter(Boolean);
-    const shareLabel=receivedShare ? 'Delegada por '+this.memberName(ownerId) : (sharedCount ? 'Delegada a '+(sharedNames.length?sharedNames.join(', '):sharedCount+' '+(sharedCount===1?'persona':'personas')) : '');
+    const shareLabel=receivedShare ? (t._project_member && !(t.sharedWith||[]).map(Number).includes(currentId) ? 'Creada por ' : 'Delegada por ')+this.memberName(ownerId) : (sharedCount ? 'Delegada a '+(sharedNames.length?sharedNames.join(', '):sharedCount+' '+(sharedCount===1?'persona':'personas')) : '');
     const delegatedAt=t._delegated_at||t.delegatedAt||'';
     const delegatedMeta=this.state.view==='delegated' ? 'Delegada el '+this.fmtDelegatedAt(delegatedAt) : '';
     const taskTime=this.state.view==='delegated' ? 'Dedicación: '+this.fmtDur(t.seconds) : this.fmtDur(t.seconds);
     if (delegatedMeta) bits.push(delegatedMeta);
     const currentIsAdmin=this.state.auth?.role==='super_admin'||this.state.auth?.role==='admin'||this.state.workspaceMembers.some(m=>Number(m.id)===currentId&&m.workspace_role==='admin');
-    const delegateCandidates=this.state.workspaceMembers.filter(m=>Number(m.id)!==ownerId);
+    const selectedProject=this.state.projects.find(p=>p.id===t.project);
+    const delegateCandidates=this.state.workspaceMembers.filter(m=>Number(m.id)!==ownerId && (!selectedProject?.member_ids || selectedProject.member_ids.map(Number).includes(Number(m.id))));
     const canDelegate=!!this.state.auth&&t.list!=='trash'&&(!ownerId||ownerId===currentId||currentIsAdmin)&&delegateCandidates.length>0;
     const delegateOptions=delegateCandidates.map(m=>{const selected=(t.sharedWith||[]).map(Number).includes(Number(m.id));return {name:m.name||m.email,email:m.email,mark:selected?'✓':'',onToggle:e=>{e?.stopPropagation?.();this.toggleTaskShare(t.id,m.id);},style:{display:'flex',alignItems:'center',gap:7,width:'100%',padding:'7px 8px',marginTop:4,textAlign:'left',cursor:'pointer',border:'1px solid '+(selected?'var(--color-accent)':'var(--color-divider)'),background:selected?'color-mix(in srgb, var(--color-accent) 12%, transparent)':'transparent',color:'var(--color-text)'}};});
     const shareStyle={fontSize:10,letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:'var(--font-heading)',fontWeight:800,color:'var(--color-accent)',marginBottom:4};
@@ -1422,6 +1554,7 @@ class Component extends DCLogic {
       done: personalTasks.filter(t => t.list === 'done').length,
       trash: personalTasks.filter(t => t.list === 'trash').length,
       projects: s.projects.length,
+      timeline: s.tasks.filter(t=>t.list!=='trash' && t.scheduledStart && t.scheduledEnd).length,
       stats: Object.keys(s.log).length,
       ideas: s.suggestions.length,
       admin: s.adminSummary.length
@@ -1430,7 +1563,7 @@ class Component extends DCLogic {
       { id: 'today', label: 'Hoy' }, { id: 'inbox', label: 'Bandeja de entrada' },
       { id: 'future', label: 'Futuro' }, { id: 'delegated', label: 'Delegadas' }, { id: 'matrix', label: 'Matriz' },
       { id: 'done', label: 'Hechas' }, { id: 'trash', label: 'Borrado' },
-      { id: 'projects', label: 'Proyectos' }, { id: 'stats', label: 'Estadísticas' }, { id: 'ideas', label: 'Mejoras' }
+      { id: 'projects', label: 'Proyectos' }, { id: 'timeline', label: 'Cronograma' }, { id: 'stats', label: 'Estadísticas' }, { id: 'ideas', label: 'Mejoras' }
     ];
     const hasWorkspaceAdmin = s.auth && (s.auth.role === 'super_admin' || s.auth.role === 'admin' || s.workspaces.some(w => w.member_role === 'admin'));
     if (hasWorkspaceAdmin) navDefs.push({ id: 'admin', label: 'Supervisión' });
@@ -1456,7 +1589,7 @@ class Component extends DCLogic {
     if (isList) {
       listTasks = (s.view === 'delegated' ? delegatedTasks : s.tasks.filter(t => t.list === s.view && !this.isDelegatedTask(t))).sort((a, b) => activeTimerFirst(a, b) || (s.view === 'done' || s.view === 'trash' ? (Number(b.doneAt || b.deletedAt || 0) - Number(a.doneAt || a.deletedAt || 0)) : ((a.done - b.done) || a.quadrant.localeCompare(b.quadrant))));
     } else if ((s.view === 'projects' || s.view === 'project') && s.projFilter) {
-      listTasks = s.tasks.filter(t => t.project === s.projFilter && !this.isDelegatedTask(t) && t.list !== 'done' && t.list !== 'trash').sort((a, b) => activeTimerFirst(a, b) || (a.done - b.done));
+      listTasks = s.tasks.filter(t => t.project === s.projFilter && t.list !== 'trash').sort((a, b) => activeTimerFirst(a, b) || (a.done - b.done));
     }
     const rows = listTasks.map(t => this.taskRow(t));
 
@@ -1469,7 +1602,8 @@ class Component extends DCLogic {
       trash: ['Borrado', 'Tareas retiradas; puedes restaurarlas'],
       matrix: ['Matriz de Eisenhower', 'Urgencia contra importancia'],
       projects: ['Proyectos', 'Tareas agrupadas por proyecto'],
-      project: [this.projName(s.projFilter) || 'Proyecto', 'Tareas del proyecto'],
+      project: [this.projName(s.projFilter) || 'Proyecto', 'Tareas del proyecto y del equipo'],
+      timeline: ['Cronograma', 'Planificación de inicio y fin'],
       stats: ['Estadísticas semanales', 'Últimos 7 días'],
       ideas: ['Mejoras', 'Ideas y sugerencias del espacio'],
       admin: ['Supervisión', 'Espacios de trabajo y tareas del equipo']
@@ -1493,11 +1627,11 @@ class Component extends DCLogic {
     personalTasks.filter(t => t.list !== 'done' && t.list !== 'trash').forEach(t => { const k = t.project || 'none'; projSecs[k] = (projSecs[k] || 0) + t.seconds; });
     const maxProj = Math.max(1, ...Object.values(projSecs));
     const projectCards = s.projects.map(p => {
-      const all = personalTasks.filter(t => t.project === p.id && t.list !== 'done' && t.list !== 'trash');
+      const all = s.tasks.filter(t => t.project === p.id && t.list !== 'trash');
       const done = all.filter(t => t.done).length;
       const on = s.projFilter === p.id;
       return {
-        name: p.name, stats: done + '/' + all.length + ' hechas · ' + this.fmtDur(projSecs[p.id] || 0),
+        name: p.name, stats: done + '/' + all.length + ' hechas · ' + (p._legacy ? 'Acceso por tarea' : (p.member_ids?.length || 1) + ' miembros'),
         onClick: () => this.setState({ view: 'project', projFilter: p.id, selId: null, delegatingId: null, mobileNavOpen: false }),
         style: {
           background: on ? 'var(--color-surface)' : 'var(--color-bg)', padding: '16px 18px', cursor: 'pointer',
@@ -1573,14 +1707,16 @@ class Component extends DCLogic {
       detail.onSelDue = e => this.patch(sel.id, { due: e.target.value });
       detail.onSelEst = e => this.patch(sel.id, { estPomos: Number(e.target.value) || 0 });
       detail.onSelNotes = e => this.patch(sel.id, { notes: e.target.value });
-      detail.onSelProject = e => this.patch(sel.id, { project: e.target.value });
+      detail.onSelProject = e => this.moveTaskProject(sel.id, e.target.value);
+      detail.canMoveProject = sel._can_move !== false;
       detail.onSelTags = e => this.patch(sel.id, { tags: e.target.value.split(',').map(x => x.trim()).filter(Boolean) });
       detail.selDeleteLabel = sel.list === 'trash' ? 'Restaurar tarea' : 'Mover a Borrado';
       detail.onSelDelete = () => sel.list === 'trash' ? this.restoreTask(sel.id) : this.moveToTrash(sel.id);
       detail.onSelPlay = () => this.toggleTaskFocus(sel.id);
       const ownerId=Number(sel._owner_id||s.auth?.id||0), currentId=Number(s.auth?.id||0), currentIsAdmin=s.auth?.role==='super_admin'||s.auth?.role==='admin'||s.workspaceMembers.find(m=>Number(m.id)===currentId)?.workspace_role==='admin';
       const canShare=!ownerId||ownerId===currentId||currentIsAdmin;
-      const shareCandidates=s.workspaceMembers.filter(m=>Number(m.id)!==ownerId);
+      const selectedProject=s.projects.find(p=>p.id===sel.project);
+      const shareCandidates=s.workspaceMembers.filter(m=>Number(m.id)!==ownerId && (!selectedProject?.member_ids || selectedProject.member_ids.map(Number).includes(Number(m.id))));
       detail.showShareSection=canShare&&shareCandidates.length>0&&s.delegatingId===sel.id;
       detail.shareHelp=currentIsAdmin&&ownerId&&ownerId!==currentId?'Selecciona las personas que tendrán acceso.':'Selecciona las personas del equipo que recibirán esta tarea.';
       detail.shareOptions=shareCandidates.map(m=>{const selected=(sel.sharedWith||[]).map(Number).includes(Number(m.id));return {name:m.name||m.email,email:m.email,mark:selected?'✓':'',onToggle:()=>this.toggleTaskShare(sel.id,m.id),style:{display:'flex',alignItems:'center',gap:7,width:'100%',padding:'7px 8px',marginTop:4,textAlign:'left',cursor:canShare?'pointer':'default',border:'1px solid '+(selected?'var(--color-accent)':'var(--color-divider)'),background:selected?'color-mix(in srgb, var(--color-accent) 12%, transparent)':'transparent',color:'var(--color-text)',opacity:canShare?1:.65}};});
@@ -1624,7 +1760,28 @@ class Component extends DCLogic {
       };
     }
 
+    const selectedProject = s.projects.find(p => p.id === s.projFilter);
+    const projectOwner = Number(selectedProject?.owner_id || s.auth?.id);
+    const memberDraft = s.projectEditId === selectedProject?.id ? s.projectMemberDraft : (selectedProject?.member_ids || []);
+    const planning = KaizenPlanning.timeline(s.tasks, s.timelineProject);
+    const fmtPlan = iso => new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+    const timelineRows = planning.scheduled.map(t => ({ title: t.title, projectName: this.projName(t.project) || 'Sin proyecto', status: t.done ? 'Hecha' : 'Pendiente', start: fmtPlan(t.scheduledStart), end: fmtPlan(t.scheduledEnd), duration: this.fmtDur((Date.parse(t.scheduledEnd)-Date.parse(t.scheduledStart))/1000), actual: this.fmtDur(t.seconds || 0), onOpen: () => this.openTask(t.id), barStyle: { position:'absolute',height:'100%',background:'var(--color-accent)',left:((Date.parse(t.scheduledStart)-planning.min)/(planning.max-planning.min)*100)+'%',width:((Date.parse(t.scheduledEnd)-Date.parse(t.scheduledStart))/(planning.max-planning.min)*100)+'%',minWidth:'2px' } }));
     return Object.assign({
+      syncError: s.syncError, onDiscardAndReload: () => this.discardAndReload(), onRetrySync: () => this.syncRemoteTasks(s.workspaceId,s.tasks,s.projects), onRefreshTasks: () => this.refreshTasks(),
+      projectBusy: s.projectBusy, canManageProject: !!selectedProject?._can_manage, isEditingProjectMembers: !!selectedProject && s.projectEditId === selectedProject.id,
+      projectSharingLabel: selectedProject?._legacy ? 'Acceso individual por tarea' : 'Proyecto compartido con sus miembros',
+      projectMemberNames: selectedProject?.member_ids?.map(id=>this.memberName(id)).join(', ') || 'Elige miembros para compartir todas las tareas.',
+      projectMemberOptions: s.workspaceMembers.map(m=>({ name:m.name||m.email, selected:memberDraft.map(Number).includes(Number(m.id)), locked:Number(m.id)===projectOwner, ownerLabel:Number(m.id)===projectOwner?'(creador)':'', onToggle:()=>{ const id=Number(m.id); if(id===projectOwner)return; this.setState({projectMemberDraft:memberDraft.map(Number).includes(id)?memberDraft.filter(x=>Number(x)!==id):[...memberDraft,id]}); } })),
+      onEditProjectMembers: () => this.beginProjectMembers(), onSaveProjectMembers: () => this.saveProjectMembers(), onCancelProjectMembers: () => this.setState({projectEditId:null}),
+      showNewProjectPicker: s.view !== 'project', newTaskProject: s.newTaskProject, onNewTaskProject: e => this.setState({newTaskProject:e.target.value}),
+      isTimeline: s.view === 'timeline', timelineProject: s.timelineProject, onTimelineProject: e => this.setState({timelineProject:e.target.value}), timelineRows,
+      hasScheduledTasks: timelineRows.length>0, noScheduledTasks: timelineRows.length===0, timelineStartLabel: planning.min?fmtPlan(planning.min):'', timelineEndLabel: planning.max?fmtPlan(planning.max):'',
+      unscheduledCount: planning.unscheduled.length, unscheduledRows: planning.unscheduled.map(t=>({ title:t.title,projectName:this.projName(t.project)||'Sin proyecto',onOpen:()=>this.openTask(t.id) })),
+      scheduleZoneLabel: 'Zona horaria: '+KaizenPlanning.zone(), scheduleStartDraft:s.scheduleStartDraft, scheduleEndDraft:s.scheduleEndDraft, scheduleError:s.scheduleError,
+      onScheduleStart:e=>this.setState({scheduleStartDraft:e.target.value,scheduleError:''}), onScheduleEnd:e=>this.setState({scheduleEndDraft:e.target.value,scheduleError:''}),
+      onSaveSchedule:()=>this.saveTaskSchedule(), onClearSchedule:()=>{ if(s.selId)this.patch(s.selId,{scheduledStart:'',scheduledEnd:''}); this.setState({scheduleStartDraft:'',scheduleEndDraft:'',scheduleError:''}); },
+      cannotMoveProject: sel?._can_move===false,
+
       showAuth: !s.auth, hasAuth: !!s.auth, inviteWorkspace: s.inviteWorkspace,
       authMode: s.authMode, authName: s.authName, authEmail: s.authEmail, authPassword: s.authPassword, authError: s.authError,
       authTitle: s.authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta',
@@ -1667,9 +1824,9 @@ class Component extends DCLogic {
       viewTitle: tt[0], viewSub: tt[1],
       isList, isMatrix: s.view === 'matrix', isProjects: s.view === 'projects', isProjectDetail: s.view === 'project', isIdeas: s.view === 'ideas', isStats: s.view === 'stats', isAdminView: s.view === 'admin',
       projectDetailName: this.projName(s.projFilter) || 'Proyecto',
-      projectDetailStats: (() => { const a=personalTasks.filter(t=>t.project===s.projFilter && t.list !== 'done' && t.list !== 'trash'), d=a.filter(t=>t.done).length; return d + '/' + a.length + ' hechas · ' + this.fmtDur(a.reduce((sum,t)=>sum+t.seconds,0)); })(),
+      projectDetailStats: (() => { const a=s.tasks.filter(t=>t.project===s.projFilter && t.list !== 'trash'), d=a.filter(t=>t.done).length; return d + '/' + a.length + ' hechas · ' + this.fmtDur(a.reduce((sum,t)=>sum+t.seconds,0)); })(),
       onBackProjects: () => this.setState({ view: 'projects', projFilter: null, selId: null, delegatingId: null }),
-      showQuickAdd: (isList && s.view !== 'delegated') || s.view === 'project',
+      showQuickAdd: (isList && s.view !== 'delegated') || (s.view === 'project' && s.projects.find(p=>p.id===s.projFilter)?._can_assign !== false),
       listTasks: rows, listEmpty: rows.length === 0 && (isList || s.view === 'projects'),
       newTitle: s.newTitle, subDraft: s.subDraft,
       onNewInput: e => this.setState({ newTitle: e.target.value }),
@@ -1680,7 +1837,8 @@ class Component extends DCLogic {
       onChecklistInput: e => this.setState({ checklistDraft: e.target.value }), onChecklistKey: e => { if(e.key==='Enter')this.addChecklistItem(); }, onAddChecklist: () => this.addChecklistItem(),
       onAdd: () => this.addTask(),
       quadCells, projectCards,
-      projectOptions: s.projects.map(p => ({ id: p.id, name: p.name })),
+      projectOptions: s.projects.filter(p=>p._can_assign !== false).map(p => ({ id: p.id, name: p.name })),
+      allProjectOptions: s.projects.map(p => ({ id: p.id, name: p.name })),
       newProject: s.newProject,
       onProjInput: e => this.setState({ newProject: e.target.value }),
       onProjKey: e => { if (e.key === 'Enter') this.addProject(); },
@@ -1727,11 +1885,19 @@ class Component extends DCLogic {
     }, detail);
   }
 
-  addProject() {
-    const name = this.state.newProject.trim();
-    if (!name) return;
-    this.setState(s => ({ projects: [...s.projects, { id: this.uid(), name }], newProject: '' }));
+  async addProject() {
+    const s = this.state, name = s.newProject.trim();
+    if (!name || s.projectBusy) return;
+    if (!s.auth) { this.setState({ projects: [...s.projects, { id: this.uid(), name, _can_manage: false }], newProject: '' }); return; }
+    this.setState({ projectBusy: true });
+    try {
+      const r = await this.api('project_save', { workspace_id: s.workspaceId, name, member_ids: [] });
+      if (!r.ok) { this.setState({ toast: r.error || 'No se pudo crear el proyecto.' }); return; }
+      this.setState({ projects: [...this.state.projects, r.project], newProject: '', view: 'project', projFilter: r.project.id, selId: null, projectEditId: r.project.id, projectMemberDraft: r.project.member_ids, toast: 'Proyecto creado. Selecciona miembros para compartirlo.' });
+    } catch (e) { this.setState({ toast: 'No se pudo conectar. El proyecto no se creó.' }); }
+    finally { this.setState({ projectBusy: false }); }
   }
+
 }
 </script>
 </body>

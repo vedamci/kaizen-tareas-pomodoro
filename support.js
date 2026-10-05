@@ -568,6 +568,9 @@
   }
   function walkText(node) {
     const txt = node.nodeValue ?? "";
+    // Native options require text children. A span can hide the project name
+    // from Chromium's menu and accessibility tree.
+    const optionText = node.parentElement?.tagName === "OPTION";
     if (!txt.includes("{{")) {
       if (!txt.trim() && !txt.includes(" ")) return null;
       return () => txt;
@@ -604,7 +607,7 @@
           return h(getReact().Fragment, { key: i }, v);
         }
         if (v === null || typeof v === "boolean") return null;
-        return h("span", { key: i, className: "sc-interp" }, String(v));
+        return optionText ? String(v) : h("span", { key: i, className: "sc-interp" }, String(v));
       })
     );
   }
