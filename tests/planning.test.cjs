@@ -57,3 +57,27 @@ test('unchanged tasks are not resent; later queued edits use the acknowledged re
 test('schedule changes do not alter real Pomodoro time or completion',()=>{
   const c=component();c.state.tasks=[{id:'t',seconds:1800,pomos:2,done:false}];c.openTask('t');c.state.scheduleStartDraft='2026-10-05T09:00';c.state.scheduleEndDraft='2026-10-05T10:00';c.saveTaskSchedule();const t=c.state.tasks[0];assert.equal(t.seconds,1800);assert.equal(t.pomos,2);assert.equal(t.done,false);assert.ok(t.scheduledStart);const saved=JSON.parse(JSON.stringify(t));assert.equal(saved.scheduledStart,t.scheduledStart);c.state.scheduleEndDraft='2026-10-05T08:00';c.saveTaskSchedule();assert.match(c.state.scheduleError,/posterior/);assert.equal(c.state.tasks[0].scheduledEnd,t.scheduledEnd);
 });
+function delegationFixture() {
+  const c=component(); c.state.auth={id:1,role:'user'};c.state.workspaceId=1;
+  c.state.workspaceMembers=[{id:1,name:'Owner'},{id:2,name:'Recipient'},{id:3,name:'Other'}];
+  c.state.tasks=[{id:'t',title:'Task',_owner_id:1,sharedWith:[2],seconds:99,subtasks:[],tags:[],list:'inbox'}];
+  c.syncRemoteTasks=async()=>({ok:true});return c;
+}
+test('delegation drafts do not change saved recipients; cancel discards them',()=>{
+  const c=delegationFixture();c.openDelegate('t');c.toggleDelegationDraft(2);c.toggleDelegationDraft(3);assert.deepEqual([...c.state.delegationDraft],[3]);assert.deepEqual(c.state.tasks[0].sharedWith,[2]);c.closeDelegation();c.openDelegate('t');assert.deepEqual([...c.state.delegationDraft],[2]);assert.equal(c.state.pomo.running,false);assert.equal(c.state.activeId,null);
+});
+test('delegation saves exactly once while pending and applies the server result',async()=>{
+  const c=delegationFixture();c.openDelegate('t');c.toggleDelegationDraft(3);const calls=[];let finish;
+  c.api=async(action,payload)=>{calls.push({action,payload});return new Promise(r=>{finish=r;});};
+  const saving=c.saveDelegation();await Promise.resolve();await c.saveDelegation();c.toggleDelegationDraft(2);c.closeDelegation();assert.equal(c.state.delegationBusy,true);assert.equal(c.state.delegatingId,'t');assert.equal(calls.length,1);assert.deepEqual([...calls[0].payload.user_ids],[2,3]);assert.deepEqual(c.state.tasks[0].sharedWith,[2]);
+  finish({ok:true,shared_user_ids:[2,3],delegated_at:'2026-10-05 12:00:00'});await saving;assert.equal(c.state.delegationBusy,false);assert.equal(c.state.delegatingId,null);assert.deepEqual(c.state.tasks[0]._shared_user_ids,[2,3]);assert.equal(c.state.tasks[0].seconds,99);
+});
+test('delegation server and network errors preserve recipients and allow retry',async()=>{
+  const c=delegationFixture();c.openDelegate('t');c.toggleDelegationDraft(3);c.api=async()=>({ok:false,error:'Membership changed'});await c.saveDelegation();assert.equal(c.state.delegationError,'Membership changed');assert.equal(c.state.delegatingId,'t');assert.deepEqual(c.state.tasks[0].sharedWith,[2]);c.api=async()=>{throw new Error('Connection interrupted');};await c.saveDelegation();assert.equal(c.state.delegationError,'Connection interrupted');assert.equal(c.state.delegationBusy,false);c.api=async()=>({ok:true,shared_user_ids:[2,3]});await c.saveDelegation();assert.equal(c.state.delegatingId,null);assert.deepEqual(c.state.tasks[0].sharedWith,[2,3]);
+});
+test('new task must sync before delegation; failed sync never sends task_share',async()=>{
+  const c=delegationFixture();c.openDelegate('t');const actions=[];c.syncRemoteTasks=async()=>{actions.push('sync');return {ok:false,error:'Task not saved'};};c.api=async()=>{actions.push('share');return {ok:true};};await c.saveDelegation();assert.deepEqual(actions,['sync']);assert.equal(c.state.delegationError,'Task not saved');assert.deepEqual(c.state.tasks[0].sharedWith,[2]);c.syncRemoteTasks=async()=>{actions.push('sync');return {ok:true};};await c.saveDelegation();assert.deepEqual(actions,['sync','sync','share']);
+});
+test('delegation candidates obey owner and project membership; empty save revokes direct shares',async()=>{
+  const c=delegationFixture();c.state.tasks[0].project='p';c.state.projects=[{id:'p',member_ids:[1,2]}];c.openDelegate('t');c.toggleDelegationDraft(3);assert.deepEqual([...c.state.delegationDraft],[2]);assert.equal(c.renderVals().delegationOptions.length,1);c.toggleDelegationDraft(2);let sent;c.api=async(_,payload)=>{sent=payload.user_ids;return {ok:true,shared_user_ids:[]};};await c.saveDelegation();assert.deepEqual([...sent],[]);assert.deepEqual(c.state.tasks[0].sharedWith,[]);c.state.auth.id=2;c.openDelegate('t');assert.equal(c.state.delegatingId,null);
+});

@@ -33,7 +33,12 @@
       const p=data.projects.find(p=>p.id===payload.project_id);
       if(p&&p.owner_id!==id&&id!==1)result={ok:false,error:'Solo el creador puede cambiar los miembros.'};
       else{const project={id:p?.id||'demo-'+Date.now(),name:payload.name,owner_id:p?.owner_id||id,member_ids:[...new Set([p?.owner_id||id,...payload.member_ids])]};if(p)Object.assign(p,project);else data.projects.push(project);result={ok:true,project:{...project,_can_manage:true,_can_assign:projectMember(project)}};}
-    }else if(action==='task_share'){const t=data.tasks.find(t=>t.id===payload.task_id);if(t&&access(t)){t.sharedWith=payload.user_ids;result={ok:true,shared_user_ids:t.sharedWith};}else result={ok:false,error:'Sin acceso.'};}
+    }else if(action==='task_share'){
+      await new Promise(resolve=>setTimeout(resolve,1500));
+      const scenario=document.querySelector('[aria-label="Respuesta de delegación"]')?.value;
+      if(scenario==='network')throw new Error('Conexión interrumpida (prueba local).');
+      if(scenario==='reject')return new Response(JSON.stringify({ok:false,error:'Los miembros del proyecto cambiaron (prueba local).'}),{status:422,headers:{'Content-Type':'application/json'}});
+const t=data.tasks.find(t=>t.id===payload.task_id);if(t&&access(t)){t.sharedWith=payload.user_ids;t._delegated_at=t.sharedWith.length?new Date().toISOString():null;result={ok:true,shared_user_ids:t.sharedWith,delegated_at:t._delegated_at};}else result={ok:false,error:'Sin acceso.'};}
     localStorage.setItem(KEY,JSON.stringify(data));
     return new Response(JSON.stringify(result),{status:result.ok?200:403,headers:{'Content-Type':'application/json'}});
   };
@@ -41,6 +46,8 @@
     const banner=document.createElement('div');banner.style='position:fixed;left:0;bottom:0;right:0;z-index:200;padding:10px 20px;background:#ffe8b2;color:#201e1d;font:13px sans-serif;';banner.textContent='Vista previa local · datos ficticios · no modifica la app publicada. Ver como: ';
     const select=document.createElement('select'); select.setAttribute('aria-label','Usuario de demostración');
     for(const m of members){const opt=document.createElement('option');opt.value=m.id;opt.textContent=m.name;select.append(opt);}select.value=localStorage.getItem('kaizen-preview-user')||'1';
-    select.onchange=()=>{localStorage.setItem('kaizen-preview-user',select.value);localStorage.removeItem('kaizen-local-preview-ui-v1');location.reload();};banner.append(select);document.body.prepend(banner);
+    select.onchange=()=>{localStorage.setItem('kaizen-preview-user',select.value);localStorage.removeItem('kaizen-local-preview-ui-v1');location.reload();};banner.append(select);
+    const scenario=document.createElement('select');scenario.setAttribute('aria-label','Respuesta de delegación');scenario.style.marginLeft='12px';
+    for(const [value,label] of [['normal','Delegación: normal'],['reject','Delegación: rechazo'],['network','Delegación: sin conexión']]){const opt=document.createElement('option');opt.value=value;opt.textContent=label;scenario.append(opt);}banner.append(scenario);document.body.prepend(banner);
   });
 })();
