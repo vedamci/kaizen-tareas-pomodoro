@@ -22,11 +22,49 @@
   html, body { height: 100%; width: 100%; margin: 0; max-width: 100%; min-width: 0; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
   *, *::before, *::after { box-sizing: border-box; }
   * { scrollbar-width: thin; }
-  .timeline-row { width:100%; display:block; text-align:left; color:var(--color-text); background:var(--color-bg); border:0; border-bottom:2px solid var(--color-divider); padding:16px 0; cursor:pointer; font-family:var(--font-body); }
-  .timeline-row:hover { background:var(--color-neutral-100); }
-  .timeline-row:focus-visible { outline:2px solid var(--color-accent); outline-offset:2px; }
-  .timeline-range { display:flex; justify-content:space-between; gap:12px; font-size:12px; border-bottom:2px solid var(--color-divider); padding-bottom:8px; }
-  .timeline-track { height:12px; margin:12px 0; background:var(--color-neutral-200); position:relative; }
+  .timeline-toolbar, .timeline-navigation { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .timeline-toolbar { margin-bottom:16px; justify-content:space-between; }
+  .timeline-toolbar label { font-size:12px; font-weight:700; }
+  .timeline-toolbar .input { max-width:240px; }
+  .timeline-navigation .btn, .timeline-toolbar .btn { min-height:44px; }
+  .timeline-period { font-family:var(--font-heading); font-size:20px; margin:16px 0 6px; }
+  .timeline-summary { font-size:12px; line-height:1.6; color:color-mix(in srgb,var(--color-text) 72%,transparent); margin-bottom:16px; }
+  .timeline-scroll { overflow:auto; max-width:100%; border:1px solid var(--color-divider); border-radius:8px; background:var(--color-bg); }
+  .timeline-sheet { --task-width:240px; width:100%; }
+  .timeline-grid-row { display:grid; grid-template-columns:var(--task-width) minmax(0,1fr); border-bottom:1px solid var(--color-divider); min-height:100px; }
+  .timeline-grid-row:last-child { border-bottom:0; }
+  .timeline-grid-header { min-height:58px; position:sticky; top:0; z-index:4; background:var(--color-surface); }
+  .timeline-heading, .timeline-task { position:sticky; left:0; background:var(--color-bg); border:0; border-right:1px solid var(--color-divider); padding:14px; z-index:3; text-align:left; color:var(--color-text); font-family:var(--font-body); min-width:0; }
+  .timeline-heading { font-size:12px; display:flex; align-items:center; font-weight:700; background:var(--color-surface); }
+  .timeline-task { cursor:pointer; display:flex; flex-direction:column; justify-content:center; gap:5px; }
+  .timeline-task:hover { background:var(--color-surface); }
+  .timeline-task strong { font-size:13px; line-height:1.4; overflow-wrap:anywhere; }
+  .timeline-task span { font-size:11px; line-height:1.4; color:color-mix(in srgb,var(--color-text) 70%,transparent); }
+  .timeline-dates, .timeline-lane { position:relative; min-width:0; }
+  .timeline-lane { overflow:hidden; }
+  .timeline-tick { position:absolute; top:0; bottom:0; text-align:center; border-left:1px solid var(--color-divider); padding:8px 2px; font-size:12px; }
+  .timeline-tick small { display:block; margin-top:4px; opacity:.65; font-size:10px; }
+  .timeline-gridline { position:absolute; top:0; bottom:0; border-left:1px solid color-mix(in srgb,var(--color-divider) 55%,transparent); pointer-events:none; }
+  .timeline-now { position:absolute; top:0; bottom:0; width:2px; background:var(--color-accent); z-index:2; pointer-events:none; }
+  .timeline-bar { position:absolute; top:27px; height:44px; border:0; border-radius:5px; cursor:pointer; background:color-mix(in srgb,var(--color-accent) 14%,var(--color-bg)); color:var(--color-text); padding:0 6px; z-index:2; overflow:hidden; text-align:left; font:700 11px var(--font-body); white-space:nowrap; }
+  .timeline-bar:hover { background:color-mix(in srgb,var(--color-accent) 24%,var(--color-bg)); }
+  .timeline-duration { position:absolute; top:71px; height:3px; background:var(--color-accent); min-width:1px; pointer-events:none; z-index:2; }
+  .timeline-task:focus-visible, .timeline-bar:focus-visible { outline:3px solid var(--color-accent-700); outline-offset:-3px; }
+  .timeline-empty { padding:20px; line-height:1.6; font-size:13px; }
+  .timeline-backlog { margin-top:22px; }
+  .timeline-backlog h4 { margin:0 0 10px; font-size:14px; }
+  .timeline-backlog-row { display:flex; align-items:center; gap:10px; padding:12px 0; border-top:1px solid var(--color-divider); }
+  .timeline-backlog-row > div { flex:1; min-width:0; font-size:13px; overflow-wrap:anywhere; }
+  .timeline-backlog-row small { display:block; margin-top:4px; opacity:.7; }
+  .timeline-backlog-row .btn { min-height:44px; flex:none; }
+  @media (max-width:900px) {
+    .timeline-sheet { --task-width:160px; }
+    .timeline-toolbar { align-items:flex-start; flex-direction:column; }
+    .timeline-task { padding:10px; }
+    .timeline-period { font-size:17px; }
+    .timeline-backlog-row { align-items:flex-start; flex-wrap:wrap; }
+    .timeline-backlog-row > div { flex-basis:100%; }
+  }
   .quick-add { flex-wrap:wrap; }
   .quick-add > input { flex:1; min-width:180px; }
   input[type="checkbox"] { accent-color: var(--color-accent); }
@@ -441,15 +479,23 @@
         </sc-if>
 
         <sc-if value="{{ isTimeline }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center"><label for="timeline-project">Proyecto</label><select id="timeline-project" class="input" value="{{ timelineProject }}" onChange="{{ onTimelineProject }}" style="max-width:280px"><option value="">Todos los proyectos</option><option value="__none__">Sin proyecto</option><sc-for list="{{ allProjectOptions }}" as="p"><option value="{{ p.id }}" label="{{ p.name }}">{{ p.name }}</option></sc-for></select><button class="btn btn-secondary" onClick="{{ onRefreshTasks }}">Actualizar tareas</button></div>
-          <p style="font-size:12px">{{ scheduleZoneLabel }}. Las barras muestran la planificación; el tiempo real proviene de Pomodoro y cronómetro.</p>
-          <sc-if value="{{ hasScheduledTasks }}"><div class="timeline-range"><span>{{ timelineStartLabel }}</span><span>{{ timelineEndLabel }}</span></div></sc-if>
-          <sc-for list="{{ timelineRows }}" as="t">
-            <button class="timeline-row" onClick="{{ t.onOpen }}"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><strong>{{ t.title }}</strong><span>{{ t.projectName }} · {{ t.status }}</span></div><div class="timeline-track"><div style="{{ t.barStyle }}"></div></div><div style="font-size:12px;display:flex;gap:16px;flex-wrap:wrap"><span>Inicio: {{ t.start }}</span><span>Fin: {{ t.end }}</span><span>Plan: {{ t.duration }}</span><span>Real: {{ t.actual }}</span></div></button>
-          </sc-for>
-          <sc-if value="{{ noScheduledTasks }}"><p>Todavía no hay tareas planificadas con inicio y fin.</p></sc-if>
-          <h4 style="margin-top:24px">Sin planificación · {{ unscheduledCount }}</h4>
-          <sc-for list="{{ unscheduledRows }}" as="t"><button class="btn btn-secondary" onClick="{{ t.onOpen }}" style="display:block;width:100%;margin-bottom:6px">{{ t.title }} · {{ t.projectName }} · Añadir inicio y fin</button></sc-for>
+          <div class="timeline-toolbar">
+            <div class="timeline-navigation"><label for="timeline-project">Proyecto</label><select id="timeline-project" class="input" value="{{ timelineProject }}" onChange="{{ onTimelineProject }}"><option value="">Todos los proyectos</option><option value="__none__">Sin proyecto</option><sc-for list="{{ allProjectOptions }}" as="p"><option value="{{ p.id }}" label="{{ p.name }}">{{ p.name }}</option></sc-for></select></div>
+            <div class="timeline-navigation"><label for="timeline-mode">Vista</label><select id="timeline-mode" class="input" value="{{ timelineMode }}" onChange="{{ onTimelineMode }}"><option value="day">Día</option><option value="week">Semana</option><option value="month">Mes</option></select><button class="btn btn-secondary" aria-label="Periodo anterior" onClick="{{ onTimelinePrevious }}">‹</button><button class="btn btn-secondary" onClick="{{ onTimelineToday }}">Hoy</button><button class="btn btn-secondary" aria-label="Periodo siguiente" onClick="{{ onTimelineNext }}">›</button><button class="btn btn-ghost" onClick="{{ onRefreshTasks }}">Actualizar tareas</button></div>
+          </div>
+          <h3 class="timeline-period" aria-live="polite">{{ timelinePeriodLabel }}</h3>
+          <div class="timeline-summary">{{ timelineVisibleCount }} en este periodo · {{ timelineScheduledCount }} planificadas · {{ scheduleZoneLabel }}<br>Pulsa una tarea para editar sus fechas. La línea bajo cada barra muestra su duración exacta; el tiempo real de trabajo se conserva aparte.</div>
+          <div class="timeline-scroll" role="region" aria-label="Calendario de tareas; desplazamiento horizontal" tabIndex="0">
+            <div class="timeline-sheet" style="{{ timelineSheetStyle }}">
+              <div class="timeline-grid-row timeline-grid-header"><div class="timeline-heading">Tarea / proyecto</div><div class="timeline-dates"><sc-for list="{{ timelineColumns }}" as="col"><div class="timeline-tick" style="{{ col.headerStyle }}">{{ col.label }}<small>{{ col.sublabel }}</small></div></sc-for><sc-if value="{{ timelineHasToday }}"><div class="timeline-now" style="{{ timelineTodayStyle }}"></div></sc-if></div></div>
+              <sc-for list="{{ timelineRows }}" as="t">
+                <div class="timeline-grid-row"><button class="timeline-task" onClick="{{ t.onOpen }}" aria-label="{{ t.openLabel }}"><strong>{{ t.title }}</strong><span>{{ t.projectName }} · {{ t.status }}</span><span>{{ t.start }} → {{ t.end }}</span><span>Plan {{ t.duration }} · Real {{ t.actual }}</span></button><div class="timeline-lane"><sc-for list="{{ timelineColumns }}" as="col"><div class="timeline-gridline" style="{{ col.gridStyle }}"></div></sc-for><sc-if value="{{ timelineHasToday }}"><div class="timeline-now" style="{{ timelineTodayStyle }}"></div></sc-if><button class="timeline-bar" style="{{ t.barStyle }}" onClick="{{ t.onOpen }}" aria-label="{{ t.openLabel }}" title="{{ t.openLabel }}">{{ t.barLabel }}</button><div class="timeline-duration" style="{{ t.durationStyle }}"></div></div></div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ noScheduledTasks }}"><div class="timeline-empty">{{ timelineEmptyMessage }}</div></sc-if>
+          </div>
+          <sc-if value="{{ hasOutsideTasks }}"><div class="timeline-backlog"><h4>Fuera de este periodo · {{ outsideCount }}</h4><sc-for list="{{ outsideRows }}" as="t"><div class="timeline-backlog-row"><div><strong>{{ t.title }}</strong><small>{{ t.projectName }} · {{ t.start }} → {{ t.end }}</small></div><button class="btn btn-secondary" onClick="{{ t.onLocate }}">Ver en calendario</button></div></sc-for></div></sc-if>
+          <div class="timeline-backlog"><h4>Sin planificación · {{ unscheduledCount }}</h4><sc-for list="{{ unscheduledRows }}" as="t"><div class="timeline-backlog-row"><div><strong>{{ t.title }}</strong><small>{{ t.projectName }} · {{ t.reason }}</small></div><button class="btn btn-secondary" onClick="{{ t.onOpen }}">{{ t.action }}</button></div></sc-for></div>
         </sc-if>
 
         <sc-if value="{{ isIdeas }}" hint-placeholder-val="{{ false }}">
@@ -721,7 +767,7 @@
 class Component extends DCLogic {
   state = {
     tasks: [], projects: [], log: {}, view: 'today', selId: null,
-    newTitle: '', newProject: '', subDraft: '', projFilter: null, newTaskProject: '', timelineProject: '',
+    newTitle: '', newProject: '', subDraft: '', projFilter: null, newTaskProject: '', timelineProject: '', timelineMode: 'week', timelineAnchor: null,
     projectEditId: null, projectMemberDraft: [], projectBusy: false, scheduleEditId: null, scheduleStartDraft: '', scheduleEndDraft: '', scheduleError: '', syncError: '',
     pomo: { mode: 'focus', remaining: 1500, running: false, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null },
     timerSpeed: 1,
@@ -964,6 +1010,22 @@ class Component extends DCLogic {
     const t = this.state.tasks.find(t => t.id === id);
     this.setState({ selId: id, delegatingId: null, scheduleEditId: id, scheduleStartDraft: KaizenPlanning.localInput(t.scheduledStart), scheduleEndDraft: KaizenPlanning.localInput(t.scheduledEnd), scheduleError: '' });
   }
+  openTimelineTask(id) {
+    this.openTask(id);
+    // On small screens the detail panel follows the calendar. Bring the
+    // editor into view so selecting a task has an immediately visible effect.
+    if(typeof document !== 'undefined') setTimeout(() => {
+      const panel=document.querySelector('.detail-panel');
+      if(typeof window !== 'undefined' && window.innerWidth <= 900) panel?.scrollIntoView({block:'start',behavior:'smooth'});
+      document.querySelector('#planned-start')?.focus({preventScroll:true});
+    },0);
+  }
+  locateTimelineTask(id) {
+    const task=this.state.tasks.find(t=>t.id===id);
+    if(!task || !Number.isFinite(Date.parse(task.scheduledStart)))return;
+    this.setState({timelineAnchor:Date.parse(task.scheduledStart)});
+    if(typeof document !== 'undefined') setTimeout(()=>document.querySelector('.timeline-scroll')?.scrollIntoView({block:'nearest',behavior:'smooth'}),0);
+  }
   delegationCandidates(task) {
     if (!task || !this.state.auth || task.list === 'trash') return [];
     const s=this.state, owner=Number(task._owner_id || s.auth.id);
@@ -1062,6 +1124,7 @@ class Component extends DCLogic {
     this.setState({
       tasks: base.tasks, projects: base.projects, log: base.log || {},
       view: base.view || 'today', projFilter: base.projFilter || null,
+      timelineMode: ['day','week','month'].includes(base.timelineMode) ? base.timelineMode : 'week', timelineAnchor: Number.isFinite(base.timelineAnchor) ? base.timelineAnchor : null, timelineProject: base.timelineProject || '',
       activeId: saved?.activeId || null, timerMode: saved?.timerMode === 'watch' ? 'watch' : 'pomo', stopwatch: !!saved?.stopwatch,
       watchSecs: Number(saved?.watchSecs) || 0, watchStartedAt: Number(saved?.watchStartedAt) || null, improvementChecklist: Array.isArray(saved?.improvementChecklist) ? saved.improvementChecklist : [],
       pomo: restoredPomo, theme: savedTheme
@@ -1074,7 +1137,7 @@ class Component extends DCLogic {
     window.addEventListener('keydown', this.onKey);
     this.onPageHide = () => {
       const s = this.state;
-      try { localStorage.setItem(this.KEY, JSON.stringify({ tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist })); if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId)); } catch (e) {}
+      try { localStorage.setItem(this.KEY, JSON.stringify({ tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, timelineMode:s.timelineMode, timelineAnchor:s.timelineAnchor, timelineProject:s.timelineProject, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist })); if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId)); } catch (e) {}
       if (s.auth && s.workspaceId && this.remoteReady) {
         const saved=this.remoteSaved?.[s.workspaceId];
         const dirty=this.visibleRemoteTasks(s.tasks).filter(t=>saved?.get(t.id)!==this.taskFingerprint(t));
@@ -1095,7 +1158,7 @@ class Component extends DCLogic {
     const s = this.state;
     try {
       localStorage.setItem(this.KEY, JSON.stringify({
-        tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist
+        tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, timelineMode:s.timelineMode, timelineAnchor:s.timelineAnchor, timelineProject:s.timelineProject, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist
       }));
       if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId));
     } catch (e) {}
@@ -1591,7 +1654,7 @@ class Component extends DCLogic {
       done: personalTasks.filter(t => t.list === 'done').length,
       trash: personalTasks.filter(t => t.list === 'trash').length,
       projects: s.projects.length,
-      timeline: s.tasks.filter(t=>t.list!=='trash' && t.scheduledStart && t.scheduledEnd).length,
+      timeline: KaizenPlanning.timeline(s.tasks).scheduled.length,
       stats: Object.keys(s.log).length,
       ideas: s.suggestions.length,
       admin: s.adminSummary.length
@@ -1795,7 +1858,22 @@ class Component extends DCLogic {
     const memberDraft = s.projectEditId === selectedProject?.id ? s.projectMemberDraft : (selectedProject?.member_ids || []);
     const planning = KaizenPlanning.timeline(s.tasks, s.timelineProject);
     const fmtPlan = iso => new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
-    const timelineRows = planning.scheduled.map(t => ({ title: t.title, projectName: this.projName(t.project) || 'Sin proyecto', status: t.done ? 'Hecha' : 'Pendiente', start: fmtPlan(t.scheduledStart), end: fmtPlan(t.scheduledEnd), duration: this.fmtDur((Date.parse(t.scheduledEnd)-Date.parse(t.scheduledStart))/1000), actual: this.fmtDur(t.seconds || 0), onOpen: () => this.openTask(t.id), barStyle: { position:'absolute',height:'100%',background:'var(--color-accent)',left:((Date.parse(t.scheduledStart)-planning.min)/(planning.max-planning.min)*100)+'%',width:((Date.parse(t.scheduledEnd)-Date.parse(t.scheduledStart))/(planning.max-planning.min)*100)+'%',minWidth:'2px' } }));
+    const calendar = KaizenPlanning.calendar(s.timelineMode, s.timelineAnchor ?? Date.now());
+    const calendarTasks = KaizenPlanning.calendarTasks(planning.scheduled, calendar);
+    const taskInfo = t => ({title:t.title,projectName:this.projName(t.project)||'Sin proyecto',status:t.done?'Hecha':'Pendiente',start:fmtPlan(t.scheduledStart),end:fmtPlan(t.scheduledEnd),duration:this.fmtDur((Date.parse(t.scheduledEnd)-Date.parse(t.scheduledStart))/1000),actual:this.fmtDur(t.seconds||0),onOpen:()=>this.openTimelineTask(t.id),openLabel:'Editar planificación de '+t.title+'. Inicio '+fmtPlan(t.scheduledStart)+'. Fin '+fmtPlan(t.scheduledEnd)});
+    const timelineRows = calendarTasks.visible.map(({task:t,left,width,continuesBefore,continuesAfter}) => ({...taskInfo(t),
+      barLabel:(continuesBefore?'‹ ':'')+new Date(t.scheduledStart).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})+(continuesAfter?' ›':''),
+      // The target stays clickable for tiny intervals. The separate line and
+      // date labels retain the exact duration without modifying task dates.
+      barStyle:{left:'min('+left+'%, calc(100% - 32px))',width:'max(32px, '+width+'%)',maxWidth:'calc(100% - min('+left+'%, calc(100% - 32px)))',opacity:t.done ? 0.65 : 1},
+      durationStyle:{left:left+'%',width:width+'%',opacity:t.done ? 0.65 : 1}
+    }));
+    const timelineColumns = calendar.columns.map(col=>({...col,
+      headerStyle:{left:col.left+'%',width:col.width+'%',background:col.today?'color-mix(in srgb,var(--color-accent) 12%,var(--color-surface))':'transparent'},
+      gridStyle:{left:col.left+'%',width:col.width+'%',background:col.weekend?'color-mix(in srgb,var(--color-text) 3%,transparent)':'transparent'}
+    }));
+    const fmtDay = time => new Date(time).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
+    const periodLabel = calendar.mode==='month' ? new Date(calendar.start).toLocaleDateString('es-MX',{month:'long',year:'numeric'}) : calendar.mode==='day' ? fmtDay(calendar.start) : fmtDay(calendar.start)+' — '+fmtDay(calendar.end-1);
     return Object.assign({
       syncError: s.syncError, onDiscardAndReload: () => this.discardAndReload(), onRetrySync: () => this.syncRemoteTasks(s.workspaceId,s.tasks,s.projects), onRefreshTasks: () => this.refreshTasks(),
       projectBusy: s.projectBusy, canManageProject: !!selectedProject?._can_manage, isEditingProjectMembers: !!selectedProject && s.projectEditId === selectedProject.id,
@@ -1805,8 +1883,14 @@ class Component extends DCLogic {
       onEditProjectMembers: () => this.beginProjectMembers(), onSaveProjectMembers: () => this.saveProjectMembers(), onCancelProjectMembers: () => this.setState({projectEditId:null}),
       showNewProjectPicker: s.view !== 'project', newTaskProject: s.newTaskProject, onNewTaskProject: e => this.setState({newTaskProject:e.target.value}),
       isTimeline: s.view === 'timeline', timelineProject: s.timelineProject, onTimelineProject: e => this.setState({timelineProject:e.target.value}), timelineRows,
-      hasScheduledTasks: timelineRows.length>0, noScheduledTasks: timelineRows.length===0, timelineStartLabel: planning.min?fmtPlan(planning.min):'', timelineEndLabel: planning.max?fmtPlan(planning.max):'',
-      unscheduledCount: planning.unscheduled.length, unscheduledRows: planning.unscheduled.map(t=>({ title:t.title,projectName:this.projName(t.project)||'Sin proyecto',onOpen:()=>this.openTask(t.id) })),
+      timelineMode:calendar.mode,timelineColumns,timelinePeriodLabel:periodLabel,timelineSheetStyle:{minWidth:'calc(var(--task-width) + '+calendar.width+'px)'},
+      timelineVisibleCount:timelineRows.length,timelineScheduledCount:planning.scheduled.length,timelineHasToday:calendar.today!==null,timelineTodayStyle:{left:(calendar.today??0)+'%'},
+      onTimelineMode:e=>this.setState({timelineMode:e.target.value}),onTimelineToday:()=>this.setState({timelineAnchor:Date.now()}),
+      onTimelinePrevious:()=>this.setState({timelineAnchor:KaizenPlanning.shiftCalendar(calendar.mode,calendar.start,-1)}),onTimelineNext:()=>this.setState({timelineAnchor:KaizenPlanning.shiftCalendar(calendar.mode,calendar.start,1)}),
+      hasScheduledTasks:timelineRows.length>0,noScheduledTasks:timelineRows.length===0,
+      timelineEmptyMessage:planning.scheduled.length?'No hay tareas en este periodo. Puedes navegar o localizar las tareas de la lista inferior.':'Añade inicio y fin a una tarea de la lista inferior para verla en el calendario.',
+      hasOutsideTasks:calendarTasks.outside.length>0,outsideCount:calendarTasks.outside.length,outsideRows:calendarTasks.outside.map(t=>({...taskInfo(t),onLocate:()=>this.locateTimelineTask(t.id)})),
+      unscheduledCount: planning.unscheduled.length, unscheduledRows: planning.unscheduled.map(t=>({ title:t.title,projectName:this.projName(t.project)||'Sin proyecto',reason:t.scheduledStart||t.scheduledEnd?'Fechas incompletas o inválidas':'Añade inicio y fin',action:t.scheduledStart||t.scheduledEnd?'Revisar fechas':'Planificar',onOpen:()=>this.openTimelineTask(t.id) })),
       scheduleZoneLabel: 'Zona horaria: '+KaizenPlanning.zone(), scheduleStartDraft:s.scheduleStartDraft, scheduleEndDraft:s.scheduleEndDraft, scheduleError:s.scheduleError,
       onScheduleStart:e=>this.setState({scheduleStartDraft:e.target.value,scheduleError:''}), onScheduleEnd:e=>this.setState({scheduleEndDraft:e.target.value,scheduleError:''}),
       onSaveSchedule:()=>this.saveTaskSchedule(), onClearSchedule:()=>{ if(s.selId)this.patch(s.selId,{scheduledStart:'',scheduledEnd:''}); this.setState({scheduleStartDraft:'',scheduleEndDraft:'',scheduleError:''}); },

@@ -81,3 +81,90 @@ test('new task must sync before delegation; failed sync never sends task_share',
 test('delegation candidates obey owner and project membership; empty save revokes direct shares',async()=>{
   const c=delegationFixture();c.state.tasks[0].project='p';c.state.projects=[{id:'p',member_ids:[1,2]}];c.openDelegate('t');c.toggleDelegationDraft(3);assert.deepEqual([...c.state.delegationDraft],[2]);assert.equal(c.renderVals().delegationOptions.length,1);c.toggleDelegationDraft(2);let sent;c.api=async(_,payload)=>{sent=payload.user_ids;return {ok:true,shared_user_ids:[]};};await c.saveDelegation();assert.deepEqual([...sent],[]);assert.deepEqual(c.state.tasks[0].sharedWith,[]);c.state.auth.id=2;c.openDelegate('t');assert.equal(c.state.delegatingId,null);
 });
+
+test('calendar uses local day, Monday week and actual month boundaries',()=>{
+  const anchor=new Date(2026,9,7,14,30).getTime();
+  const day=planning.calendar('day',anchor,anchor),week=planning.calendar('week',anchor,anchor),month=planning.calendar('month',anchor,anchor);
+  assert.equal(new Date(day.start).getHours(),0);assert.equal(new Date(day.end).getDate(),8);
+  assert.equal(new Date(week.start).getDay(),1);assert.equal(new Date(week.start).getDate(),5);assert.equal(week.columns.length,7);
+  assert.equal(new Date(month.start).getDate(),1);assert.equal(new Date(month.end).getMonth(),10);assert.equal(month.columns.length,31);
+  assert.ok(day.today>0&&day.today<100);assert.equal(planning.calendar('week',anchor,week.end).today,null);
+  assert.equal(planning.calendar('other',anchor).mode,'week');
+});
+test('period navigation handles short months and year boundaries without skipping',()=>{
+  const jan=new Date(2026,0,31,12).getTime();
+  const feb=planning.shiftCalendar('month',jan,1);assert.equal(new Date(feb).getMonth(),1);assert.equal(new Date(feb).getDate(),1);
+  assert.equal(planning.calendar('month',feb).columns.length,28);
+  const previous=planning.shiftCalendar('month',jan,-1);assert.equal(new Date(previous).getFullYear(),2025);assert.equal(new Date(previous).getMonth(),11);
+  const next=planning.shiftCalendar('week',jan,1);assert.equal(next,planning.calendar('week',jan).end);
+  const day=planning.shiftCalendar('day',jan,1);assert.equal(new Date(day).getMonth(),1);assert.equal(new Date(day).getDate(),1);
+});
+test('calendar geometry follows DST boundaries, including partial-hour transitions',()=>{
+  const previous=process.env.TZ;
+  try {
+    process.env.TZ='America/New_York';
+    for(const [month,date,hours] of [[2,8,23],[10,1,25]]){
+      const day=planning.calendar('day',new Date(2026,month,date,12).getTime());
+      assert.equal((day.end-day.start)/3600000,hours);assert.equal(day.columns.length,hours);
+      assert.ok(Math.abs(day.columns.reduce((n,c)=>n+c.width,0)-100)<0.00001);
+      assert.equal(day.columns.at(-1).end,day.end);
+    }
+    const fall=planning.calendar('day',new Date(2026,10,1,12).getTime());
+    assert.notEqual(fall.columns[1].label,fall.columns[2].label);
+    const week=planning.calendar('week',new Date(2026,2,8,12).getTime());assert.equal((week.end-week.start)/3600000,167);
+    process.env.TZ='Australia/Lord_Howe';
+    const partial=planning.calendar('day',new Date(2026,9,4,12).getTime());assert.equal((partial.end-partial.start)/3600000,23.5);assert.equal(partial.columns.at(-1).end,partial.end);
+    assert.ok(Math.abs(partial.columns.reduce((n,c)=>n+c.width,0)-100)<0.00001);
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
+test('visible tasks clip to the period; midnight boundaries and invalid dates stay out',()=>{
+  const range=planning.calendar('day',new Date(2026,9,6,12).getTime());
+  const make=(id,start,end)=>({id,title:id,scheduledStart:new Date(start).toISOString(),scheduledEnd:new Date(end).toISOString()});
+  const tasks=[make('spans',range.start-3600000,range.end+3600000),make('before',range.start-3600000,range.start),make('after',range.end,range.end+3600000),make('late',range.end-60000,range.end),{id:'bad',scheduledStart:'bad',scheduledEnd:'bad'}];
+  const result=planning.calendarTasks(tasks,range);
+  assert.deepEqual(result.visible.map(v=>v.task.id),['spans','late']);assert.deepEqual(result.outside.map(t=>t.id),['before','after']);
+  const spans=result.visible[0];assert.equal(spans.left,0);assert.equal(spans.width,100);assert.ok(spans.continuesBefore&&spans.continuesAfter);
+  const late=result.visible[1];assert.ok(late.width>0&&late.left<100);assert.equal(late.left+late.width,100);
+});
+test('invalid ranges cannot inflate the Cronograma navigation count',()=>{
+  const c=component();c.state.view='timeline';
+  const task={id:'valid',title:'Valid',list:'inbox',tags:[],subtasks:[],scheduledStart:'2026-10-06T10:00:00Z',scheduledEnd:'2026-10-06T11:00:00Z'};
+  c.state.tasks=[task,{...task,id:'backwards',scheduledEnd:'2026-10-06T09:00:00Z'},{...task,id:'missing',scheduledEnd:''},{...task,id:'bad',scheduledStart:'bad'},{...task,id:'trash',list:'trash'}];
+  c.state.timelineAnchor=Date.parse(task.scheduledStart);
+  const v=c.renderVals();assert.equal(v.navItems.find(n=>n.label==='Cronograma').count,1);assert.equal(v.timelineScheduledCount,1);assert.equal(v.unscheduledCount,3);assert.equal(v.timelineVisibleCount,1);
+  assert.equal(v.unscheduledRows[0].action,'Revisar fechas');
+});
+test('short tasks retain an accessible target and exact duration beside multi-month tasks',()=>{
+  const c=component();c.state.view='timeline';c.state.timelineMode='month';c.state.timelineAnchor=new Date(2026,9,6).getTime();
+  const task={id:'short',title:'30 minutos',list:'inbox',project:'',tags:[],subtasks:[],seconds:900,pomos:2,scheduledStart:'2026-10-06T10:00:00Z',scheduledEnd:'2026-10-06T10:30:00Z'};
+  c.state.tasks=[task,{...task,id:'long',title:'Dos meses',scheduledEnd:'2026-12-06T10:00:00Z'}];
+  const before=JSON.stringify(c.state.tasks),v=c.renderVals(),row=v.timelineRows.find(t=>t.title==='30 minutos');
+  assert.match(row.barStyle.width,/32px/);assert.match(row.openLabel,/30 minutos/);assert.ok(parseFloat(row.durationStyle.width)<1);assert.equal(row.duration,c.fmtDur(1800));assert.equal(row.actual,c.fmtDur(900));
+  assert.equal(JSON.stringify(c.state.tasks),before);row.onOpen();assert.equal(c.state.selId,'short');assert.equal(c.state.pomo.running,false);assert.equal(c.state.activeId,null);
+});
+test('period controls, project filters and locating an outside task preserve underlying data',()=>{
+  const c=component();c.state.view='timeline';c.state.timelineAnchor=new Date(2026,9,6,12).getTime();
+  const task={id:'a',title:'A',list:'inbox',tags:[],subtasks:[],project:'p',seconds:900,scheduledStart:'2026-10-06T10:00:00Z',scheduledEnd:'2026-10-06T11:00:00Z'};
+  c.state.tasks=[task,{...task,id:'b',title:'B',project:'q'},{...task,id:'outside',title:'Outside',project:'p',scheduledStart:'2027-02-01T10:00:00Z',scheduledEnd:'2027-02-01T11:00:00Z'},{id:'undated',title:'No dates',list:'inbox',tags:[],subtasks:[],project:''}];
+  const before=JSON.stringify(c.state.tasks);
+  let v=c.renderVals();assert.equal(v.timelineVisibleCount,2);assert.equal(v.outsideCount,1);assert.equal(v.unscheduledCount,1);
+  v.onTimelineProject({target:{value:'p'}});v=c.renderVals();assert.equal(v.timelineVisibleCount,1);assert.equal(v.outsideCount,1);assert.equal(v.unscheduledCount,0);
+  v.onTimelineNext();v=c.renderVals();assert.equal(v.timelineVisibleCount,0);assert.equal(v.outsideCount,2);assert.match(v.timelineEmptyMessage,/periodo/);
+  v.onTimelinePrevious();v=c.renderVals();assert.equal(v.timelineVisibleCount,1);
+  v.outsideRows.find(t=>t.title==='Outside').onLocate();v=c.renderVals();assert.equal(v.timelineRows[0].title,'Outside');
+  v.onTimelineToday();assert.ok(Math.abs(c.state.timelineAnchor-Date.now())<1000);
+  v.onTimelineMode({target:{value:'day'}});assert.equal(c.renderVals().timelineMode,'day');
+  v.onTimelineProject({target:{value:'__none__'}});v=c.renderVals();assert.equal(v.timelineScheduledCount,0);assert.equal(v.unscheduledCount,1);assert.match(v.timelineEmptyMessage,/Añade/);
+  assert.equal(JSON.stringify(c.state.tasks),before);
+});
+test('planning, editing and removing dates update the calendar without changing project or tracked work',()=>{
+  const c=component();c.state.view='timeline';c.state.timelineMode='day';c.state.timelineAnchor=new Date(2026,9,6,12).getTime();
+  c.state.tasks=[{id:'t',title:'Task',list:'inbox',project:'p',tags:[],subtasks:[],seconds:1234,pomos:2,sharedWith:[2],done:false}];
+  let v=c.renderVals();assert.equal(v.timelineRows.length,0);assert.equal(v.unscheduledCount,1);v.unscheduledRows[0].onOpen();
+  c.state.scheduleStartDraft='2026-10-06T10:00';c.state.scheduleEndDraft='2026-10-06T10:30';c.renderVals().onSaveSchedule();
+  v=c.renderVals();assert.equal(v.timelineRows.length,1);assert.equal(v.unscheduledCount,0);const width=parseFloat(v.timelineRows[0].durationStyle.width);
+  c.state.scheduleEndDraft='2026-10-06T11:00';v.onSaveSchedule();v=c.renderVals();assert.equal(parseFloat(v.timelineRows[0].durationStyle.width),2*width);
+  c.state.scheduleEndDraft='2026-10-06T09:00';v.onSaveSchedule();v=c.renderVals();assert.match(v.scheduleError,/posterior/);assert.equal(parseFloat(v.timelineRows[0].durationStyle.width),2*width);
+  v.onClearSchedule();v=c.renderVals();assert.equal(v.timelineRows.length,0);assert.equal(v.unscheduledCount,1);assert.equal(v.navItems.find(n=>n.label==='Cronograma').count,0);
+  const task=c.state.tasks[0];assert.equal(task.project,'p');assert.equal(task.seconds,1234);assert.equal(task.pomos,2);assert.deepEqual([...task.sharedWith],[2]);assert.equal(task.done,false);assert.equal(c.state.pomo.running,false);
+});

@@ -25,6 +25,38 @@ se prepara para revisión mediante un PR en borrador en el repositorio existente
   de edición, se informa y permite reintentar o descartar cambios pendientes y
   recargar. No se fusionan automáticamente ediciones de la misma tarea.
 
+## Cronograma con calendario
+
+- La vista inicial es **Semana**, de lunes a domingo, con una cuadrícula de
+  fechas y columna fija de tareas. **Día** muestra horas y **Mes** días.
+  **Hoy** vuelve al periodo actual; las flechas avanzan un periodo completo.
+- El calendario tiene scroll horizontal propio en pantallas estrechas. Los
+  nombres permanecen visibles y las tareas cortas tienen un objetivo de clic
+  de al menos 32 px. La línea debajo de la barra conserva la duración exacta;
+  inicio, fin, plan y tiempo real también están escritos en la columna fija.
+- Las tareas que cruzan un límite de periodo se recortan en el calendario,
+  conservando sus fechas. Las que quedan fuera aparecen en una lista con
+  **Ver en calendario**. Las fechas incompletas o inválidas aparecen en
+  **Sin planificación**, con **Revisar fechas**, y no inflan el contador.
+- Pulsar un nombre o una barra abre el editor de fechas y enfoca Inicio. En
+  móvil, desplaza el panel de detalle a la vista. No cambia el Pomodoro.
+  El ajuste de fechas sigue siendo mediante el formulario; no hay arrastre
+  ni redimensionado de barras.
+- Vista, periodo y filtro se recuerdan localmente; navegar no modifica tareas,
+  proyectos, delegaciones ni fechas. Los periodos se calculan en la zona local,
+  incluidos días de 23/25 horas y cambios de horario de media hora.
+
+Verificación adicional por CLI: ocho pruebas de calendario y componente
+cubren rangos y límites, cambio de mes/año, DST, tareas cortas junto a tareas
+largas, contador, filtros, navegación, localizar tareas y conservación de datos.
+La suite JavaScript suma ahora 26 pruebas. La revisión visual de este rediseño
+queda pendiente de coordinar Chrome, que está ocupado con otro trabajo.
+
+Referencias de diseño: [Linear Timeline](https://linear.app/docs/timeline) y
+[Notion Timeline](https://www.notion.com/help/timelines): escala explícita,
+navegación por periodos y nombres junto al calendario. No se añadió ninguna
+biblioteca ni dependencia de estos productos.
+
 ## Persistencia y permisos
 
 Se reutilizan `workspace_members`, `task_shares`, `tasks.payload_json` y
@@ -72,7 +104,7 @@ de PHP ni persistencia en MySQL. `preview/` y `tools/` no son archivos de produc
 
 No había comandos de prueba ni herramientas de build en el checkout original.
 
-Ejecutado: `node --test tests/planning.test.cjs`: **18 pruebas pasan**. Cubren
+Ejecutado: `node --test tests/planning.test.cjs`: **26 pruebas pasan**. Cubren
 renderizado, nombres de opciones nativas, tareas antiguas sin fechas, rangos
 inválidos, UTC/cambio de zona/DST, filtros, acceso de miembros en la interfaz,
 traslado a/sin proyecto, rechazo de traslado, errores y reversión, cola de

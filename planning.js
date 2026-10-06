@@ -29,7 +29,62 @@
     const max = scheduled.length ? Math.max(...scheduled.map(t => Date.parse(t.scheduledEnd))) : 0;
     return { scheduled, unscheduled, min, max };
   }
-  const api = { localInput, schedule, timeline, zone };
+  // Calendar boundaries use local dates, not multiples of 24h: a DST day can
+  // contain 23 or 25 hours. Geometry uses the actual elapsed time throughout.
+  function calendar(mode = 'week', anchor = Date.now(), now = Date.now()) {
+    mode = ['day', 'week', 'month'].includes(mode) ? mode : 'week';
+    const date = new Date(anchor);
+    if (!Number.isFinite(date.getTime())) return calendar(mode, now, now);
+    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    if (mode === 'week') start.setDate(start.getDate() - (start.getDay() + 6) % 7);
+    if (mode === 'month') start.setDate(1);
+    const end = new Date(start);
+    if (mode === 'month') end.setMonth(end.getMonth() + 1);
+    else end.setDate(end.getDate() + (mode === 'day' ? 1 : 7));
+    const columns = [];
+    for (let cursor = new Date(start); cursor < end;) {
+      const next = new Date(cursor);
+      if (mode === 'day') next.setTime(next.getTime() + 3600000);
+      else next.setDate(next.getDate() + 1);
+      if (next > end) next.setTime(+end);
+      const today = cursor.toDateString() === new Date(now).toDateString();
+      const timeOptions = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
+      // Offset disambiguates the repeated hour in an autumn DST transition.
+      if (mode === 'day' && end - start !== 86400000) timeOptions.timeZoneName = 'shortOffset';
+      columns.push({ start: +cursor, end: +next, today,
+        label: mode === 'day' ? cursor.toLocaleTimeString('es-MX', timeOptions) : String(cursor.getDate()),
+        sublabel: mode === 'day' ? '' : cursor.toLocaleDateString('es-MX', { weekday: 'short' }),
+        left: (+cursor - start) / (end - start) * 100,
+        width: (next - cursor) / (end - start) * 100,
+        weekend: cursor.getDay() === 0 || cursor.getDay() === 6
+      });
+      cursor = next;
+    }
+    return { mode, start: +start, end: +end, columns,
+      today: now >= start && now < end ? (now - start) / (end - start) * 100 : null,
+      width: Math.max(700, columns.length * (mode === 'week' ? 100 : mode === 'day' ? 58 : 46))
+    };
+  }
+  function shiftCalendar(mode, anchor, direction) {
+    const range = calendar(mode, anchor), date = new Date(range.start);
+    if (range.mode === 'month') date.setMonth(date.getMonth() + direction);
+    else date.setDate(date.getDate() + direction * (range.mode === 'day' ? 1 : 7));
+    return +date;
+  }
+  function calendarTasks(tasks, range) {
+    const visible = [], outside = [];
+    tasks.forEach(task => {
+      const start = Date.parse(task.scheduledStart), end = Date.parse(task.scheduledEnd);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+      // Half-open intervals avoid showing a task ending at midnight twice.
+      if (end <= range.start || start >= range.end) { outside.push(task); return; }
+      const left = (Math.max(start, range.start) - range.start) / (range.end - range.start) * 100;
+      const width = (Math.min(end, range.end) - Math.max(start, range.start)) / (range.end - range.start) * 100;
+      visible.push({ task, left, width, continuesBefore: start < range.start, continuesAfter: end > range.end });
+    });
+    return { visible, outside };
+  }
+  const api = { localInput, schedule, timeline, zone, calendar, shiftCalendar, calendarTasks };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.KaizenPlanning = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
