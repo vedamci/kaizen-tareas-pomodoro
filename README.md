@@ -50,7 +50,7 @@ se prepara para revisión mediante un PR en borrador en el repositorio existente
 Verificación adicional por CLI: ocho pruebas de calendario y componente
 cubren rangos y límites, cambio de mes/año, DST, tareas cortas junto a tareas
 largas, contador, filtros, navegación, localizar tareas y conservación de datos.
-La suite JavaScript suma ahora 37 pruebas. La revisión visual e interacción real
+La suite JavaScript suma ahora 38 pruebas. La revisión visual e interacción real
 del nuevo cronograma y los nuevos menús sigue pendiente: esta sesión no expone
 una herramienta de control de Chrome, aunque el navegador está disponible.
 
@@ -176,7 +176,7 @@ de PHP ni persistencia en MySQL. `preview/` y `tools/` no son archivos de produc
 
 No había comandos de prueba ni herramientas de build en el checkout original.
 
-Ejecutado: `node --test tests/planning.test.cjs`: **37 pruebas pasan**. Cubren
+Ejecutado: `node --test tests/planning.test.cjs`: **38 pruebas pasan**. Cubren
 renderizado, nombres de opciones nativas, tareas antiguas sin fechas, rangos
 inválidos, UTC/cambio de zona/DST, filtros, acceso de miembros en la interfaz,
 traslado a/sin proyecto, rechazo de traslado, errores y reversión, cola de

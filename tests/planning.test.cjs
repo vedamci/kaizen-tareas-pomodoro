@@ -269,3 +269,15 @@ test('late collaboration reads cannot replace tasks after an identity switch',as
   finish({ok:true,tasks:[{id:'private',title:'Private',_owner_id:1}],projects:[]});await loading;
   assert.equal(c.state.tasks.length,0);
 });
+test('team navigation count follows loaded rows and refreshes without changing personal totals',async()=>{
+  const c=delegationFixture();c.state.workspaces=[{id:1,member_role:'admin'}];c.state.view='inbox';
+  const base={...c.state.tasks[0],_owner_id:2,sharedWith:[],_shared_user_ids:[]};
+  let fixture=[{...base,id:'one'},{...base,id:'two'},{...base,id:'done',done:true,list:'done'},{...base,id:'trash',list:'trash'}];
+  c.api=async action=>{assert.equal(action,'team_tasks');return {ok:true,tasks:fixture,projects:[]};};
+  const count=v=>v.navItems.find(n=>n.id==='team')?.count;
+  assert.equal(count(c.renderVals()),0);await c.loadTeamTasks();
+  let v=c.renderVals();assert.equal(v.teamRows.length,4);assert.equal(count(v),4);assert.equal(v.listTasks.length,1);assert.equal(v.navItems.find(n=>n.id==='inbox').count,1);
+  fixture=fixture.slice(0,2);await c.loadTeamTasks();v=c.renderVals();assert.equal(v.teamRows.length,2);assert.equal(count(v),2);assert.equal(v.listTasks.length,1);
+  fixture=[];await c.loadTeamTasks();assert.equal(count(c.renderVals()),0);
+  c.state.workspaces[0].member_role='member';assert.equal(count(c.renderVals()),undefined);
+});

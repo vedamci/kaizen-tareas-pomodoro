@@ -1775,7 +1775,8 @@ class Component extends DCLogic {
       timeline: KaizenPlanning.timeline(s.tasks).scheduled.length,
       stats: Object.keys(s.log).length,
       ideas: s.suggestions.length,
-      admin: s.adminSummary.length
+      admin: s.adminSummary.length,
+      team: this.isWorkspaceAdmin()?s.teamTasks.length:0
     };
     const navDefs = [
       { id: 'today', label: 'Hoy' }, { id: 'inbox', label: 'Bandeja de entrada' },
