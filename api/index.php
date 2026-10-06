@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/projects.php';
 $config = require __DIR__ . '/config.php';
 session_name($config['session_name'] ?? 'tareas_session');
 // Mantener la sesión web en este dispositivo durante 30 días. Además, cada
@@ -199,17 +200,29 @@ try {
     }
     if ($action === 'task_members') {
         $wid=(int)($data['workspace_id']??0); $access=workspaceAccess($wid,(int)$u['id']); if($u['role']!=='super_admin'&&!$access) out(['ok'=>false,'error'=>'Sin acceso a este espacio.'],403);
-        $taskId=substr(preg_replace('/[^a-zA-Z0-9_-]/','',(string)($data['task_id']??'')),0,32); $tq=db()->prepare('SELECT owner_id FROM tasks WHERE id=? AND workspace_id=?'); $tq->execute([$taskId,$wid]); $task=$tq->fetch(); if(!$task)out(['ok'=>false,'error'=>'Tarea no encontrada.'],404);
-        $canSeeAll=$u['role']==='super_admin'||(($access['member_role']??'')==='admin'); if(!$canSeeAll&&(int)$task['owner_id']!==(int)$u['id']){$sq=db()->prepare('SELECT 1 FROM task_shares WHERE task_id=? AND workspace_id=? AND user_id=?');$sq->execute([$taskId,$wid,$u['id']]);if($sq->fetchColumn()===false)out(['ok'=>false,'error'=>'No tienes acceso a esta tarea.'],403);}
+        $taskId=substr(preg_replace('/[^a-zA-Z0-9_-]/','',(string)($data['task_id']??'')),0,32); $tq=db()->prepare('SELECT owner_id,payload_json FROM tasks WHERE id=? AND workspace_id=?'); $tq->execute([$taskId,$wid]); $task=$tq->fetch(); if(!$task)out(['ok'=>false,'error'=>'Tarea no encontrada.'],404);
+        $projects=workspaceProjects(db(),$wid); $taskPayload=json_decode($task['payload_json'],true)?:[]; $taskPayload['_owner_id']=(int)$task['owner_id'];
+        $project=projectFind($projects,(string)($taskPayload['project']??''));
+        if(!projectTaskAccess($taskPayload,$projects,(int)$u['id'],sharedIds(workspaceShares(db(),$wid),$taskId)))out(['ok'=>false,'error'=>'No tienes acceso a esta tarea.'],403);
         $q=db()->prepare('SELECT u.id,u.name,u.email,wm.role AS workspace_role FROM users u JOIN workspace_members wm ON wm.user_id=u.id WHERE wm.workspace_id=? ORDER BY u.name'); $q->execute([$wid]); $sq=db()->prepare('SELECT user_id FROM task_shares WHERE task_id=? AND workspace_id=?'); $sq->execute([$taskId,$wid]); $shared=array_map('intval',$sq->fetchAll(PDO::FETCH_COLUMN)); out(['ok'=>true,'members'=>$q->fetchAll(),'shared_user_ids'=>$shared]);
     }
     if ($action === 'task_share') {
         $wid=(int)($data['workspace_id']??0); $access=workspaceAccess($wid,(int)$u['id']); if($u['role']!=='super_admin'&&!$access) out(['ok'=>false,'error'=>'Sin acceso a este espacio.'],403);
-        $taskId=substr(preg_replace('/[^a-zA-Z0-9_-]/','',(string)($data['task_id']??'')),0,32); $tq=db()->prepare('SELECT owner_id FROM tasks WHERE id=? AND workspace_id=?'); $tq->execute([$taskId,$wid]); $task=$tq->fetch(); if(!$task)out(['ok'=>false,'error'=>'Tarea no encontrada.'],404);
+        $pdo=db(); $pdo->beginTransaction();
+        $projects=workspaceProjects($pdo,$wid,true);
+        $taskId=substr(preg_replace('/[^a-zA-Z0-9_-]/','',(string)($data['task_id']??'')),0,32); $tq=db()->prepare('SELECT owner_id,payload_json FROM tasks WHERE id=? AND workspace_id=?'); $tq->execute([$taskId,$wid]); $task=$tq->fetch(); if(!$task)out(['ok'=>false,'error'=>'Tarea no encontrada.'],404);
+        $taskPayload=json_decode($task['payload_json'],true)?:[]; $taskPayload['_owner_id']=(int)$task['owner_id'];
+        $project=projectFind($projects,(string)($taskPayload['project']??''));
+        if(!projectTaskAccess($taskPayload,$projects,(int)$u['id'],sharedIds(workspaceShares(db(),$wid),$taskId)))out(['ok'=>false,'error'=>'No tienes acceso a esta tarea.'],403);
         $canAdmin=$u['role']==='super_admin'||(($access['member_role']??'')==='admin'); if(!$canAdmin&&(int)$task['owner_id']!==(int)$u['id'])out(['ok'=>false,'error'=>'Solo quien creó la tarea puede compartirla.'],403);
-        $requested=is_array($data['user_ids']??null)?$data['user_ids']:[]; $requested=array_values(array_unique(array_filter(array_map('intval',$requested),fn($id)=>$id>0&&(int)$id!==(int)$task['owner_id'])));
+        $requested=$data['user_ids']??null;
+        if(!is_array($requested)||count($requested)>500)throw new DomainException('Selecciona destinatarios válidos del equipo.',422);
+        foreach($requested as $value)if((!is_int($value)&&!is_string($value))||filter_var($value,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])===false)throw new DomainException('Selecciona destinatarios válidos del equipo.',422);
+        $requested=array_values(array_unique(array_filter(array_map('intval',$requested),fn($id)=>(int)$id!==(int)$task['owner_id'])));
+        if($project && projectIsShared($project))foreach($requested as $member)if(!projectMember($project,$member))out(['ok'=>false,'error'=>'Para delegar una tarea del proyecto, la persona debe ser miembro del proyecto.'],422);
         $valid=[]; if($requested){$placeholders=implode(',',array_fill(0,count($requested),'?'));$mq=db()->prepare('SELECT user_id FROM workspace_members WHERE workspace_id=? AND user_id IN ('.$placeholders.')');$mq->execute(array_merge([$wid],$requested));$valid=array_map('intval',$mq->fetchAll(PDO::FETCH_COLUMN));}
-        $pdo=db();$existingQ=$pdo->prepare('SELECT user_id FROM task_shares WHERE task_id=? AND workspace_id=?');$existingQ->execute([$taskId,$wid]);$existing=array_map('intval',$existingQ->fetchAll(PDO::FETCH_COLUMN));$pdo->beginTransaction();
+        if(count($valid)!==count($requested))throw new DomainException('Todos los destinatarios deben pertenecer al equipo de este espacio.',422);
+        $existingQ=$pdo->prepare('SELECT user_id FROM task_shares WHERE task_id=? AND workspace_id=?');$existingQ->execute([$taskId,$wid]);$existing=array_map('intval',$existingQ->fetchAll(PDO::FETCH_COLUMN));
         if($valid){$placeholders=implode(',',array_fill(0,count($valid),'?'));$delete=$pdo->prepare('DELETE FROM task_shares WHERE task_id=? AND workspace_id=? AND user_id NOT IN ('.$placeholders.')');$delete->execute(array_merge([$taskId,$wid],$valid));}else{$pdo->prepare('DELETE FROM task_shares WHERE task_id=? AND workspace_id=?')->execute([$taskId,$wid]);}
         $ins=$pdo->prepare('INSERT IGNORE INTO task_shares(task_id,workspace_id,user_id) VALUES(?,?,?)');foreach($valid as $id)if(!in_array($id,$existing,true))$ins->execute([$taskId,$wid,$id]);$dateQ=$pdo->prepare('SELECT MIN(shared_at) FROM task_shares WHERE task_id=? AND workspace_id=?');$dateQ->execute([$taskId,$wid]);$delegatedAt=$dateQ->fetchColumn()?:null;$pdo->commit();out(['ok'=>true,'shared_user_ids'=>$valid,'delegated_at'=>$delegatedAt]);
     }
@@ -218,39 +231,42 @@ try {
         $wid=(int)($data['workspace_id']??0); $q=db()->prepare('SELECT id,name FROM workspaces WHERE id=?'); $q->execute([$wid]); $workspace=$q->fetch(); if(!$workspace) out(['ok'=>false,'error'=>'Espacio de trabajo no encontrado.'],404);
         $del=db()->prepare('DELETE FROM tasks WHERE workspace_id=?'); $del->execute([$wid]); out(['ok'=>true,'workspace'=>$workspace['name'],'deleted'=>(int)$del->rowCount()]);
     }
-    if ($action === 'tasks') {
+    if ($action === 'project_save') {
+        $wid=(int)($data['workspace_id']??0); $access=workspaceAccess($wid,(int)$u['id']);
+        if (!$access) out(['ok'=>false,'error'=>'Debes pertenecer al equipo de este espacio.'],403);
+        $project=saveWorkspaceProject(db(),$wid,$u,workspaceProjectAdmin($wid,$u,$access),$data);
+        out(['ok'=>true,'project'=>$project]);
+    }
+    if ($action === 'tasks' || $action === 'team_tasks' || $action === 'task_get') {
         $wid=(int)($data['workspace_id']??0); $access=workspaceAccess($wid,(int)$u['id']); if($u['role']!=='super_admin'&&!$access) out(['ok'=>false,'error'=>'Sin acceso a este espacio.'],403);
-        // El dashboard es personal para todos los roles. Las tareas de otra
-        // persona solo entran cuando existe un registro explícito de acceso.
-        $sql='SELECT t.id,t.owner_id,t.payload_json,t.updated_at FROM tasks t WHERE t.workspace_id=? AND (t.owner_id=? OR EXISTS (SELECT 1 FROM task_shares ts WHERE ts.task_id=t.id AND ts.workspace_id=t.workspace_id AND ts.user_id=?)) ORDER BY t.updated_at DESC';
-        $q=db()->prepare($sql); $q->execute([$wid,$u['id'],$u['id']]); $tasks=[]; foreach($q as $r){$item=json_decode($r['payload_json'],true)?:[];$item['id']=$r['id'];$item['_owner_id']=$r['owner_id'];$tasks[]=$item;}
-        if($tasks){$ids=array_column($tasks,'id');$placeholders=implode(',',array_fill(0,count($ids),'?'));$sq=db()->prepare('SELECT task_id,user_id,shared_at FROM task_shares WHERE workspace_id=? AND task_id IN ('.$placeholders.')');$sq->execute(array_merge([$wid],$ids));$sharedBy=[];$sharedAtBy=[];foreach($sq as $share){$sharedBy[$share['task_id']][]=(int)$share['user_id'];$sharedAtBy[$share['task_id']][]=$share['shared_at'];}foreach($tasks as &$item){$item['_shared_user_ids']=$sharedBy[$item['id']]??[];$item['_delegated_at']=!empty($sharedAtBy[$item['id']])?min($sharedAtBy[$item['id']]):null;}unset($item);}
-        $p=db()->prepare('SELECT projects_json FROM workspace_data WHERE workspace_id=?');$p->execute([$wid]);$projects=$p->fetchColumn(); out(['ok'=>true,'tasks'=>$tasks,'projects'=>$projects?json_decode($projects,true):[]]);
+        $admin=workspaceProjectAdmin($wid,$u,$access);
+        $scope=$action==='team_tasks'?'team':(string)($data['scope']??'personal');
+        validateTaskReadScope($scope,$admin);
+        // Team access is deliberate and separate from the normal list.
+        if($action==='tasks' && $scope==='team')out(['ok'=>false,'error'=>'Usa la vista administrativa de tareas del equipo.'],422);
+        if($action==='task_get'){
+            $id=(string)($data['task_id']??'');if(!preg_match('/^[a-zA-Z0-9_-]{1,32}$/D',$id))out(['ok'=>false,'error'=>'Identificador de tarea no válido.'],422);
+            out(['ok'=>true,'task'=>loadWorkspaceTaskById(db(),$wid,$id,$u,$admin,$scope)]);
+        }
+        out(array_merge(['ok'=>true],loadWorkspaceTasks(db(),$wid,$u,$admin,$scope)));
     }
     if ($action === 'tasks_sync') {
-        $wid=(int)($data['workspace_id']??0); $access=workspaceAccess($wid,(int)$u['id']); if($u['role']!=='super_admin'&&!$access) out(['ok'=>false,'error'=>'Sin acceso a este espacio.'],403); $tasks=is_array($data['tasks']??null)?$data['tasks']:[]; $projects=is_array($data['projects']??null)?$data['projects']:[]; $pdo=db(); $pdo->beginTransaction();
-        $stmt=$pdo->prepare('INSERT INTO tasks(id,workspace_id,owner_id,title,done,payload_json) VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),done=VALUES(done),payload_json=VALUES(payload_json)');
-        // Nunca se cambia el propietario desde una sincronización. Además,
-        // se rechaza un ID que pertenezca a otro espacio para evitar cruces.
-        $existingQ=$pdo->prepare('SELECT workspace_id,owner_id FROM tasks WHERE id=?');
-        $shareCheck=$pdo->prepare('SELECT 1 FROM task_shares WHERE task_id=? AND workspace_id=? AND user_id=? LIMIT 1');
-        foreach($tasks as $t){
-            $id=preg_replace('/[^a-zA-Z0-9_-]/','',substr((string)($t['id']??''),0,32)); if($id==='')continue;
-            $existingQ->execute([$id]); $existing=$existingQ->fetch();
-            if($existing){
-                if((int)$existing['workspace_id']!==$wid)continue;
-                if((int)$existing['owner_id']!==(int)$u['id']){$shareCheck->execute([$id,$wid,$u['id']]);if($shareCheck->fetchColumn()===false)continue;}
-            }
-            $ownerId=$existing?(int)$existing['owner_id']:(int)$u['id'];
-            $stmt->execute([$id,$wid,$ownerId,substr((string)($t['title']??''),0,255),!empty($t['done'])?1:0,json_encode($t,JSON_UNESCAPED_UNICODE)]);
-        }
-        $pdo->prepare('INSERT INTO workspace_data(workspace_id,projects_json) VALUES(?,?) ON DUPLICATE KEY UPDATE projects_json=VALUES(projects_json)')->execute([$wid,json_encode($projects,JSON_UNESCAPED_UNICODE)]); $pdo->commit(); out(['ok'=>true]);
+        $wid=(int)($data['workspace_id']??0); $access=workspaceAccess($wid,(int)$u['id']); if($u['role']!=='super_admin'&&!$access) out(['ok'=>false,'error'=>'Sin acceso a este espacio.'],403);
+        if(!is_array($data['tasks']??null))out(['ok'=>false,'error'=>'Lista de tareas no válida.'],422);
+        $revisions=syncWorkspaceTasks(db(),$wid,$u,workspaceProjectAdmin($wid,$u,$access),$data['tasks']);
+        out(['ok'=>true,'revisions'=>$revisions]);
     }
     if ($action === 'admin_overview') {
         $pdo=db(); if($u['role']==='super_admin') { $where=''; $params=[]; } else { $where=' WHERE w.created_by=? OR (wm.user_id=? AND wm.role=?)'; $params=[$u['id'],$u['id'],'admin']; } $q=$pdo->prepare('SELECT w.id,w.name,COUNT(DISTINCT wm.user_id) members,COUNT(DISTINCT t.id) tasks FROM workspaces w LEFT JOIN workspace_members wm ON wm.workspace_id=w.id LEFT JOIN tasks t ON t.workspace_id=w.id'.$where.' GROUP BY w.id ORDER BY w.name');$q->execute($params); out(['ok'=>true,'workspaces'=>$q->fetchAll()]);
     }
     out(['ok'=>false,'error'=>'Acción no reconocida.'],404);
-} catch (Throwable $e) { error_log((string)$e); out(['ok'=>false,'error'=>'No se pudo completar la operación.'],500); }
+} catch (DomainException $e) {
+    if(isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction())$pdo->rollBack();
+    out(['ok'=>false,'error'=>$e->getMessage()], in_array($e->getCode(),[403,404,409,422],true)?$e->getCode():422);
+} catch (Throwable $e) {
+    if(isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction())$pdo->rollBack();
+    error_log((string)$e); out(['ok'=>false,'error'=>'No se pudo completar la operación.'],500);
+}
 
 function workspacesFor(array $u): array {
     $pdo=db(); if($u['role']==='super_admin'){return $pdo->query('SELECT id,name,created_by FROM workspaces ORDER BY name')->fetchAll();}

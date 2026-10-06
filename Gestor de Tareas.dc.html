@@ -11,6 +11,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="./kaizen-icon-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
 <script src="./support.js"></script>
+<script src="./planning.js"></script>
 </head>
 <body>
 <x-dc>
@@ -21,6 +22,52 @@
   html, body { height: 100%; width: 100%; margin: 0; max-width: 100%; min-width: 0; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
   *, *::before, *::after { box-sizing: border-box; }
   * { scrollbar-width: thin; }
+  .timeline-toolbar, .timeline-navigation { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .timeline-toolbar { margin-bottom:16px; justify-content:space-between; }
+  .timeline-toolbar label { font-size:12px; font-weight:700; }
+  .timeline-toolbar .input { max-width:240px; }
+  .timeline-navigation .btn, .timeline-toolbar .btn { min-height:44px; }
+  .timeline-period { font-family:var(--font-heading); font-size:20px; margin:16px 0 6px; }
+  .timeline-summary { font-size:12px; line-height:1.6; color:color-mix(in srgb,var(--color-text) 72%,transparent); margin-bottom:16px; }
+  .timeline-scroll { overflow:auto; max-width:100%; border:1px solid var(--color-divider); border-radius:8px; background:var(--color-bg); }
+  .timeline-sheet { --task-width:240px; width:100%; }
+  .timeline-grid-row { display:grid; grid-template-columns:var(--task-width) minmax(0,1fr); border-bottom:1px solid var(--color-divider); min-height:100px; }
+  .timeline-grid-row:last-child { border-bottom:0; }
+  .timeline-grid-header { min-height:58px; position:sticky; top:0; z-index:4; background:var(--color-surface); }
+  .timeline-heading, .timeline-task { position:sticky; left:0; background:var(--color-bg); border:0; border-right:1px solid var(--color-divider); padding:14px; z-index:3; text-align:left; color:var(--color-text); font-family:var(--font-body); min-width:0; }
+  .timeline-heading { font-size:12px; display:flex; align-items:center; font-weight:700; background:var(--color-surface); }
+  .timeline-task { cursor:pointer; display:flex; flex-direction:column; justify-content:center; gap:5px; }
+  .timeline-task .timeline-assignee, .timeline-backlog .timeline-assignee { font-weight:600; color:var(--color-text); overflow-wrap:anywhere; }
+  .timeline-task:hover { background:var(--color-surface); }
+  .timeline-task strong { font-size:13px; line-height:1.4; overflow-wrap:anywhere; }
+  .timeline-task span { font-size:11px; line-height:1.4; color:color-mix(in srgb,var(--color-text) 70%,transparent); }
+  .timeline-dates, .timeline-lane { position:relative; min-width:0; }
+  .timeline-lane { overflow:hidden; }
+  .timeline-tick { position:absolute; top:0; bottom:0; text-align:center; border-left:1px solid var(--color-divider); padding:8px 2px; font-size:12px; }
+  .timeline-tick small { display:block; margin-top:4px; opacity:.65; font-size:10px; }
+  .timeline-gridline { position:absolute; top:0; bottom:0; border-left:1px solid color-mix(in srgb,var(--color-divider) 55%,transparent); pointer-events:none; }
+  .timeline-now { position:absolute; top:0; bottom:0; width:2px; background:var(--color-accent); z-index:2; pointer-events:none; }
+  .timeline-bar { position:absolute; top:27px; height:44px; border:0; border-radius:5px; cursor:pointer; background:color-mix(in srgb,var(--color-accent) 14%,var(--color-bg)); color:var(--color-text); padding:0 6px; z-index:2; overflow:hidden; text-align:left; font:700 11px var(--font-body); white-space:nowrap; }
+  .timeline-bar:hover { background:color-mix(in srgb,var(--color-accent) 24%,var(--color-bg)); }
+  .timeline-duration { position:absolute; top:71px; height:3px; background:var(--color-accent); min-width:1px; pointer-events:none; z-index:2; }
+  .timeline-task:focus-visible, .timeline-bar:focus-visible { outline:3px solid var(--color-accent-700); outline-offset:-3px; }
+  .timeline-empty { padding:20px; line-height:1.6; font-size:13px; }
+  .timeline-backlog { margin-top:22px; }
+  .timeline-backlog h4 { margin:0 0 10px; font-size:14px; }
+  .timeline-backlog-row { display:flex; align-items:center; gap:10px; padding:12px 0; border-top:1px solid var(--color-divider); }
+  .timeline-backlog-row > div { flex:1; min-width:0; font-size:13px; overflow-wrap:anywhere; }
+  .timeline-backlog-row small { display:block; margin-top:4px; opacity:.7; }
+  .timeline-backlog-row .btn { min-height:44px; flex:none; }
+  @media (max-width:900px) {
+    .timeline-sheet { --task-width:160px; }
+    .timeline-toolbar { align-items:flex-start; flex-direction:column; }
+    .timeline-task { padding:10px; }
+    .timeline-period { font-size:17px; }
+    .timeline-backlog-row { align-items:flex-start; flex-wrap:wrap; }
+    .timeline-backlog-row > div { flex-basis:100%; }
+  }
+  .quick-add { flex-wrap:wrap; }
+  .quick-add > input { flex:1; min-width:180px; }
   input[type="checkbox"] { accent-color: var(--color-accent); }
   a { color: var(--color-accent); }
   a:hover { color: var(--color-accent-700); }
@@ -72,7 +119,8 @@
     .task-row > div:last-child { grid-column: 2; min-width: 0; flex-wrap: wrap; justify-content: flex-start; gap: 6px !important; }
     .task-row > div:last-child input[type="date"] { width: 132px !important; }
     .matrix-grid, .stats-kpis, .stats-lower-grid, .project-grid { grid-template-columns: 1fr !important; }
-    .detail-panel { width: auto !important; border-left: 0 !important; border-top: 2px solid var(--color-divider); padding: 16px 12px 44px !important; }
+    .content-layout { flex-direction:column; width:100%; max-width:100%; }
+    .detail-panel { width:100% !important; min-width:0; max-width:100%; border-left:0 !important; border-top:2px solid var(--color-divider); padding:16px 12px 44px !important; overflow-y:visible !important; }
     .main-content input, .main-content select, .main-content button { max-width: 100%; }
     .main-content .quick-add input, .main-content .quick-add button { width: 100% !important; }
     .main-content [style*="min-width:180px"], .main-content [style*="min-width:240px"] { min-width: 0 !important; width: 100%; }
@@ -85,6 +133,32 @@
     .auth-controls .auth-name { grid-column: 1 / -1 !important; width: 100% !important; min-width: 0 !important; order: 0 !important; }
     .auth-controls .auth-workspace-picker, .auth-controls .auth-workspace { grid-column: 1 / -1 !important; width: 100% !important; min-width: 0 !important; flex: none !important; }
     .auth-controls .auth-action { width: 100% !important; min-width: 0 !important; flex: none !important; white-space: normal !important; line-height: 1.1; }
+  }
+
+  .delegate-button { white-space:nowrap; border-color:var(--color-accent-700); color:var(--color-accent-700); font-weight:700; }
+  .task-row > div:last-child { flex-wrap:wrap; }
+  .task-row .btn, .task-row input[type="date"] { min-height:44px; }
+  .task-row .btn-ghost { color:var(--color-accent-700); }
+  .delegation-dialog { width:min(520px, calc(100vw - 24px)); max-height:calc(100dvh - 24px); margin:auto; padding:24px; overflow:auto; border:2px solid var(--color-divider); background:var(--color-bg); color:var(--color-text); box-shadow:var(--shadow-md); font-family:var(--font-body); }
+  .delegation-dialog::backdrop { background:rgba(0,0,0,.48); }
+  .delegation-dialog h2 { margin:0 0 8px; font-size:24px; }
+  .delegation-dialog p { margin:0 0 16px; font-size:14px; line-height:1.5; overflow-wrap:anywhere; }
+  .delegation-option { display:flex; align-items:center; gap:12px; width:100%; min-height:64px; padding:12px; margin-bottom:8px; border:1px solid var(--color-divider); cursor:pointer; }
+  .delegation-option:has(input:checked) { border-color:var(--color-accent-700); background:color-mix(in srgb, var(--color-accent) 8%, var(--color-bg)); }
+  .delegation-option input { width:22px; height:22px; flex:none; margin:0; }
+  .delegation-option span { display:block; overflow-wrap:anywhere; }
+  .delegation-option small { display:block; margin-top:4px; font-size:13px; }
+  .delegation-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:20px; }
+  .delegation-actions .btn { min-height:44px; flex:1; }
+  .delegation-actions .btn-primary { background:var(--color-accent-700); color:var(--color-bg); }
+  .delegation-dialog :focus-visible, .delegate-button:focus-visible { outline:3px solid var(--color-accent-700); outline-offset:3px; }
+  .delegation-dialog :disabled { opacity:.65; cursor:wait; }
+  .delegation-error { padding:12px; border-left:3px solid var(--color-accent-700); font-weight:600; }
+  @media (min-width:901px) and (max-width:1600px) {
+    .auth-controls { display:flex !important; flex:0 0 100% !important; flex-wrap:wrap; gap:8px !important; }
+    .auth-controls .auth-name, .auth-controls .auth-workspace { width:auto !important; flex:1 1 150px !important; }
+    .auth-controls .auth-workspace-picker { width:auto !important; flex:1 1 240px !important; }
+    .auth-controls .auth-action { width:auto !important; flex:0 0 auto !important; }
   }
   .active-timer-banner {
     display: flex; align-items: center; gap: 18px; margin: -6px 0 22px; padding: 20px 22px;
@@ -117,6 +191,68 @@
     .active-timer-banner__actions { flex: 1 0 100%; }
     .active-timer-banner__actions .btn { width: 100%; }
   }
+  .team-view { font-size:13px; line-height:1.6; }
+  .team-task { display:flex; flex-direction:column; gap:4px; padding:14px 0; border-bottom:1px solid var(--color-divider); overflow-wrap:anywhere; }
+  .team-task small { font-size:12px; }
+  .team-task .timeline-assignee { font-weight:600; }
+  .detail-panel { min-width:0; max-width:100%; overflow-wrap:anywhere; }
+  .detail-panel .field, .detail-panel .card { min-width:0; max-width:100%; }
+  .detail-panel .input { min-width:0; max-width:100%; }
+  .detail-panel .btn { max-width:100%; min-height:44px; white-space:normal; }
+  .app-header { display:flex; align-items:center; gap:16px; flex-wrap:wrap; flex:none; padding:12px 20px; border-bottom:1px solid var(--color-divider); background:var(--color-bg); position:relative; z-index:10; }
+  .app-brand { font:800 18px var(--font-heading); }
+  .header-clock { display:flex; flex-direction:column; font-variant-numeric:tabular-nums; }
+  .header-clock strong { font:800 24px var(--font-heading); line-height:1.1; }
+  .header-clock small { font-size:11px; opacity:.7; }
+  .header-task { flex:1; min-width:120px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+  .header-menus { display:flex; gap:8px; align-items:flex-start; }
+  .app-disclosure { position:relative; }
+  .app-disclosure > summary, .row-options > summary { display:list-item; cursor:pointer; padding:11px 14px; min-height:44px; border:1px solid var(--color-divider); border-radius:4px; font-size:13px; font-weight:600; }
+  .app-disclosure[open] > summary, .row-options[open] > summary { background:var(--color-surface); }
+  .header-panel { position:absolute; top:calc(100% + 8px); right:0; width:min(340px, calc(100vw - 24px)); padding:16px; display:flex; flex-direction:column; gap:12px; background:var(--color-bg); border:1px solid var(--color-divider); border-radius:8px; box-shadow:var(--shadow-md); max-height:min(560px, 65dvh); overflow:auto; }
+  .panel-label { font-size:12px; }
+  .panel-actions { display:flex; flex-wrap:wrap; gap:8px; }
+  .app-header .btn { min-height:44px; }
+  .header-panel label, .account-name, .panel-help, .nested-options { font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+  .panel-help { margin:0; }
+  .header-panel .input { width:100%; min-width:0; }
+  .nested-options > summary, .calendar-help > summary { cursor:pointer; min-height:44px; padding:12px 0; font-size:13px; }
+  .nested-options[open] > summary { margin-bottom:8px; }
+  .nav-more > summary { cursor:pointer; padding:14px 18px; min-height:44px; font-size:13px; }
+  .nav-more button { width:100%; min-height:44px; }
+  .sidebar > button { min-height:44px; }
+  .task-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; max-width:100%; }
+  .row-options { min-width:0; }
+  .row-options[open] { flex-basis:100%; }
+  .row-options-body { display:flex; align-items:flex-end; flex-wrap:wrap; gap:8px; padding:12px 0; }
+  .row-date { display:flex; flex-direction:column; gap:6px; font-size:12px; }
+  .calendar-help { margin:-12px 0 16px; color:color-mix(in srgb,var(--color-text) 75%,transparent); }
+  .calendar-help p { font-size:13px; line-height:1.6; margin:0 0 10px; }
+  .timeline-grid-row { min-height:82px; }
+  .timeline-grid-header { min-height:58px; }
+  .timeline-bar { top:18px; }
+  .timeline-duration { top:62px; }
+  .app-header :focus-visible, .nav-more :focus-visible, .row-options :focus-visible, .calendar-help :focus-visible { outline:3px solid var(--color-accent-700); outline-offset:2px; }
+  @media (min-width:901px) and (max-width:1200px) {
+    .task-row { grid-template-columns:20px minmax(0,1fr) !important; }
+    .task-row > .task-actions { grid-column:2; }
+  }
+  @media (max-width:900px) {
+    .app-header { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:10px; padding:12px; }
+    .header-task { grid-column:1 / -1; min-width:0; }
+    .app-header .mobile-nav-toggle { width:auto; display:block; }
+    .header-menus { grid-column:2 / -1; justify-content:flex-end; }
+    .header-panel { position:fixed; top:auto; right:12px; margin-top:8px; }
+    .mobile-nav-panel { position:relative; top:auto; flex:none; z-index:11; }
+    .task-actions { gap:6px; }
+    .row-options-body { align-items:flex-start; flex-direction:column; }
+    .timeline-task strong { font-size:14px; }
+    .timeline-task span { font-size:12px; }
+    .timeline-toolbar label { font-size:13px; }
+    .timeline-toolbar > div, .timeline-navigation { width:100%; min-width:0; }
+    .timeline-toolbar .input { max-width:100%; min-height:44px; }
+  }
+
 </style>
 </helmet>
 <div class="app-shell" style="display:flex;flex-direction:column;height:100vh;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body);overflow:hidden">
@@ -142,65 +278,86 @@
     </div>
   </sc-if>
 
-  <div class="topbar" style="display:flex;align-items:center;gap:16px;padding:10px 20px;border-bottom:2px solid var(--color-divider);background:var(--color-bg);flex:none;min-width:0">
-    <div style="font-family:var(--font-heading);font-weight:800;font-size:16px;letter-spacing:0.1em;text-transform:uppercase">Kaizen</div>
-    <div class="topbar-controls" style="display:flex;align-items:center;gap:12px;padding-left:16px;border-left:2px solid var(--color-divider);flex:1;min-width:0">
-      <div style="font-family:var(--font-heading);font-weight:800;font-size:26px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-0.02em">{{ pomoClock }}</div>
-      <div style="display:flex;flex-direction:column;gap:2px;min-width:110px;flex:0 1 220px;overflow:hidden">
-        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-accent)">{{ pomoModeLabel }}</div>
-        <div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ activeLabel }}</div>
-      </div>
-      <div style="display:flex;gap:6px;flex:none;align-items:center">
-        <div style="display:flex;border:1px solid var(--color-divider);flex:none;margin-right:6px">
-          <sc-for list="{{ modeBtns }}" as="m" hint-placeholder-count="2">
-            <button onClick="{{ m.onClick }}" style="{{ m.style }}">{{ m.label }}</button>
-          </sc-for>
+  <header class="app-header">
+    <strong class="app-brand">Kaizen</strong>
+    <div class="header-clock"><strong>{{ pomoClock }}</strong><small>{{ pomoModeLabel }}</small></div>
+    <button class="btn btn-primary" onClick="{{ onPomoToggle }}">{{ pomoBtnLabel }}</button>
+    <span class="header-task" title="{{ activeLabel }}">{{ activeLabel }}</span>
+    <button class="btn btn-secondary mobile-nav-toggle" onClick="{{ onToggleMobileNav }}">Menú</button>
+    <div class="header-menus">
+      <details class="app-disclosure" name="header-options">
+        <summary>Temporizador</summary>
+        <div class="header-panel">
+          <strong class="panel-label">Modo de trabajo</strong>
+          <div class="panel-actions"><sc-for list="{{ modeBtns }}" as="m"><button class="btn btn-secondary" onClick="{{ m.onClick }}" style="{{ m.style }}">{{ m.label }}</button></sc-for></div>
+          <div class="panel-actions"><button class="btn btn-secondary" onClick="{{ onPomoReset }}">Reiniciar</button><sc-if value="{{ isPomoMode }}"><button class="btn btn-secondary" onClick="{{ onPomoSkip }}">Cambiar ciclo</button></sc-if><button class="btn btn-secondary" onClick="{{ onEnterFull }}">Pantalla completa</button></div>
+          <details class="nested-options"><summary>Opciones de prueba</summary><label for="timer-speed">Velocidad del reloj</label><select id="timer-speed" class="input" value="{{ timerSpeed }}" onChange="{{ onTimerSpeed }}"><option value="1">Normal · 1×</option><option value="10">Prueba · 10×</option><option value="60">Prueba · 60×</option></select></details>
         </div>
-        <button class="btn btn-primary" onClick="{{ onPomoToggle }}" style="white-space:nowrap">{{ pomoBtnLabel }}</button>
-        <button class="btn btn-secondary" onClick="{{ onPomoReset }}" style="white-space:nowrap">Reiniciar</button>
-        <sc-if value="{{ isPomoMode }}" hint-placeholder-val="{{ true }}">
-          <button class="btn btn-ghost" onClick="{{ onPomoSkip }}" style="white-space:nowrap">Saltar</button>
-        </sc-if>
-        <button class="btn btn-secondary" onClick="{{ onEnterFull }}" style="white-space:nowrap" title="Pantalla completa">⤢</button>
-        <button class="btn btn-secondary page-refresh-button" onClick="{{ onRefreshPage }}" style="white-space:nowrap" title="Actualizar la página">↻ Actualizar</button>
-        <button class="btn btn-secondary mobile-nav-toggle" onClick="{{ onToggleMobileNav }}">☰ Menú</button>
-        <button class="btn btn-secondary" onClick="{{ onOpenIdeas }}" title="Enviar una mejora o sugerencia">💡 Mejoras</button>
-        <select class="input timer-speed" value="{{ timerSpeed }}" onChange="{{ onTimerSpeed }}" title="Velocidad del reloj para pruebas" style="width:118px;flex:none"><option value="1">Reloj 1×</option><option value="10">Prueba 10×</option><option value="60">Prueba 60×</option></select>
-        <button class="btn btn-secondary" onClick="{{ onCycleTheme }}" title="Cambiar tema visual">🎨 {{ themeLabel }}</button>
-      </div>
-      <sc-if value="{{ hasAuth }}" hint-placeholder-val="{{ true }}">
-        <div class="auth-controls" style="display:flex;align-items:center;gap:6px;flex:0 1 290px;min-width:150px">
-          <div class="user-chip auth-name" style="font-size:12px;font-family:var(--font-heading);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ authUserLabel }}">{{ authUserLabel }}</div>
-          <sc-if value="{{ canSwitchWorkspace }}" hint-placeholder-val="{{ false }}">
-            <div class="auth-workspace-picker" style="display:flex;align-items:center;gap:5px;min-width:0;flex:1"><span style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-accent);white-space:nowrap">Espacio activo</span><select class="input" value="{{ workspaceId }}" onChange="{{ onWorkspaceChange }}" title="Cambiar espacio de trabajo" style="min-width:0;flex:1;border-color:var(--color-accent)"><sc-for list="{{ workspaceOptions }}" as="w" hint-placeholder-count="2"><option value="{{ w.id }}">{{ w.name }}</option></sc-for></select></div>
+      </details>
+      <details class="app-disclosure" name="header-options">
+        <summary>Más</summary>
+        <div class="header-panel">
+          <strong class="panel-label">Preferencias</strong>
+          <button class="btn btn-secondary" onClick="{{ onCycleTheme }}">Tema: {{ themeLabel }}</button>
+          <button class="btn btn-secondary" onClick="{{ onEnableNotifications }}">{{ notificationLabel }}</button>
+          <sc-if value="{{ showPushPrompt }}"><p class="panel-help">{{ pushPromptText }}</p></sc-if>
+          <details class="nested-options"><summary>Probar notificaciones</summary><button class="btn btn-secondary" onClick="{{ onTestNotification }}">Enviar aviso de prueba</button></details>
+          <button class="btn btn-secondary" onClick="{{ onRefreshPage }}">Actualizar página</button>
+          <button class="btn btn-secondary" onClick="{{ onOpenIdeas }}">Enviar sugerencia</button>
+          <sc-if value="{{ hasAuth }}">
+            <strong class="panel-label">Cuenta</strong><div class="account-name">{{ authUserLabel }}</div>
+            <sc-if value="{{ canSwitchWorkspace }}"><label for="header-workspace">Espacio de trabajo</label><select id="header-workspace" class="input" value="{{ workspaceId }}" onChange="{{ onWorkspaceChange }}"><sc-for list="{{ workspaceOptions }}" as="w"><option value="{{ w.id }}">{{ w.name }}</option></sc-for></select></sc-if>
+            <sc-if value="{{ isFixedWorkspace }}"><div class="panel-help">{{ activeWorkspaceName }}</div></sc-if>
+            <button class="btn btn-ghost" onClick="{{ onLogout }}">Cerrar sesión</button>
           </sc-if>
-          <sc-if value="{{ isFixedWorkspace }}" hint-placeholder-val="{{ false }}"><div class="user-chip auth-workspace" title="Espacio de trabajo asignado" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ activeWorkspaceName }}</div></sc-if>
-          <button class="btn btn-ghost auth-action" onClick="{{ onEnableNotifications }}" title="Activar avisos del Pomodoro">{{ notificationLabel }}</button>
-          <button class="btn btn-ghost auth-action" onClick="{{ onTestNotification }}" title="Enviar un aviso de prueba">Probar aviso</button>
-          <button class="btn btn-ghost auth-action" onClick="{{ onLogout }}" title="Cerrar sesión">Salir</button>
         </div>
-      </sc-if>
+      </details>
     </div>
-  </div>
+  </header>
 
   <sc-if value="{{ mobileNavOpen }}" hint-placeholder-val="{{ false }}">
     <div class="mobile-nav-panel">
-      <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="6">
+      <sc-for list="{{ primaryNavItems }}" as="item" hint-placeholder-count="6">
         <button onClick="{{ item.onClick }}" style="{{ item.style }}"><span>{{ item.label }}</span><span style="{{ item.countStyle }}">{{ item.count }}</span></button>
-      </sc-for>
+      </sc-for><details class="nav-more"><summary>{{ secondaryNavLabel }}</summary><sc-for list="{{ secondaryNavItems }}" as="item" hint-placeholder-count="6">
+        <button onClick="{{ item.onClick }}" style="{{ item.style }}"><span>{{ item.label }}</span><span style="{{ item.countStyle }}">{{ item.count }}</span></button>
+      </sc-for></details>
     </div>
   </sc-if>
   <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}"><div class="toast-message">{{ toast }}</div></sc-if>
 
+
+  <sc-if value="{{ hasDelegation }}" hint-placeholder-val="{{ false }}">
+    <dialog class="delegation-dialog" aria-labelledby="delegation-heading" aria-describedby="delegation-help" onCancel="{{ onCancelDelegation }}">
+      <h2 id="delegation-heading">Delegar tarea</h2>
+      <p><strong>{{ delegationTitle }}</strong></p>
+      <p id="delegation-help">{{ delegationHelp }}</p>
+      <sc-for list="{{ delegationOptions }}" as="m" hint-placeholder-count="2">
+        <label class="delegation-option"><input type="checkbox" checked="{{ m.checked }}" disabled="{{ delegationBusy }}" onChange="{{ m.onChange }}"><span><strong>{{ m.name }}</strong><small>{{ m.email }}</small></span></label>
+      </sc-for>
+      <sc-if value="{{ delegationError }}" hint-placeholder-val="{{ false }}"><p class="delegation-error" role="alert">{{ delegationError }}</p></sc-if>
+      <p role="status" aria-live="polite">{{ delegationStatus }}</p>
+      <div class="delegation-actions">
+        <button class="btn btn-secondary" disabled="{{ delegationBusy }}" onClick="{{ onCloseDelegation }}">Cancelar</button>
+        <button class="btn btn-primary" disabled="{{ delegationBusy }}" onClick="{{ onSaveDelegation }}">{{ delegationSaveLabel }}</button>
+      </div>
+    </dialog>
+  </sc-if>
+
   <div class="workspace" style="display:flex;flex:1;min-height:0">
 
     <div class="sidebar" style="width:212px;flex:none;border-right:2px solid var(--color-divider);padding:16px 0;display:flex;flex-direction:column;gap:2px;overflow-y:auto">
-      <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="6">
+      <sc-for list="{{ primaryNavItems }}" as="item" hint-placeholder-count="6">
         <button onClick="{{ item.onClick }}" style="{{ item.style }}" style-hover="background:color-mix(in srgb, var(--color-text) 6%, transparent)">
           <span>{{ item.label }}</span>
           <span style="{{ item.countStyle }}">{{ item.count }}</span>
         </button>
-      </sc-for>
+      </sc-for><details class="nav-more"><summary>{{ secondaryNavLabel }}</summary><sc-for list="{{ secondaryNavItems }}" as="item" hint-placeholder-count="6">
+        <button onClick="{{ item.onClick }}" style="{{ item.style }}" style-hover="background:color-mix(in srgb, var(--color-text) 6%, transparent)">
+          <span>{{ item.label }}</span>
+          <span style="{{ item.countStyle }}">{{ item.count }}</span>
+        </button>
+      </sc-for></details>
       <div style="margin-top:auto;padding:16px 18px 0;border-top:2px solid var(--color-divider);display:flex;flex-direction:column;gap:14px">
         <div>
           <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 55%, transparent)">Enfoque hoy</div>
@@ -215,7 +372,7 @@
       </div>
     </div>
 
-    <div style="flex:1;min-width:0;display:flex">
+    <div class="content-layout" style="flex:1;min-width:0;display:flex">
       <div class="main-content" style="flex:1;min-width:0;overflow-y:auto;padding:22px 28px 60px">
 
         <sc-if value="{{ hasActiveTimer }}" hint-placeholder-val="{{ false }}">
@@ -224,7 +381,7 @@
             <div class="active-timer-banner__content">
               <div class="active-timer-banner__eyebrow">{{ pomoModeLabel }} · En curso</div>
               <div class="active-timer-banner__title">{{ activeLabel }}</div>
-              <div class="active-timer-banner__hint">Hecho. La tarea que se está cronometrando ahora:</div>
+              <div class="active-timer-banner__hint">Trabajando en esta tarea</div>
             </div>
             <div class="active-timer-banner__actions"><button class="btn btn-primary" onClick="{{ onPomoToggle }}">{{ pomoBtnLabel }}</button></div>
           </div>
@@ -235,12 +392,13 @@
           <div style="font-size:12px;padding-bottom:4px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ viewSub }}</div>
         </div>
         <hr class="hr">
+        <sc-if value="{{ syncError }}" hint-placeholder-val="{{ false }}"><div role="alert" class="card" style="margin-bottom:16px">{{ syncError }} <button class="btn btn-secondary" onClick="{{ onRetrySync }}">Reintentar guardar</button><button class="btn btn-ghost" onClick="{{ onDiscardAndReload }}">Descartar cambios pendientes y recargar</button></div></sc-if>
 
-        <sc-if value="{{ showPushPrompt }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px;padding:14px 16px;background:var(--color-surface);border-left:3px solid var(--color-accent)"><div><div style="font-family:var(--font-heading);font-weight:800">Activa las notificaciones de Kaizen</div><div style="font-size:12px;margin-top:4px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">{{ pushPromptText }}</div></div><button class="btn btn-primary" onClick="{{ onEnableNotifications }}" style="white-space:nowrap">Permitir notificaciones</button></div></sc-if>
 
         <sc-if value="{{ showQuickAdd }}" hint-placeholder-val="{{ true }}">
           <div class="quick-add" style="display:flex;gap:8px;margin-bottom:18px">
-            <input class="input" placeholder="Escribe una tarea y presiona Enter" value="{{ newTitle }}" onInput="{{ onNewInput }}" onKeyDown="{{ onNewKey }}">
+            <input class="input" placeholder="Nueva tarea · Enter para añadir" value="{{ newTitle }}" onInput="{{ onNewInput }}" onKeyDown="{{ onNewKey }}">
+            <sc-if value="{{ showNewProjectPicker }}" hint-placeholder-val="{{ true }}"><select class="input" aria-label="Proyecto para la nueva tarea" value="{{ newTaskProject }}" onChange="{{ onNewTaskProject }}" style="max-width:220px"><option value="">Sin proyecto</option><sc-for list="{{ projectOptions }}" as="p"><option value="{{ p.id }}" label="{{ p.name }}">{{ p.name }}</option></sc-for></select></sc-if>
             <button class="btn btn-primary" onClick="{{ onAdd }}" style="flex:none">Agregar</button>
           </div>
         </sc-if>
@@ -261,33 +419,18 @@
                     <span style="font-size:11px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ item.meta }}</span>
                   </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:10px">
-                  <input class="input" type="date" value="{{ item.due }}" onInput="{{ item.onDue }}" style="width:140px;flex:none" title="Fecha límite">
-                  <sc-if value="{{ item.showMove }}" hint-placeholder-val="{{ false }}">
-                    <button class="btn btn-secondary" onClick="{{ item.onSendToday }}" style="flex:none;white-space:nowrap">→ Hoy</button>
-                  </sc-if>
+                <div class="task-actions">
                   <sc-if value="{{ item.showArchiveAction }}" hint-placeholder-val="{{ false }}">
                     <button class="btn btn-secondary" onClick="{{ item.onArchiveAction }}" style="flex:none;white-space:nowrap">{{ item.archiveActionLabel }}</button>
                   </sc-if>
                   <sc-if value="{{ item.showDelegate }}" hint-placeholder-val="{{ false }}">
                     <div style="position:relative;flex:none">
-                      <button class="btn btn-secondary" onClick="{{ item.onDelegate }}" style="white-space:nowrap;border-color:var(--color-accent);color:var(--color-accent)" title="Delegar esta tarea">Delegar</button>
-                      <sc-if value="{{ item.showDelegatePopover }}" hint-placeholder-val="{{ false }}">
-                        <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:70;width:240px;max-width:calc(100vw - 32px);padding:10px;background:var(--color-surface);border:2px solid var(--color-accent);box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:default">
-                          <div style="font-size:12px;font-family:var(--font-heading);font-weight:800">Equipo</div>
-                          <div style="font-size:11px;margin:3px 0 7px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">Selecciona quién recibirá esta tarea.</div>
-                          <sc-for list="{{ item.delegateOptions }}" as="m" hint-placeholder-count="2">
-                            <button onClick="{{ m.onToggle }}" style="{{ m.style }}"><span style="font-weight:800;width:18px">{{ m.mark }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span><span style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent);margin-left:auto">{{ m.email }}</span></button>
-                          </sc-for>
-                        </div>
-                      </sc-if>
+                      <button class="btn btn-secondary delegate-button" onClick="{{ item.onDelegate }}" title="Delegar esta tarea">Delegar</button>
                     </div>
                   </sc-if>
                   <span style="font-size:12px;font-variant-numeric:tabular-nums;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ item.time }}</span>
                   <button class="btn btn-secondary" onClick="{{ item.onPlay }}" style="{{ item.playStyle }}">{{ item.playLabel }}</button>
-                  <sc-if value="{{ item.showDelete }}" hint-placeholder-val="{{ true }}">
-                    <button class="btn btn-ghost" onClick="{{ item.onDelete }}" style="flex:none;white-space:nowrap" title="Mover a Borrado">Borrar</button>
-                  </sc-if>
+                  <details class="row-options"><summary aria-label="{{ item.moreLabel }}">Más</summary><div class="row-options-body"><label class="row-date">Fecha límite<input class="input" type="date" value="{{ item.due }}" onInput="{{ item.onDue }}" style="width:140px;flex:none" title="Fecha límite"></label><sc-if value="{{ item.showMove }}"><button class="btn btn-secondary" onClick="{{ item.onSendToday }}">Mover a Hoy</button></sc-if><sc-if value="{{ item.showDelete }}"><button class="btn btn-ghost" onClick="{{ item.onDelete }}">Borrar</button></sc-if></div></details>
                 </div>
                 </div>
               </div>
@@ -316,15 +459,6 @@
                       <sc-if value="{{ item.showDelegate }}" hint-placeholder-val="{{ false }}">
                         <div style="position:relative;flex:none">
                           <button class="btn btn-secondary" onClick="{{ item.onDelegate }}" style="white-space:nowrap;padding:4px 8px;border-color:var(--color-accent);color:var(--color-accent)">Delegar</button>
-                          <sc-if value="{{ item.showDelegatePopover }}" hint-placeholder-val="{{ false }}">
-                            <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:70;width:240px;max-width:calc(100vw - 32px);padding:10px;background:var(--color-surface);border:2px solid var(--color-accent);box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:default">
-                              <div style="font-size:12px;font-family:var(--font-heading);font-weight:800">Equipo</div>
-                              <div style="font-size:11px;margin:3px 0 7px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">Selecciona quién recibirá esta tarea.</div>
-                              <sc-for list="{{ item.delegateOptions }}" as="m" hint-placeholder-count="2">
-                                <button onClick="{{ m.onToggle }}" style="{{ m.style }}"><span style="font-weight:800;width:18px">{{ m.mark }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span><span style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent);margin-left:auto">{{ m.email }}</span></button>
-                              </sc-for>
-                            </div>
-                          </sc-if>
                         </div>
                       </sc-if>
                     </div>
@@ -343,6 +477,15 @@
               <div style="font-family:var(--font-heading);font-weight:800;font-size:24px">{{ projectDetailName }}</div>
               <div style="font-size:12px;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ projectDetailStats }}</div>
             </div>
+            <div class="card" style="margin-bottom:16px">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><strong>{{ projectSharingLabel }}</strong><button class="btn btn-secondary" onClick="{{ onRefreshTasks }}">Actualizar tareas</button><sc-if value="{{ canManageProject }}"><button class="btn btn-secondary" onClick="{{ onEditProjectMembers }}">Elegir miembros</button></sc-if></div>
+              <div style="font-size:12px;margin-top:8px">{{ projectMemberNames }}</div>
+              <sc-if value="{{ isEditingProjectMembers }}">
+                <p style="font-size:12px">Las personas seleccionadas podrán ver y editar todas las tareas del proyecto, incluidas las existentes. El creador de cada tarea conserva su autoría. Solo el creador o un administrador puede moverla a otro proyecto.</p>
+                <sc-for list="{{ projectMemberOptions }}" as="m"><label style="display:flex;gap:8px;padding:6px 0"><input type="checkbox" checked="{{ m.selected }}" disabled="{{ m.locked }}" onChange="{{ m.onToggle }}">{{ m.name }} {{ m.ownerLabel }}</label></sc-for>
+                <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" disabled="{{ projectBusy }}" onClick="{{ onSaveProjectMembers }}">Guardar miembros</button><button class="btn btn-secondary" disabled="{{ projectBusy }}" onClick="{{ onCancelProjectMembers }}">Cancelar</button></div>
+              </sc-if>
+            </div>
             <div>
               <sc-for list="{{ listTasks }}" as="item" hint-placeholder-count="5">
                 <div class="task-row" onClick="{{ item.onRowOpen }}" style="{{ item.rowStyle }}" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
@@ -355,20 +498,11 @@
                       <span style="font-size:11px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ item.meta }}</span>
                     </div>
                   </div>
-                  <div style="display:flex;align-items:center;gap:10px">
-                    <input class="input" type="date" value="{{ item.due }}" onInput="{{ item.onDue }}" style="width:140px;flex:none" title="Fecha límite">
+                  <div class="task-actions">
+                    <details class="row-options"><summary aria-label="{{ item.moreLabel }}">Más</summary><div class="row-options-body"><label class="row-date">Fecha límite<input class="input" type="date" value="{{ item.due }}" onInput="{{ item.onDue }}" style="width:140px;flex:none" title="Fecha límite"></label></div></details>
                     <sc-if value="{{ item.showDelegate }}" hint-placeholder-val="{{ false }}">
                       <div style="position:relative;flex:none">
-                        <button class="btn btn-secondary" onClick="{{ item.onDelegate }}" style="white-space:nowrap;border-color:var(--color-accent);color:var(--color-accent)" title="Delegar esta tarea">Delegar</button>
-                        <sc-if value="{{ item.showDelegatePopover }}" hint-placeholder-val="{{ false }}">
-                          <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:70;width:240px;max-width:calc(100vw - 32px);padding:10px;background:var(--color-surface);border:2px solid var(--color-accent);box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:default">
-                            <div style="font-size:12px;font-family:var(--font-heading);font-weight:800">Equipo</div>
-                            <div style="font-size:11px;margin:3px 0 7px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">Selecciona quién recibirá esta tarea.</div>
-                            <sc-for list="{{ item.delegateOptions }}" as="m" hint-placeholder-count="2">
-                              <button onClick="{{ m.onToggle }}" style="{{ m.style }}"><span style="font-weight:800;width:18px">{{ m.mark }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span><span style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent);margin-left:auto">{{ m.email }}</span></button>
-                            </sc-for>
-                          </div>
-                        </sc-if>
+                        <button class="btn btn-secondary delegate-button" onClick="{{ item.onDelegate }}" title="Delegar esta tarea">Delegar</button>
                       </div>
                     </sc-if>
                     <span style="font-size:12px;font-variant-numeric:tabular-nums;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ item.time }}</span>
@@ -387,7 +521,7 @@
           <div>
             <div style="display:flex;gap:8px;margin-bottom:20px;max-width:520px">
               <input class="input" placeholder="Nuevo proyecto" value="{{ newProject }}" onInput="{{ onProjInput }}" onKeyDown="{{ onProjKey }}">
-              <button class="btn btn-secondary" onClick="{{ onAddProject }}" style="flex:none;white-space:nowrap">Crear proyecto</button>
+              <button class="btn btn-secondary" onClick="{{ onAddProject }}" disabled="{{ projectBusy }}" style="flex:none;white-space:nowrap">Crear proyecto</button>
             </div>
             <div class="project-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0;background:var(--color-bg);border-top:2px solid var(--color-divider);border-bottom:2px solid var(--color-divider)">
               <sc-for list="{{ projectCards }}" as="p" hint-placeholder-count="3">
@@ -402,6 +536,26 @@
               </sc-for>
             </div>
           </div>
+        </sc-if>
+
+        <sc-if value="{{ isTimeline }}" hint-placeholder-val="{{ false }}">
+          <div class="timeline-toolbar">
+            <div class="timeline-navigation"><label for="timeline-project">Proyecto</label><select id="timeline-project" class="input" value="{{ timelineProject }}" onChange="{{ onTimelineProject }}"><option value="">Todos los proyectos</option><option value="__none__">Sin proyecto</option><sc-for list="{{ allProjectOptions }}" as="p"><option value="{{ p.id }}" label="{{ p.name }}">{{ p.name }}</option></sc-for></select></div>
+            <div class="timeline-navigation"><label for="timeline-mode">Vista</label><select id="timeline-mode" class="input" value="{{ timelineMode }}" onChange="{{ onTimelineMode }}"><option value="day">Día</option><option value="week">Semana</option><option value="month">Mes</option></select><button class="btn btn-secondary" aria-label="Periodo anterior" onClick="{{ onTimelinePrevious }}">‹</button><button class="btn btn-secondary" onClick="{{ onTimelineToday }}">Hoy</button><button class="btn btn-secondary" aria-label="Periodo siguiente" onClick="{{ onTimelineNext }}">›</button></div>
+          </div>
+          <h3 class="timeline-period" aria-live="polite">{{ timelinePeriodLabel }}</h3>
+          <div class="timeline-summary">{{ timelineVisibleCount }} tareas en este periodo · {{ scheduleZoneLabel }}</div><details class="calendar-help"><summary>Opciones del calendario</summary><p>Haz clic en una tarea para editar sus fechas. La línea bajo la barra muestra la duración exacta.</p><p>{{ timelineScheduledCount }} tareas planificadas. El tiempo real de trabajo se consulta en el detalle.</p><button class="btn btn-secondary" onClick="{{ onRefreshTasks }}">Actualizar tareas</button></details>
+          <div class="timeline-scroll" role="region" aria-label="Calendario de tareas; desplazamiento horizontal" tabIndex="0">
+            <div class="timeline-sheet" style="{{ timelineSheetStyle }}">
+              <div class="timeline-grid-row timeline-grid-header"><div class="timeline-heading">Tarea / responsable</div><div class="timeline-dates"><sc-for list="{{ timelineColumns }}" as="col"><div class="timeline-tick" style="{{ col.headerStyle }}">{{ col.label }}<small>{{ col.sublabel }}</small></div></sc-for><sc-if value="{{ timelineHasToday }}"><div class="timeline-now" style="{{ timelineTodayStyle }}"></div></sc-if></div></div>
+              <sc-for list="{{ timelineRows }}" as="t">
+                <div class="timeline-grid-row"><button class="timeline-task" onClick="{{ t.onOpen }}" aria-label="{{ t.openLabel }}"><strong>{{ t.title }}</strong><span>{{ t.projectName }} · {{ t.status }}</span><span class="timeline-assignee">{{ t.responsibleLabel }}</span><span>{{ t.timeLabel }}</span></button><div class="timeline-lane"><sc-for list="{{ timelineColumns }}" as="col"><div class="timeline-gridline" style="{{ col.gridStyle }}"></div></sc-for><sc-if value="{{ timelineHasToday }}"><div class="timeline-now" style="{{ timelineTodayStyle }}"></div></sc-if><button class="timeline-bar" style="{{ t.barStyle }}" onClick="{{ t.onOpen }}" aria-label="{{ t.openLabel }}" title="{{ t.openLabel }}">{{ t.barLabel }}</button><div class="timeline-duration" style="{{ t.durationStyle }}"></div></div></div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ noScheduledTasks }}"><div class="timeline-empty">{{ timelineEmptyMessage }}</div></sc-if>
+          </div>
+          <sc-if value="{{ hasOutsideTasks }}"><div class="timeline-backlog"><h4>Fuera de este periodo · {{ outsideCount }}</h4><sc-for list="{{ outsideRows }}" as="t"><div class="timeline-backlog-row"><div><strong>{{ t.title }}</strong><small class="timeline-assignee">{{ t.responsibleLabel }}</small><small>{{ t.projectName }} · {{ t.start }} → {{ t.end }}</small></div><button class="btn btn-secondary" onClick="{{ t.onLocate }}">Ver en calendario</button></div></sc-for></div></sc-if>
+          <div class="timeline-backlog"><h4>Sin planificación · {{ unscheduledCount }}</h4><sc-for list="{{ unscheduledRows }}" as="t"><div class="timeline-backlog-row"><div><strong>{{ t.title }}</strong><small class="timeline-assignee">{{ t.responsibleLabel }}</small><small>{{ t.projectName }} · {{ t.reason }}</small></div><button class="btn btn-secondary" onClick="{{ t.onOpen }}">{{ t.action }}</button></div></sc-for></div>
         </sc-if>
 
         <sc-if value="{{ isIdeas }}" hint-placeholder-val="{{ false }}">
@@ -498,11 +652,25 @@
           </div>
         </sc-if>
 
+        <sc-if value="{{ isTeamView }}">
+          <div class="team-view">
+            <p>Consulta de las tareas de este espacio. Tus listas personales conservan solo las que creaste o recibiste por delegación directa.</p>
+            <button class="btn btn-secondary" onClick="{{ onRefreshTeam }}" disabled="{{ teamLoading }}">Actualizar equipo</button>
+            <sc-if value="{{ teamLoading }}"><p role="status">Cargando tareas del equipo…</p></sc-if>
+            <sc-if value="{{ teamError }}"><p role="alert">{{ teamError }}</p></sc-if>
+            <sc-if value="{{ teamEmpty }}"><p>No hay tareas en este espacio.</p></sc-if>
+            <sc-for list="{{ teamRows }}" as="t">
+              <article class="team-task"><strong>{{ t.title }}</strong><span>{{ t.creatorLabel }}</span><span class="timeline-assignee">{{ t.responsibleLabel }}</span><small>{{ t.projectName }} · {{ t.status }} · Tiempo real {{ t.time }}</small><small>{{ t.planLabel }}</small></article>
+            </sc-for>
+          </div>
+        </sc-if>
+
         <sc-if value="{{ isAdminView }}" hint-placeholder-val="{{ false }}">
           <div style="display:flex;flex-direction:column;gap:18px">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <div style="font-size:13px;color:color-mix(in srgb, var(--color-text) 60%, transparent)">Rol: {{ authRoleLabel }} · Las tareas visibles pertenecen al espacio seleccionado.</div>
             <button class="btn btn-secondary" onClick="{{ onRefreshAdmin }}" style="margin-left:auto">Actualizar</button>
+            <sc-if value="{{ canSeeTeam }}"><button class="btn btn-secondary" onClick="{{ onOpenTeam }}">Tareas del equipo</button></sc-if>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--color-divider);padding-bottom:16px">
             <input class="input" placeholder="Nuevo espacio de trabajo" value="{{ newWorkspaceName }}" onInput="{{ onWorkspaceName }}" style="flex:1;min-width:180px">
@@ -555,15 +723,6 @@
             <label>Tarea</label>
             <input class="input" value="{{ sel.title }}" onInput="{{ onSelTitle }}">
           </div>
-          <sc-if value="{{ showShareSection }}" hint-placeholder-val="{{ false }}">
-            <div style="margin-bottom:16px;padding:12px;background:color-mix(in srgb, var(--color-accent) 7%, transparent);border-left:3px solid var(--color-accent)">
-              <div style="font-size:12px;font-family:var(--font-heading);font-weight:800">Delegar tarea</div>
-              <div style="font-size:11px;margin:4px 0 8px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">{{ shareHelp }}</div>
-              <sc-for list="{{ shareOptions }}" as="m" hint-placeholder-count="2">
-                <button onClick="{{ m.onToggle }}" style="{{ m.style }}"><span style="font-weight:800;width:18px">{{ m.mark }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span><span style="font-size:10px;color:color-mix(in srgb, var(--color-text) 55%, transparent);margin-left:auto">{{ m.email }}</span></button>
-              </sc-for>
-            </div>
-          </sc-if>
           <div style="display:flex;gap:10px;margin-bottom:12px">
             <div class="field" style="flex:1">
               <label>Fecha límite</label>
@@ -576,12 +735,19 @@
           </div>
           <div class="field" style="margin-bottom:12px">
             <label>Proyecto</label>
-            <select class="input" value="{{ sel.project }}" onChange="{{ onSelProject }}">
+            <select class="input" disabled="{{ cannotMoveProject }}" value="{{ sel.project }}" onChange="{{ onSelProject }}">
               <option value="">Sin proyecto</option>
               <sc-for list="{{ projectOptions }}" as="o" hint-placeholder-count="3">
-                <option value="{{ o.id }}">{{ o.name }}</option>
+                <option value="{{ o.id }}" label="{{ o.name }}">{{ o.name }}</option>
               </sc-for>
             </select>
+          </div>
+          <div class="card" style="margin-bottom:14px">
+            <strong>Planificación</strong><div style="font-size:11px;margin:6px 0">{{ scheduleZoneLabel }} · independiente del tiempo Pomodoro.</div>
+            <div class="field"><label for="planned-start">Inicio</label><input id="planned-start" class="input" type="datetime-local" value="{{ scheduleStartDraft }}" onInput="{{ onScheduleStart }}"></div>
+            <div class="field" style="margin-top:8px"><label for="planned-end">Fin</label><input id="planned-end" class="input" type="datetime-local" value="{{ scheduleEndDraft }}" onInput="{{ onScheduleEnd }}"></div>
+            <div role="alert" style="font-size:12px;margin:8px 0">{{ scheduleError }}</div>
+            <button class="btn btn-secondary" onClick="{{ onSaveSchedule }}">Guardar planificación</button><button class="btn btn-ghost" onClick="{{ onClearSchedule }}">Quitar fechas</button>
           </div>
           <div style="margin-bottom:14px">
             <div style="font-size:12px;margin-bottom:6px;color:color-mix(in srgb, var(--color-text) 70%, transparent)">Cuadrante</div>
@@ -675,12 +841,14 @@
 class Component extends DCLogic {
   state = {
     tasks: [], projects: [], log: {}, view: 'today', selId: null,
-    newTitle: '', newProject: '', subDraft: '', projFilter: null,
+    newTitle: '', newProject: '', subDraft: '', projFilter: null, newTaskProject: '', timelineProject: '', timelineMode: 'week', timelineAnchor: null,
+    projectEditId: null, projectMemberDraft: [], projectBusy: false, scheduleEditId: null, scheduleStartDraft: '', scheduleEndDraft: '', scheduleError: '', syncError: '',
     pomo: { mode: 'focus', remaining: 1500, running: false, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null },
     timerSpeed: 1,
     pushReady: false,
     activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, full: false,
-    auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '', delegatingId: null,
+    teamTasks:[], teamProjects:[], teamLoading:false, teamError:'',
+    auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '', delegatingId: null, delegationDraft: [], delegationBusy: false, delegationError: '',
     authName: '', authEmail: '', authPassword: '', adminSummary: [], adminMembers: [], workspaceMembers: [], adminOpen: false, statsDay: null,
     newWorkspaceName: '', inviteEmail: '', memberRole: 'member', inviteRole: 'member', inviteWorkspaceId: null, inviteUrl: '', inviteWorkspace: '', inviteToken: '', suggestionTitle: '', suggestionBody: '', suggestions: [], improvementChecklist: [], checklistDraft: '', mobileNavOpen: false, toast: '', notificationState: 'default', theme: 'classic'
   };
@@ -719,6 +887,7 @@ class Component extends DCLogic {
       // Las tareas recién creadas todavía no traen `_owner_id`; pertenecen al
       // usuario actual y deben entrar en la primera sincronización.
       if(!ownerId)return true;
+      if(task._project_member)return true;
       if(ownerId===currentId)return true;
       const sharedIds=Array.isArray(task._shared_user_ids)?task._shared_user_ids.map(Number):[];
       return sharedIds.includes(currentId);
@@ -762,7 +931,7 @@ class Component extends DCLogic {
   }
 
   beginSwipe(id, x, y, target) {
-    if (target?.closest?.('button,input,select,textarea')) return;
+    if (target?.closest?.('button,input,select,textarea,summary,details')) return;
     this.swipeStartX = x;
     this.swipeStartY = y;
     this.swipeId = id;
@@ -913,14 +1082,53 @@ class Component extends DCLogic {
     if(!this.state.tasks.some(t=>t.id===id))return;
     // Abrir una tarea solo muestra sus detalles. El tiempo empieza únicamente
     // cuando se pulsa "Enfocar" o "Cronometrar".
-    this.setState({selId:id,delegatingId:null});
+    const t = this.state.tasks.find(t => t.id === id);
+    this.setState({ selId: id, delegatingId: null, scheduleEditId: id, scheduleStartDraft: KaizenPlanning.localInput(t.scheduledStart), scheduleEndDraft: KaizenPlanning.localInput(t.scheduledEnd), scheduleError: '' });
+  }
+  openTimelineTask(id) {
+    this.openTask(id);
+    // On small screens the detail panel follows the calendar. Bring the
+    // editor into view so selecting a task has an immediately visible effect.
+    if(typeof document !== 'undefined') setTimeout(() => {
+      const panel=document.querySelector('.detail-panel');
+      if(typeof window !== 'undefined' && window.innerWidth <= 900) panel?.scrollIntoView({block:'start',behavior:'smooth'});
+      document.querySelector('#planned-start')?.focus({preventScroll:true});
+    },0);
+  }
+  locateTimelineTask(id) {
+    const task=this.state.tasks.find(t=>t.id===id);
+    if(!task || !Number.isFinite(Date.parse(task.scheduledStart)))return;
+    this.setState({timelineAnchor:Date.parse(task.scheduledStart)});
+    if(typeof document !== 'undefined') setTimeout(()=>document.querySelector('.timeline-scroll')?.scrollIntoView({block:'nearest',behavior:'smooth'}),0);
+  }
+  delegationCandidates(task) {
+    if (!task || !this.state.auth || task.list === 'trash') return [];
+    const s=this.state, owner=Number(task._owner_id || s.auth.id);
+    const admin=['admin','super_admin'].includes(s.auth.role) || s.workspaceMembers.some(m=>Number(m.id)===Number(s.auth.id)&&m.workspace_role==='admin');
+    if(owner!==Number(s.auth.id)&&!admin)return [];
+    const project=s.projects.find(p=>p.id===task.project);
+    return s.workspaceMembers.filter(m=>Number(m.id)!==owner && (!project?.member_ids || project.member_ids.map(Number).includes(Number(m.id))));
   }
   openDelegate(id) {
+    if(this.delegationRequest)return;
     const task=this.state.tasks.find(t=>t.id===id);
-    if(!task)return;
-    // Delegar no debe iniciar accidentalmente el cronómetro. Abre un recuadro
-    // pequeño en la propia tarea con las personas del equipo.
-    this.setState(s=>({selId:null,delegatingId:s.delegatingId===id?null:id}));
+    if(!this.delegationCandidates(task).length)return;
+    this.delegationTrigger=typeof document!=='undefined'?document.activeElement:null;
+    this.setState({selId:null,delegatingId:id,delegationDraft:[...(task.sharedWith||[])].map(Number).filter(id=>this.delegationCandidates(task).some(m=>Number(m.id)===id)),delegationError:'',delegationBusy:false});
+    // Native top layer keeps the chooser above scrolling rows and traps focus.
+    if(typeof document!=='undefined')setTimeout(()=>{const dialog=document.querySelector('.delegation-dialog');if(dialog&&!dialog.open)dialog.showModal();},0);
+  }
+  closeDelegation() {
+    if(this.delegationRequest)return;
+    if(typeof document!=='undefined')document.querySelector('.delegation-dialog')?.close();
+    this.setState({delegatingId:null,delegationDraft:[],delegationError:''});
+    this.delegationTrigger?.focus?.();
+  }
+  toggleDelegationDraft(userId) {
+    if(this.delegationRequest)return;
+    const task=this.state.tasks.find(t=>t.id===this.state.delegatingId),id=Number(userId);
+    if(!this.delegationCandidates(task).some(m=>Number(m.id)===id))return;
+    this.setState(s=>({delegationDraft:s.delegationDraft.includes(id)?s.delegationDraft.filter(x=>x!==id):[...s.delegationDraft,id],delegationError:''}));
   }
   async showSystemNotification(title,options) {
     // Safari/macOS no permite de forma fiable `new Notification(...)` desde
@@ -978,6 +1186,13 @@ class Component extends DCLogic {
   }
   dkey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + this.pad(d.getMonth() + 1) + '-' + this.pad(d.getDate()); }
 
+  handleEscape(e) {
+    if(e.key !== 'Escape')return;
+    const disclosure=e.target?.closest?.('details[open]');
+    if(disclosure){disclosure.open=false;disclosure.querySelector('summary')?.focus();e.preventDefault();return;}
+    if(this.state.full)this.setState({full:false});
+  }
+
   componentDidMount() {
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch (e) { saved = null; }
@@ -991,6 +1206,7 @@ class Component extends DCLogic {
     this.setState({
       tasks: base.tasks, projects: base.projects, log: base.log || {},
       view: base.view || 'today', projFilter: base.projFilter || null,
+      timelineMode: ['day','week','month'].includes(base.timelineMode) ? base.timelineMode : 'week', timelineAnchor: Number.isFinite(base.timelineAnchor) ? base.timelineAnchor : null, timelineProject: base.timelineProject || '',
       activeId: saved?.activeId || null, timerMode: saved?.timerMode === 'watch' ? 'watch' : 'pomo', stopwatch: !!saved?.stopwatch,
       watchSecs: Number(saved?.watchSecs) || 0, watchStartedAt: Number(saved?.watchStartedAt) || null, improvementChecklist: Array.isArray(saved?.improvementChecklist) ? saved.improvementChecklist : [],
       pomo: restoredPomo, theme: savedTheme
@@ -999,13 +1215,19 @@ class Component extends DCLogic {
     this.timer = setInterval(() => this.tick(), 1000);
     this.onVisibility = () => { if (!document.hidden) this.tick(); };
     document.addEventListener('visibilitychange', this.onVisibility);
-    this.onKey = e => { if (e.key === 'Escape' && this.state.full) this.setState({ full: false }); };
+    this.onKey = e => this.handleEscape(e);
     window.addEventListener('keydown', this.onKey);
     this.onPageHide = () => {
       const s = this.state;
-      try { localStorage.setItem(this.KEY, JSON.stringify({ tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist })); if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId)); } catch (e) {}
+      try { localStorage.setItem(this.KEY, JSON.stringify({ tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, timelineMode:s.timelineMode, timelineAnchor:s.timelineAnchor, timelineProject:s.timelineProject, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist })); if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId)); } catch (e) {}
       if (s.auth && s.workspaceId && this.remoteReady) {
-        try { fetch('./api/index.php?action=tasks_sync', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ workspace_id: s.workspaceId, tasks: this.visibleRemoteTasks(s.tasks), projects: s.projects }) }); } catch (e) {}
+        const saved=this.remoteSaved?.[s.workspaceId];
+        const dirty=this.visibleRemoteTasks(s.tasks).filter(t=>saved?.get(t.id)!==this.taskFingerprint(t));
+        if(dirty.length)try {
+          const headers={'Content-Type':'application/json'},token=localStorage.getItem(this.KEY+':device');
+          if(token)headers['X-Remember-Token']=token;
+          fetch('./api/index.php?action=tasks_sync',{method:'POST',keepalive:true,headers,credentials:'same-origin',body:JSON.stringify({workspace_id:s.workspaceId,tasks:dirty})});
+        } catch (e) {}
       }
     };
     window.addEventListener('pagehide', this.onPageHide);
@@ -1018,12 +1240,12 @@ class Component extends DCLogic {
     const s = this.state;
     try {
       localStorage.setItem(this.KEY, JSON.stringify({
-        tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist
+        tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, timelineMode:s.timelineMode, timelineAnchor:s.timelineAnchor, timelineProject:s.timelineProject, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist
       }));
       if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId));
     } catch (e) {}
     if (s.auth && s.workspaceId && this.remoteReady) {
-      const key = s.workspaceId + ':' + JSON.stringify(s.tasks) + ':' + JSON.stringify(s.projects);
+      const key = this.remoteStateKey(s.workspaceId,s.tasks);
       if (key !== this.remoteSyncKey) {
         this.remoteSyncKey = key;
         clearTimeout(this.remoteSyncTimer);
@@ -1048,18 +1270,21 @@ class Component extends DCLogic {
     return (workspaces || []).find(w => Number(w.id) === remembered)?.id || (workspaces || [])[0]?.id || null;
   }
   async bootstrapAuth() {
+    this.remoteSaved = {};
     try {
       const r = await this.api('me');
       if (r.ok && r.user) {
         const workspaceId = this.preferredWorkspaceId(r.workspaces || []);
-        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], improvementChecklist: [] });
+        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', improvementChecklist: [] });
         if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
       }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
   async loadRemoteTasks(workspaceId, options = {}) {
+    const request=this.taskLoadRequestId=(this.taskLoadRequestId||0)+1,userId=Number(this.state.auth?.id||0);
     try {
-      const r = await this.api('tasks', { workspace_id: workspaceId });
+      const r = await this.api('tasks', { workspace_id: workspaceId, scope:'projects' });
+      if(request!==this.taskLoadRequestId||Number(this.state.auth?.id||0)!==userId||Number(this.state.workspaceId)!==Number(workspaceId))return;
       if (r.ok) {
         let tasks = this.normalizeTaskBuckets(this.visibleRemoteTasks(r.tasks || [])), projects = r.projects || [];
         const fallback = options.fallback || null;
@@ -1070,24 +1295,106 @@ class Component extends DCLogic {
           this.remoteReady = true;
           this.setState({ tasks, projects, workspaceId });
           await this.syncRemoteTasks(workspaceId, tasks, projects);
-          this.remoteSyncKey = workspaceId + ':' + JSON.stringify(tasks) + ':' + JSON.stringify(projects);
+          this.remoteSyncKey = this.remoteStateKey(workspaceId,tasks);
           return;
         }
-        if (!projects.length && tasks.some(t => t.project)) {
+        if (!this.state.auth && !projects.length && tasks.some(t => t.project)) {
           const known = fallback?.projects?.length ? fallback.projects : this.seed().projects;
           projects = known.filter(p => tasks.some(t => t.project === p.id));
         }
         this.remoteReady = true;
-        this.remoteSyncKey = workspaceId + ':' + JSON.stringify(tasks) + ':' + JSON.stringify(projects);
+        this.remoteSyncKey = this.remoteStateKey(workspaceId,tasks);
+        this.remoteSaved ||= {}; this.remoteSaved[workspaceId] = new Map(tasks.map(t=>[t.id,this.taskFingerprint(t)]));
         this.setState({ tasks, projects, workspaceId });
       }
-    } catch (e) { this.setState({ authError: 'No se pudieron cargar las tareas del espacio.' }); }
+    else this.setState({ syncError: r.error || 'No se pudieron cargar las tareas.' });
+    } catch (e) { this.setState({ syncError: 'No se pudieron cargar las tareas del espacio.' }); }
   }
+  taskFingerprint(task) {
+    return JSON.stringify(Object.fromEntries(Object.entries(task).filter(([key])=>!key.startsWith('_'))));
+  }
+  remoteStateKey(workspaceId, tasks) { return workspaceId + ':' + tasks.map(t=>this.taskFingerprint(t)).join('|'); }
   async syncRemoteTasks(workspaceId, tasks, projects) {
-    try { return await this.api('tasks_sync', { workspace_id: workspaceId, tasks: this.visibleRemoteTasks(tasks), projects }); }
-    catch (e) { return { ok: false, error: 'No se pudo conectar con el servidor.' }; }
+    const snapshot = this.visibleRemoteTasks(tasks).map(t=>({...t}));
+    const run = async () => {
+      this.remoteSaved ||= {};
+      const saved = this.remoteSaved[workspaceId] || new Map();
+      const dirty = snapshot.filter(t=>saved.get(t.id)!==this.taskFingerprint(t));
+      if (!dirty.length) return {ok:true};
+      const payload = { workspace_id: workspaceId, tasks: dirty.map(t=>{
+        const current = Number(this.state.workspaceId)===Number(workspaceId) ? this.state.tasks.find(x=>x.id===t.id) : null;
+        return {...t,_revision:current?._revision || t._revision};
+      }) };
+      let result;
+      try { result = await this.api('tasks_sync', payload); }
+      catch (e) { result = { ok: false, error: 'No se pudo conectar con el servidor.' }; }
+      if (result.ok) {
+        dirty.forEach(t=>saved.set(t.id,this.taskFingerprint(t))); this.remoteSaved[workspaceId]=saved;
+        if (result.revisions && Number(this.state.workspaceId)===Number(workspaceId)) this.setState(s=>({tasks:s.tasks.map(t=>result.revisions[t.id]?{...t,_revision:result.revisions[t.id]}:t)}));
+      }
+      if (Number(this.state.workspaceId) === Number(workspaceId)) this.setState({ syncError: result.ok ? '' : (result.error || 'No se guardaron los cambios. Vuelve a intentar.') });
+      return result;
+    };
+    this.syncQueue = (this.syncQueue || Promise.resolve()).then(run, run);
+    return this.syncQueue;
+  }
+  async discardAndReload() {
+    clearTimeout(this.remoteSyncTimer); this.remoteReady = false;
+    if (this.syncQueue) await this.syncQueue;
+    this.setState({ syncError: '', selId: null, projectEditId: null });
+    await this.loadRemoteTasks(this.state.workspaceId);
+  }
+  async refreshTasks() {
+    const s = this.state;
+    if (!s.auth || !s.workspaceId) return;
+    clearTimeout(this.remoteSyncTimer);
+    const result = await this.syncRemoteTasks(s.workspaceId, s.tasks, s.projects);
+    if (!result.ok) return;
+    await this.loadRemoteTasks(s.workspaceId);
+    await this.loadWorkspaceMembers(s.workspaceId);
+  }
+  async moveTaskProject(id, project) {
+    const task = this.state.tasks.find(t => t.id === id);
+    if (!task || task.project === project) return;
+    if (task._can_move === false) { this.setState({ toast: 'Solo el creador de la tarea o un administrador puede moverla.' }); return; }
+    if (project && !this.state.projects.some(p => p.id === project && p._can_assign !== false)) { this.setState({ toast: 'No tienes acceso al proyecto de destino.' }); return; }
+    const previous = task.project || '';
+    this.patch(id, { project });
+    if (!this.state.auth || !this.state.workspaceId) return;
+    clearTimeout(this.remoteSyncTimer);
+    const tasks = this.state.tasks.map(t => t.id === id ? { ...t, project } : t);
+    const r = await this.syncRemoteTasks(this.state.workspaceId, tasks, this.state.projects);
+    if (!r.ok) { this.patch(id, { project: previous }); this.setState({ toast: r.error || 'No se pudo mover la tarea.' }); }
+    else this.setState({ toast: project ? 'Tarea enviada al proyecto. Sus miembros pueden verla.' : 'Tarea retirada del proyecto. Conserva sus delegaciones individuales.' });
+  }
+  beginProjectMembers() {
+    const project = this.state.projects.find(p => p.id === this.state.projFilter);
+    if (!project || !project._can_manage) return;
+    this.setState({ projectEditId: project.id, projectMemberDraft: project.member_ids || [Number(this.state.auth?.id)], toast: '' });
+  }
+  async saveProjectMembers() {
+    const s = this.state, p = s.projects.find(p => p.id === s.projectEditId);
+    if (!p || s.projectBusy) return;
+    this.setState({ projectBusy: true });
+    try {
+      clearTimeout(this.remoteSyncTimer);
+      const sync = await this.syncRemoteTasks(s.workspaceId, s.tasks, s.projects);
+      if (!sync.ok) return;
+      const r = await this.api('project_save', { workspace_id: s.workspaceId, project_id: p.id, name: p.name, member_ids: s.projectMemberDraft });
+      if (!r.ok) { this.setState({ toast: r.error || 'No se pudieron guardar los miembros.' }); return; }
+      this.setState({ projectEditId: null, toast: 'Miembros guardados. Todas las tareas del proyecto se comparten con ellos.' });
+      await this.loadRemoteTasks(s.workspaceId);
+    } catch (e) { this.setState({ toast: 'No se pudo conectar. Los miembros no se guardaron.' }); }
+    finally { this.setState({ projectBusy: false }); }
+  }
+
+  saveTaskSchedule() {
+    const s = this.state; if (!s.selId) return;
+    try { this.patch(s.selId, KaizenPlanning.schedule(s.scheduleStartDraft, s.scheduleEndDraft)); this.setState({ scheduleError: '', toast: 'Planificación guardada en este dispositivo; se sincronizará con el equipo.' }); }
+    catch (e) { this.setState({ scheduleError: e.message }); }
   }
   async submitAuth() {
+    this.remoteSaved = {};
     const s = this.state;
     try {
       const r = await this.api(s.authMode === 'login' ? 'login' : 'register', { name: s.authName, email: s.authEmail, password: s.authPassword, invite_token: s.inviteToken });
@@ -1096,13 +1403,13 @@ class Component extends DCLogic {
       const ws = r.workspaces || [];
       this.remoteReady = true;
       const workspaceId = this.preferredWorkspaceId(ws);
-      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [], improvementChecklist: [] });
+      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', improvementChecklist: [] });
       // Las cuentas nuevas empiezan vacías; los datos de demostración nunca se copian al espacio del usuario.
       if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
-  async logout() { await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], workspaceMembers: [], improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
-  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
+  async logout() { this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1; this.remoteSaved = {};  await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
+  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
   async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return; const r=await this.api('workspace_members',{workspace_id:workspaceId}); if(r.ok)this.setState({workspaceMembers:r.members||[]}); }
   async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], workspaceMembers: m.members || [], adminOpen: true }); } }
   async clearWorkspaceTasks(workspaceId, workspaceName) { if (this.state.auth?.role !== 'super_admin') return; const r=await this.api('workspace_tasks_clear',{workspace_id:workspaceId}); if(r.ok){ if(Number(this.state.workspaceId)===Number(workspaceId)) this.setState({tasks:[],selId:null}); this.setState({authError:'Se borraron ' + (r.deleted||0) + ' tareas de «' + workspaceName + '».'}); await this.loadAdminSummary(); } else this.setState({authError:r.error||'No se pudieron borrar las tareas.'}); }
@@ -1116,25 +1423,36 @@ class Component extends DCLogic {
   addChecklistItem() { const text=this.state.checklistDraft.trim(); if(!text)return; const item={id:this.uid(),text,done:false,createdAt:Date.now()}; const items=[item,...this.state.improvementChecklist]; this.setState({improvementChecklist:items,checklistDraft:'',toast:'Mejora agregada al checklist.'}); this.saveChecklist(items); }
   toggleChecklistItem(id) { const items=this.state.improvementChecklist.map(item=>item.id===id?{...item,done:!item.done}:item); this.setState({improvementChecklist:items}); this.saveChecklist(items); }
   removeChecklistItem(id) { const items=this.state.improvementChecklist.filter(item=>item.id!==id); this.setState({improvementChecklist:items}); this.saveChecklist(items); }
-  async shareTask(id, userIds, rollback) {
-    const workspaceId=this.state.workspaceId;
-    if(!workspaceId)return;
+  async saveDelegation() {
+    if(this.delegationRequest)return;
+    const {workspaceId,delegatingId:id}=this.state;
     const task=this.state.tasks.find(t=>t.id===id);
-    if(!task){this.setState({toast:'No se encontró la tarea en este espacio.'});return;}
-    // Una tarea nueva puede seguir solo en el navegador cuando se pulsa
-    // "Delegar" inmediatamente después de crearla. Aseguramos primero su
-    // existencia remota para que task_share no responda "Tarea no encontrada".
-    const synced=await this.syncRemoteTasks(workspaceId,this.state.tasks,this.state.projects);
-    if(synced?.ok===false){
-      if(rollback)this.patch(id,{sharedWith:rollback});
-      this.setState({toast:synced.error||'No se pudo guardar la tarea antes de delegarla.'});
-      return;
+    if(!workspaceId||!task)return;
+    const userIds=[...this.state.delegationDraft];
+    const candidates=this.delegationCandidates(task).map(m=>Number(m.id));
+    if(userIds.some(id=>!candidates.includes(id))){this.setState({delegationError:'Los miembros del proyecto cambiaron. Cierra y vuelve a abrir Delegar.'});return;}
+    this.delegationRequest=true;
+    this.setState({delegationBusy:true,delegationError:''});
+    let success=false;
+    try {
+      // A newly created task must exist on the server before it is delegated.
+      const synced=await this.syncRemoteTasks(workspaceId,this.state.tasks,this.state.projects);
+      if(synced?.ok===false)throw new Error(synced.error||'No se pudo guardar la tarea antes de delegarla.');
+      const r=await this.api('task_share',{workspace_id:workspaceId,task_id:id,user_ids:userIds});
+      if(!r.ok)throw new Error(r.error||'No se pudo delegar la tarea.');
+      if(Number(this.state.workspaceId)===Number(workspaceId)){
+        this.patch(id,{sharedWith:r.shared_user_ids||[],_shared_user_ids:r.shared_user_ids||[],_delegated_at:r.delegated_at||null});
+        this.setState({toast:'Delegación guardada.'});
+      }
+      success=true;
+    } catch(e) {
+      this.setState({delegationError:e instanceof TypeError ? 'No se pudo conectar con el servidor. Intenta guardar de nuevo.' : e?.message||'No se pudo guardar. Intenta de nuevo.'});
+    } finally {
+      this.delegationRequest=false;
+      this.setState({delegationBusy:false});
+      if(success)this.closeDelegation();
     }
-    const r=await this.api('task_share',{workspace_id:workspaceId,task_id:id,user_ids:userIds});
-    if(r.ok){this.patch(id,{sharedWith:r.shared_user_ids||[],_delegated_at:r.delegated_at||null});this.setState({toast:'Delegación actualizada.'});}
-    else{if(rollback)this.patch(id,{sharedWith:rollback});this.setState({toast:r.error||'No se pudo delegar la tarea.'});}
   }
-  toggleTaskShare(id, userId) { const task=this.state.tasks.find(t=>t.id===id); if(!task)return; const current=Array.isArray(task.sharedWith)?task.sharedWith.map(Number):[]; const next=current.includes(Number(userId))?current.filter(x=>x!==Number(userId)):[...current,Number(userId)]; this.patch(id,{sharedWith:next}); this.shareTask(id,next,current); }
   exportSuggestions() {
     const s=this.state, ws=s.workspaces.find(w=>Number(w.id)===Number(s.workspaceId));
     const esc=value => '"' + String(value ?? '').replace(/"/g,'""') + '"';
@@ -1285,6 +1603,40 @@ class Component extends DCLogic {
   }
   quadOf(id) { return this.QUADS.find(q => q.id === id) || this.QUADS[1]; }
   projName(id) { const p = this.state.projects.find(x => x.id === id); return p ? p.name : ''; }
+  responsibleLabel(task) {
+    const confirmed=Array.isArray(task._shared_user_ids)?task._shared_user_ids:(Array.isArray(task.sharedWith)?task.sharedWith:[]);
+    const ids=[...new Set(confirmed.map(Number).filter(id=>Number.isInteger(id)&&id>0))];
+    if(!ids.length)return 'Sin asignar';
+    const names=ids.map(id=>{const member=this.state.workspaceMembers.find(m=>Number(m.id)===id);return String(member?.name||'').trim()||String(member?.email||'').trim()||'nombre no disponible';});
+    return (ids.length===1?'Responsable: ':'Responsables: ')+names.join(', ');
+  }
+  isPersonalTask(task) {
+    if(!this.state.auth)return true;
+    if(task._dashboard_visible===false)return false;
+    const id=Number(this.state.auth.id),owner=Number(task._owner_id||id);
+    const assigned=Array.isArray(task._shared_user_ids)?task._shared_user_ids:(task.sharedWith||[]);
+    return owner===id||assigned.map(Number).includes(id);
+  }
+  isWorkspaceAdmin() {
+    const {auth,workspaceId,workspaces}=this.state;
+    const workspace=workspaces.find(w=>Number(w.id)===Number(workspaceId));
+    return !!auth && !!workspaceId && (auth.role==='super_admin'||workspace?.member_role==='admin'||Number(workspace?.created_by)===Number(auth.id));
+  }
+  async loadTeamTasks() {
+    const {auth,workspaceId}=this.state;
+    if(!this.isWorkspaceAdmin()){this.setState({teamTasks:[],teamProjects:[],teamError:'Solo un administrador del espacio puede consultar el equipo.'});return;}
+    const request=this.teamRequestId=(this.teamRequestId||0)+1,userId=Number(auth.id);
+    this.setState({teamLoading:true,teamTasks:[],teamProjects:[],teamError:''});
+    try {
+      const r=await this.api('team_tasks',{workspace_id:workspaceId});
+      if(request!==this.teamRequestId||Number(this.state.auth?.id)!==userId||Number(this.state.workspaceId)!==Number(workspaceId)||!this.isWorkspaceAdmin())return;
+      if(!r.ok)throw new Error(r.error||'No se pudieron consultar las tareas del equipo.');
+      this.setState({teamTasks:this.normalizeTaskBuckets(r.tasks||[]),teamProjects:r.projects||[],teamLoading:false});
+    } catch(e) {
+      if(request===this.teamRequestId&&Number(this.state.auth?.id)===userId&&Number(this.state.workspaceId)===Number(workspaceId))this.setState({teamTasks:[],teamProjects:[],teamLoading:false,teamError:e.message||'No se pudo conectar con el servidor.'});
+    }
+  }
+
   memberName(id) { const member=this.state.workspaceMembers.find(x=>Number(x.id)===Number(id)); return member?.name || member?.email || 'un miembro'; }
 
   addTask() {
@@ -1292,7 +1644,8 @@ class Component extends DCLogic {
     if (!title) return;
     const v = this.state.view;
     const list = v === 'today' ? 'today' : v === 'future' ? 'future' : 'inbox';
-    const project = (v === 'projects' || v === 'project') ? (this.state.projFilter || '') : '';
+    const project = v === 'project' ? (this.state.projFilter || '') : this.state.newTaskProject;
+    if (project && !this.state.projects.some(p => p.id === project && p._can_assign !== false)) { this.setState({ toast: 'Selecciona un proyecto al que tengas acceso.' }); return; }
     const due = v === 'today' ? this.dkey(Date.now()) : '';
     const nt = {
       id: this.uid(), title, list, project, due, quadrant: 'q2', tags: [], estPomos: 1,
@@ -1313,25 +1666,22 @@ class Component extends DCLogic {
     if (t.estPomos) bits.push(t.pomos + '/' + t.estPomos + ' pomos');
     t.tags.forEach(g => bits.push('#' + g));
     const playing = activeTimer;
-    const ownerId=Number(t._owner_id||0), currentId=Number(this.state.auth?.id||0);
+    const ownerId=Number(t._owner_id||this.state.auth?.id||0), currentId=Number(this.state.auth?.id||0);
     const receivedShare=ownerId>0&&currentId>0&&ownerId!==currentId;
     const sharedCount=Array.isArray(t.sharedWith)?t.sharedWith.length:0;
     const sharedNames=(t.sharedWith||[]).map(id=>{const member=this.state.workspaceMembers.find(m=>Number(m.id)===Number(id));return member?.name||member?.email||'';}).filter(Boolean);
-    const shareLabel=receivedShare ? 'Delegada por '+this.memberName(ownerId) : (sharedCount ? 'Delegada a '+(sharedNames.length?sharedNames.join(', '):sharedCount+' '+(sharedCount===1?'persona':'personas')) : '');
+    const shareLabel=receivedShare ? (t._project_member && !(t.sharedWith||[]).map(Number).includes(currentId) ? 'Creada por ' : 'Delegada por ')+this.memberName(ownerId) : (sharedCount ? 'Delegada a '+(sharedNames.length?sharedNames.join(', '):sharedCount+' '+(sharedCount===1?'persona':'personas')) : '');
     const delegatedAt=t._delegated_at||t.delegatedAt||'';
     const delegatedMeta=this.state.view==='delegated' ? 'Delegada el '+this.fmtDelegatedAt(delegatedAt) : '';
     const taskTime=this.state.view==='delegated' ? 'Dedicación: '+this.fmtDur(t.seconds) : this.fmtDur(t.seconds);
     if (delegatedMeta) bits.push(delegatedMeta);
-    const currentIsAdmin=this.state.auth?.role==='super_admin'||this.state.auth?.role==='admin'||this.state.workspaceMembers.some(m=>Number(m.id)===currentId&&m.workspace_role==='admin');
-    const delegateCandidates=this.state.workspaceMembers.filter(m=>Number(m.id)!==ownerId);
-    const canDelegate=!!this.state.auth&&t.list!=='trash'&&(!ownerId||ownerId===currentId||currentIsAdmin)&&delegateCandidates.length>0;
-    const delegateOptions=delegateCandidates.map(m=>{const selected=(t.sharedWith||[]).map(Number).includes(Number(m.id));return {name:m.name||m.email,email:m.email,mark:selected?'✓':'',onToggle:e=>{e?.stopPropagation?.();this.toggleTaskShare(t.id,m.id);},style:{display:'flex',alignItems:'center',gap:7,width:'100%',padding:'7px 8px',marginTop:4,textAlign:'left',cursor:'pointer',border:'1px solid '+(selected?'var(--color-accent)':'var(--color-divider)'),background:selected?'color-mix(in srgb, var(--color-accent) 12%, transparent)':'transparent',color:'var(--color-text)'}};});
-    const shareStyle={fontSize:10,letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:'var(--font-heading)',fontWeight:800,color:'var(--color-accent)',marginBottom:4};
+    const canDelegate=this.delegationCandidates(t).length>0;
+    const shareStyle={fontSize:10,letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:'var(--font-heading)',fontWeight:800,color:'var(--color-accent-700)',marginBottom:4};
     const colors = { q1: 'var(--color-accent)', q2: 'var(--color-neutral-800)', q3: 'var(--color-neutral-600)', q4: 'var(--color-neutral-500)' };
     const tint = this.props.showQuadrantColors ?? true;
     return {
-      id: t.id, title: t.title, meta: bits.join(' · '), time: taskTime, shareLabel, shareStyle, showDelegate: canDelegate, showDelegatePopover: this.state.delegatingId===t.id, delegateOptions,
-      due: t.due || '', showMove: t.list !== 'today' && t.list !== 'done' && t.list !== 'trash',
+      id: t.id, title: t.title, meta: bits.join(' · '), time: taskTime, shareLabel, shareStyle, showDelegate: canDelegate,
+      moreLabel:'Más opciones de '+t.title, due: t.due || '', showMove: t.list !== 'today' && t.list !== 'done' && t.list !== 'trash',
       onDue: e => this.patch(t.id, e.target.value ? { due: e.target.value, list: 'future' } : { due: '' }),
       onSendToday: () => this.patch(t.id, { list: 'today' }),
       showArchiveAction: t.list === 'done' || t.list === 'trash',
@@ -1370,7 +1720,7 @@ class Component extends DCLogic {
         transformOrigin: 'right center'
       },
       rowStyle: {
-        display: 'grid', gridTemplateColumns: '20px 1fr auto', gap: 14, alignItems: 'start',
+        display: 'grid', gridTemplateColumns: '20px minmax(140px, 1fr) minmax(0, auto)', gap: 14, alignItems: 'start',
         padding: activeTimer ? '18px 14px' : '11px 2px', marginBottom: activeTimer ? 10 : 0,
         border: activeTimer ? '2px solid var(--color-accent)' : 'none',
         borderBottom: activeTimer ? '2px solid var(--color-accent)' : '1px solid var(--color-divider)', touchAction: 'pan-y', cursor: 'pointer',
@@ -1382,7 +1732,7 @@ class Component extends DCLogic {
       onToggle: () => this.toggleTask(t.id),
       onOpen: () => this.openTask(t.id),
       onDelegate: e => { e?.stopPropagation?.(); this.openDelegate(t.id); },
-      onRowOpen: e => { if (e?.target?.closest?.('button,input,select,textarea')) return; this.openTask(t.id); },
+      onRowOpen: e => { if (e?.target?.closest?.('button,input,select,textarea,summary,details')) return; this.openTask(t.id); },
       onPlay: () => this.toggleTaskFocus(t.id),
       onDelete: () => this.animateSwipeDelete(t.id),
       onTouchStart: e => {
@@ -1406,11 +1756,11 @@ class Component extends DCLogic {
 
   renderVals() {
     const s = this.state, now = Date.now(), day = 86400000;
-    // Las tareas compartidas siguen sincronizadas para consultar su avance,
-    // pero la vista "Delegadas" las concentra y evita mezclar las recibidas
-    // con las listas propias.
-    const delegatedTasks = s.tasks.filter(t => t.list !== 'trash' && Array.isArray(t.sharedWith) && t.sharedWith.length > 0);
-    const personalTasks = s.tasks.filter(t => !this.isDelegatedTask(t));
+    // Project collaboration remains available in Proyectos/Cronograma.
+    // Personal lists and counters include only creator/direct delegation;
+    // administrative overview data never enters this task collection.
+    const personalTasks = s.tasks.filter(t => this.isPersonalTask(t));
+    const delegatedTasks = personalTasks.filter(t => t.list !== 'trash' && Array.isArray(t.sharedWith) && t.sharedWith.length > 0);
     const activeTasks = personalTasks.filter(t => t.list !== 'trash');
     const open = activeTasks.filter(t => !t.done);
     const counts = {
@@ -1422,22 +1772,25 @@ class Component extends DCLogic {
       done: personalTasks.filter(t => t.list === 'done').length,
       trash: personalTasks.filter(t => t.list === 'trash').length,
       projects: s.projects.length,
+      timeline: KaizenPlanning.timeline(s.tasks).scheduled.length,
       stats: Object.keys(s.log).length,
       ideas: s.suggestions.length,
-      admin: s.adminSummary.length
+      admin: s.adminSummary.length,
+      team: this.isWorkspaceAdmin()?s.teamTasks.length:0
     };
     const navDefs = [
       { id: 'today', label: 'Hoy' }, { id: 'inbox', label: 'Bandeja de entrada' },
       { id: 'future', label: 'Futuro' }, { id: 'delegated', label: 'Delegadas' }, { id: 'matrix', label: 'Matriz' },
       { id: 'done', label: 'Hechas' }, { id: 'trash', label: 'Borrado' },
-      { id: 'projects', label: 'Proyectos' }, { id: 'stats', label: 'Estadísticas' }, { id: 'ideas', label: 'Mejoras' }
+      { id: 'projects', label: 'Proyectos' }, { id: 'timeline', label: 'Cronograma' }, { id: 'stats', label: 'Estadísticas' }, { id: 'ideas', label: 'Mejoras' }
     ];
     const hasWorkspaceAdmin = s.auth && (s.auth.role === 'super_admin' || s.auth.role === 'admin' || s.workspaces.some(w => w.member_role === 'admin'));
     if (hasWorkspaceAdmin) navDefs.push({ id: 'admin', label: 'Supervisión' });
+    if(this.isWorkspaceAdmin())navDefs.push({id:'team',label:'Tareas del equipo'});
     const navItems = navDefs.map(n => {
       const on = s.view === n.id || (n.id === 'projects' && s.view === 'project');
       return {
-        label: n.label, count: counts[n.id] || 0, onClick: () => { this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, delegatingId: null, mobileNavOpen: false }); if (n.id === 'admin') this.loadAdminSummary(); },
+        id:n.id, label: n.label, count: counts[n.id] || 0, onClick: () => { this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, delegatingId: null, mobileNavOpen: false }); if (n.id === 'admin') this.loadAdminSummary(); if(n.id==='team')this.loadTeamTasks(); },
         style: {
           display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', cursor: 'pointer',
           padding: '9px 18px', border: 0, borderLeft: '3px solid ' + (on ? 'var(--color-accent)' : 'transparent'),
@@ -1454,9 +1807,9 @@ class Component extends DCLogic {
     const activeTimerFirst = (a, b) => (Number(b.id === activeTimerId) - Number(a.id === activeTimerId));
     let listTasks = [];
     if (isList) {
-      listTasks = (s.view === 'delegated' ? delegatedTasks : s.tasks.filter(t => t.list === s.view && !this.isDelegatedTask(t))).sort((a, b) => activeTimerFirst(a, b) || (s.view === 'done' || s.view === 'trash' ? (Number(b.doneAt || b.deletedAt || 0) - Number(a.doneAt || a.deletedAt || 0)) : ((a.done - b.done) || a.quadrant.localeCompare(b.quadrant))));
+      listTasks = (s.view === 'delegated' ? delegatedTasks : personalTasks.filter(t => t.list === s.view)).sort((a, b) => activeTimerFirst(a, b) || (s.view === 'done' || s.view === 'trash' ? (Number(b.doneAt || b.deletedAt || 0) - Number(a.doneAt || a.deletedAt || 0)) : ((a.done - b.done) || a.quadrant.localeCompare(b.quadrant))));
     } else if ((s.view === 'projects' || s.view === 'project') && s.projFilter) {
-      listTasks = s.tasks.filter(t => t.project === s.projFilter && !this.isDelegatedTask(t) && t.list !== 'done' && t.list !== 'trash').sort((a, b) => activeTimerFirst(a, b) || (a.done - b.done));
+      listTasks = s.tasks.filter(t => t.project === s.projFilter && t.list !== 'trash').sort((a, b) => activeTimerFirst(a, b) || (a.done - b.done));
     }
     const rows = listTasks.map(t => this.taskRow(t));
 
@@ -1469,10 +1822,12 @@ class Component extends DCLogic {
       trash: ['Borrado', 'Tareas retiradas; puedes restaurarlas'],
       matrix: ['Matriz de Eisenhower', 'Urgencia contra importancia'],
       projects: ['Proyectos', 'Tareas agrupadas por proyecto'],
-      project: [this.projName(s.projFilter) || 'Proyecto', 'Tareas del proyecto'],
+      project: [this.projName(s.projFilter) || 'Proyecto', 'Tareas del proyecto y del equipo'],
+      timeline: ['Cronograma', 'Planificación de inicio y fin'],
       stats: ['Estadísticas semanales', 'Últimos 7 días'],
       ideas: ['Mejoras', 'Ideas y sugerencias del espacio'],
-      admin: ['Supervisión', 'Espacios de trabajo y tareas del equipo']
+      admin: ['Supervisión', 'Espacios de trabajo y tareas del equipo'],
+      team:['Tareas del equipo','Consulta administrativa · separada de tus tareas personales']
     };
     const tt = titles[s.view] || titles.today;
 
@@ -1493,11 +1848,11 @@ class Component extends DCLogic {
     personalTasks.filter(t => t.list !== 'done' && t.list !== 'trash').forEach(t => { const k = t.project || 'none'; projSecs[k] = (projSecs[k] || 0) + t.seconds; });
     const maxProj = Math.max(1, ...Object.values(projSecs));
     const projectCards = s.projects.map(p => {
-      const all = personalTasks.filter(t => t.project === p.id && t.list !== 'done' && t.list !== 'trash');
+      const all = s.tasks.filter(t => t.project === p.id && t.list !== 'trash');
       const done = all.filter(t => t.done).length;
       const on = s.projFilter === p.id;
       return {
-        name: p.name, stats: done + '/' + all.length + ' hechas · ' + this.fmtDur(projSecs[p.id] || 0),
+        name: p.name, stats: done + '/' + all.length + ' hechas · ' + (p._legacy ? 'Acceso por tarea' : (p.member_ids?.length || 1) + ' miembros'),
         onClick: () => this.setState({ view: 'project', projFilter: p.id, selId: null, delegatingId: null, mobileNavOpen: false }),
         style: {
           background: on ? 'var(--color-surface)' : 'var(--color-bg)', padding: '16px 18px', cursor: 'pointer',
@@ -1573,17 +1928,12 @@ class Component extends DCLogic {
       detail.onSelDue = e => this.patch(sel.id, { due: e.target.value });
       detail.onSelEst = e => this.patch(sel.id, { estPomos: Number(e.target.value) || 0 });
       detail.onSelNotes = e => this.patch(sel.id, { notes: e.target.value });
-      detail.onSelProject = e => this.patch(sel.id, { project: e.target.value });
+      detail.onSelProject = e => this.moveTaskProject(sel.id, e.target.value);
+      detail.canMoveProject = sel._can_move !== false;
       detail.onSelTags = e => this.patch(sel.id, { tags: e.target.value.split(',').map(x => x.trim()).filter(Boolean) });
       detail.selDeleteLabel = sel.list === 'trash' ? 'Restaurar tarea' : 'Mover a Borrado';
       detail.onSelDelete = () => sel.list === 'trash' ? this.restoreTask(sel.id) : this.moveToTrash(sel.id);
       detail.onSelPlay = () => this.toggleTaskFocus(sel.id);
-      const ownerId=Number(sel._owner_id||s.auth?.id||0), currentId=Number(s.auth?.id||0), currentIsAdmin=s.auth?.role==='super_admin'||s.auth?.role==='admin'||s.workspaceMembers.find(m=>Number(m.id)===currentId)?.workspace_role==='admin';
-      const canShare=!ownerId||ownerId===currentId||currentIsAdmin;
-      const shareCandidates=s.workspaceMembers.filter(m=>Number(m.id)!==ownerId);
-      detail.showShareSection=canShare&&shareCandidates.length>0&&s.delegatingId===sel.id;
-      detail.shareHelp=currentIsAdmin&&ownerId&&ownerId!==currentId?'Selecciona las personas que tendrán acceso.':'Selecciona las personas del equipo que recibirán esta tarea.';
-      detail.shareOptions=shareCandidates.map(m=>{const selected=(sel.sharedWith||[]).map(Number).includes(Number(m.id));return {name:m.name||m.email,email:m.email,mark:selected?'✓':'',onToggle:()=>this.toggleTaskShare(sel.id,m.id),style:{display:'flex',alignItems:'center',gap:7,width:'100%',padding:'7px 8px',marginTop:4,textAlign:'left',cursor:canShare?'pointer':'default',border:'1px solid '+(selected?'var(--color-accent)':'var(--color-divider)'),background:selected?'color-mix(in srgb, var(--color-accent) 12%, transparent)':'transparent',color:'var(--color-text)',opacity:canShare?1:.65}};});
       detail.quadBtns = this.QUADS.map(q => ({
         label: q.action, onClick: () => this.patch(sel.id, { quadrant: q.id }),
         style: {
@@ -1624,7 +1974,56 @@ class Component extends DCLogic {
       };
     }
 
+    const selectedProject = s.projects.find(p => p.id === s.projFilter);
+    const projectOwner = Number(selectedProject?.owner_id || s.auth?.id);
+    const memberDraft = s.projectEditId === selectedProject?.id ? s.projectMemberDraft : (selectedProject?.member_ids || []);
+    const planning = KaizenPlanning.timeline(s.tasks, s.timelineProject);
+    const fmtPlan = iso => new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+    const calendar = KaizenPlanning.calendar(s.timelineMode, s.timelineAnchor ?? Date.now());
+    const calendarTasks = KaizenPlanning.calendarTasks(planning.scheduled, calendar);
+    const compactRange = t => {
+      const start=new Date(t.scheduledStart),end=new Date(t.scheduledEnd);
+      const options={hour:'2-digit',minute:'2-digit'};
+      if(this.dkey(start)!==this.dkey(end)){options.day='numeric';options.month='short';if(start.getFullYear()!==end.getFullYear())options.year='numeric';}
+      return start.toLocaleString('es-MX',options)+' — '+end.toLocaleString('es-MX',options);
+    };
+    const taskInfo = t => ({responsibleLabel:this.responsibleLabel(t),timeLabel:compactRange(t),title:t.title,projectName:this.projName(t.project)||'Sin proyecto',status:t.done?'Hecha':'Pendiente',start:fmtPlan(t.scheduledStart),end:fmtPlan(t.scheduledEnd),duration:this.fmtDur((Date.parse(t.scheduledEnd)-Date.parse(t.scheduledStart))/1000),actual:this.fmtDur(t.seconds||0),onOpen:()=>this.openTimelineTask(t.id),openLabel:'Editar planificación de '+t.title+'. '+this.responsibleLabel(t)+'. Inicio '+fmtPlan(t.scheduledStart)+'. Fin '+fmtPlan(t.scheduledEnd)});
+    const timelineRows = calendarTasks.visible.map(({task:t,left,width,continuesBefore,continuesAfter}) => ({...taskInfo(t),
+      barLabel:(continuesBefore?'‹ ':'')+new Date(t.scheduledStart).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})+(continuesAfter?' ›':''),
+      // The target stays clickable for tiny intervals. The separate line and
+      // date labels retain the exact duration without modifying task dates.
+      barStyle:{left:'min('+left+'%, calc(100% - 32px))',width:'max(32px, '+width+'%)',maxWidth:'calc(100% - min('+left+'%, calc(100% - 32px)))',opacity:t.done ? 0.65 : 1},
+      durationStyle:{left:left+'%',width:width+'%',opacity:t.done ? 0.65 : 1}
+    }));
+    const timelineColumns = calendar.columns.map(col=>({...col,
+      headerStyle:{left:col.left+'%',width:col.width+'%',background:col.today?'color-mix(in srgb,var(--color-accent) 12%,var(--color-surface))':'transparent'},
+      gridStyle:{left:col.left+'%',width:col.width+'%',background:col.weekend?'color-mix(in srgb,var(--color-text) 3%,transparent)':'transparent'}
+    }));
+    const fmtDay = time => new Date(time).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
+    const periodLabel = calendar.mode==='month' ? new Date(calendar.start).toLocaleDateString('es-MX',{month:'long',year:'numeric'}) : calendar.mode==='day' ? fmtDay(calendar.start) : fmtDay(calendar.start)+' — '+fmtDay(calendar.end-1);
     return Object.assign({
+      primaryNavItems:navItems.filter(n=>['today','inbox','projects','timeline','delegated'].includes(n.id)),secondaryNavItems:navItems.filter(n=>!['today','inbox','projects','timeline','delegated'].includes(n.id)),secondaryNavLabel:navItems.some(n=>!['today','inbox','projects','timeline','delegated'].includes(n.id)&&n.id===s.view)?'Más vistas · '+tt[0]:'Más vistas',
+      syncError: s.syncError, onDiscardAndReload: () => this.discardAndReload(), onRetrySync: () => this.syncRemoteTasks(s.workspaceId,s.tasks,s.projects), onRefreshTasks: () => this.refreshTasks(),
+      projectBusy: s.projectBusy, canManageProject: !!selectedProject?._can_manage, isEditingProjectMembers: !!selectedProject && s.projectEditId === selectedProject.id,
+      projectSharingLabel: selectedProject?._legacy ? 'Acceso individual por tarea' : 'Proyecto compartido con sus miembros',
+      projectMemberNames: selectedProject?.member_ids?.map(id=>this.memberName(id)).join(', ') || 'Elige miembros para compartir todas las tareas.',
+      projectMemberOptions: s.workspaceMembers.map(m=>({ name:m.name||m.email, selected:memberDraft.map(Number).includes(Number(m.id)), locked:Number(m.id)===projectOwner, ownerLabel:Number(m.id)===projectOwner?'(creador)':'', onToggle:()=>{ const id=Number(m.id); if(id===projectOwner)return; this.setState({projectMemberDraft:memberDraft.map(Number).includes(id)?memberDraft.filter(x=>Number(x)!==id):[...memberDraft,id]}); } })),
+      onEditProjectMembers: () => this.beginProjectMembers(), onSaveProjectMembers: () => this.saveProjectMembers(), onCancelProjectMembers: () => this.setState({projectEditId:null}),
+      showNewProjectPicker: s.view !== 'project', newTaskProject: s.newTaskProject, onNewTaskProject: e => this.setState({newTaskProject:e.target.value}),
+      isTimeline: s.view === 'timeline', timelineProject: s.timelineProject, onTimelineProject: e => this.setState({timelineProject:e.target.value}), timelineRows,
+      timelineMode:calendar.mode,timelineColumns,timelinePeriodLabel:periodLabel,timelineSheetStyle:{minWidth:'calc(var(--task-width) + '+calendar.width+'px)'},
+      timelineVisibleCount:timelineRows.length,timelineScheduledCount:planning.scheduled.length,timelineHasToday:calendar.today!==null,timelineTodayStyle:{left:(calendar.today??0)+'%'},
+      onTimelineMode:e=>this.setState({timelineMode:e.target.value}),onTimelineToday:()=>this.setState({timelineAnchor:Date.now()}),
+      onTimelinePrevious:()=>this.setState({timelineAnchor:KaizenPlanning.shiftCalendar(calendar.mode,calendar.start,-1)}),onTimelineNext:()=>this.setState({timelineAnchor:KaizenPlanning.shiftCalendar(calendar.mode,calendar.start,1)}),
+      hasScheduledTasks:timelineRows.length>0,noScheduledTasks:timelineRows.length===0,
+      timelineEmptyMessage:planning.scheduled.length?'No hay tareas en este periodo. Puedes navegar o localizar las tareas de la lista inferior.':'Añade inicio y fin a una tarea de la lista inferior para verla en el calendario.',
+      hasOutsideTasks:calendarTasks.outside.length>0,outsideCount:calendarTasks.outside.length,outsideRows:calendarTasks.outside.map(t=>({...taskInfo(t),onLocate:()=>this.locateTimelineTask(t.id)})),
+      unscheduledCount: planning.unscheduled.length, unscheduledRows: planning.unscheduled.map(t=>({ responsibleLabel:this.responsibleLabel(t),title:t.title,projectName:this.projName(t.project)||'Sin proyecto',reason:t.scheduledStart||t.scheduledEnd?'Fechas incompletas o inválidas':'Añade inicio y fin',action:t.scheduledStart||t.scheduledEnd?'Revisar fechas':'Planificar',onOpen:()=>this.openTimelineTask(t.id) })),
+      scheduleZoneLabel: 'Zona horaria: '+KaizenPlanning.zone(), scheduleStartDraft:s.scheduleStartDraft, scheduleEndDraft:s.scheduleEndDraft, scheduleError:s.scheduleError,
+      onScheduleStart:e=>this.setState({scheduleStartDraft:e.target.value,scheduleError:''}), onScheduleEnd:e=>this.setState({scheduleEndDraft:e.target.value,scheduleError:''}),
+      onSaveSchedule:()=>this.saveTaskSchedule(), onClearSchedule:()=>{ if(s.selId)this.patch(s.selId,{scheduledStart:'',scheduledEnd:''}); this.setState({scheduleStartDraft:'',scheduleEndDraft:'',scheduleError:''}); },
+      cannotMoveProject: sel?._can_move===false,
+
       showAuth: !s.auth, hasAuth: !!s.auth, inviteWorkspace: s.inviteWorkspace,
       authMode: s.authMode, authName: s.authName, authEmail: s.authEmail, authPassword: s.authPassword, authError: s.authError,
       authTitle: s.authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta',
@@ -1647,7 +2046,7 @@ class Component extends DCLogic {
       onTestNotification: () => this.testNotification(),
       onOpenIdeas: () => this.setState({ view: 'ideas', projFilter: null, selId: null, delegatingId: null, mobileNavOpen: false }),
       toast: s.toast, onEnableNotifications: () => this.ensurePushSubscription(), showPushPrompt: !!s.auth && !s.pushReady, pushPromptText: s.notificationState === 'denied' ? 'Chrome está bloqueando este sitio. Permítelo desde el candado de la barra de direcciones.' : 'Pulsa el botón para recibir avisos aunque Kaizen esté en segundo plano.',
-      notificationLabel: s.pushReady ? 'Push activo' : s.notificationState === 'denied' ? 'Push bloqueado' : s.notificationState === 'unsupported' ? 'Push no disponible' : 'Activar push',
+      notificationLabel: s.pushReady ? 'Avisos activos' : s.notificationState === 'denied' ? 'Avisos bloqueados' : s.notificationState === 'unsupported' ? 'Avisos no disponibles' : 'Activar avisos',
       timerSpeed: s.timerSpeed, onTimerSpeed: e => this.changeTimerSpeed(e.target.value),
       theme: s.theme, themeLabel: ({classic:'Claro',night:'Noche',sunset:'Atardecer',ocean:'Océano'})[s.theme] || 'Claro', onThemeChange: e => this.changeTheme(e.target.value), onCycleTheme: () => this.cycleTheme(),
       authUserLabel: s.auth?.name || s.auth?.email || '',
@@ -1665,11 +2064,14 @@ class Component extends DCLogic {
       onRefreshAdmin: () => this.loadAdminSummary(),
       navItems, streak: streak,
       viewTitle: tt[0], viewSub: tt[1],
+      isTeamView:s.view==='team'&&this.isWorkspaceAdmin(),canSeeTeam:this.isWorkspaceAdmin(),teamLoading:s.teamLoading,teamError:s.teamError,teamEmpty:!s.teamLoading&&!s.teamTasks.length&&!s.teamError,
+      onRefreshTeam:()=>this.loadTeamTasks(),onOpenTeam:()=>{this.setState({view:'team',selId:null,delegatingId:null});this.loadTeamTasks();},
+      teamRows:this.isWorkspaceAdmin()?s.teamTasks.map(t=>({title:t.title,creatorLabel:'Creada por '+this.memberName(t._owner_id),responsibleLabel:this.responsibleLabel(t),projectName:s.teamProjects.find(p=>p.id===t.project)?.name||'Sin proyecto',status:t.list==='trash'?'Borrada':t.done?'Hecha':'Pendiente',time:this.fmtDur(t.seconds||0),planLabel:t.scheduledStart&&t.scheduledEnd?'Plan: '+fmtPlan(t.scheduledStart)+' → '+fmtPlan(t.scheduledEnd):'Sin planificación'})):[],
       isList, isMatrix: s.view === 'matrix', isProjects: s.view === 'projects', isProjectDetail: s.view === 'project', isIdeas: s.view === 'ideas', isStats: s.view === 'stats', isAdminView: s.view === 'admin',
       projectDetailName: this.projName(s.projFilter) || 'Proyecto',
-      projectDetailStats: (() => { const a=personalTasks.filter(t=>t.project===s.projFilter && t.list !== 'done' && t.list !== 'trash'), d=a.filter(t=>t.done).length; return d + '/' + a.length + ' hechas · ' + this.fmtDur(a.reduce((sum,t)=>sum+t.seconds,0)); })(),
+      projectDetailStats: (() => { const a=s.tasks.filter(t=>t.project===s.projFilter && t.list !== 'trash'), d=a.filter(t=>t.done).length; return d + '/' + a.length + ' hechas · ' + this.fmtDur(a.reduce((sum,t)=>sum+t.seconds,0)); })(),
       onBackProjects: () => this.setState({ view: 'projects', projFilter: null, selId: null, delegatingId: null }),
-      showQuickAdd: (isList && s.view !== 'delegated') || s.view === 'project',
+      showQuickAdd: (isList && s.view !== 'delegated') || (s.view === 'project' && s.projects.find(p=>p.id===s.projFilter)?._can_assign !== false),
       listTasks: rows, listEmpty: rows.length === 0 && (isList || s.view === 'projects'),
       newTitle: s.newTitle, subDraft: s.subDraft,
       onNewInput: e => this.setState({ newTitle: e.target.value }),
@@ -1680,7 +2082,8 @@ class Component extends DCLogic {
       onChecklistInput: e => this.setState({ checklistDraft: e.target.value }), onChecklistKey: e => { if(e.key==='Enter')this.addChecklistItem(); }, onAddChecklist: () => this.addChecklistItem(),
       onAdd: () => this.addTask(),
       quadCells, projectCards,
-      projectOptions: s.projects.map(p => ({ id: p.id, name: p.name })),
+      projectOptions: s.projects.filter(p=>p._can_assign !== false).map(p => ({ id: p.id, name: p.name })),
+      allProjectOptions: s.projects.map(p => ({ id: p.id, name: p.name })),
       newProject: s.newProject,
       onProjInput: e => this.setState({ newProject: e.target.value }),
       onProjKey: e => { if (e.key === 'Enter') this.addProject(); },
@@ -1723,15 +2126,32 @@ class Component extends DCLogic {
       onPomoSkip: () => this.skipPomo(),
       todayFocus: this.fmtDur(tl.seconds), todayPomos: String(tl.pomos),
       todayDone: String(personalTasks.filter(t => t.done && t.doneAt && this.dkey(t.doneAt) === todayKey).length),
+      hasDelegation: !!s.delegatingId,
+      delegationTitle: s.tasks.find(t=>t.id===s.delegatingId)?.title || '',
+      delegationHelp: s.tasks.find(t=>t.id===s.delegatingId)?.project ? 'Selecciona destinatarios entre los miembros del proyecto. Todos sus miembros conservan acceso a las tareas del proyecto.' : 'Selecciona las personas del equipo que recibirán esta tarea. Los cambios se aplican al guardar.',
+      delegationOptions: this.delegationCandidates(s.tasks.find(t=>t.id===s.delegatingId)).map(m=>({name:m.name||m.email,email:m.email,checked:s.delegationDraft.includes(Number(m.id)),onChange:()=>this.toggleDelegationDraft(m.id)})),
+      delegationBusy: s.delegationBusy, delegationError: s.delegationError,
+      delegationStatus: s.delegationBusy ? 'Guardando delegación…' : s.delegationDraft.length+' '+(s.delegationDraft.length===1?'persona seleccionada.':'personas seleccionadas.')+' Sin selecciones se retira la delegación directa.',
+      delegationSaveLabel: s.delegationBusy ? 'Guardando…' : 'Guardar delegación',
+      onSaveDelegation: ()=>this.saveDelegation(), onCloseDelegation: ()=>this.closeDelegation(),
+      onCancelDelegation: e=>{e.preventDefault();this.closeDelegation();},
       hasSel: !!sel, autoStartText: 'El temporizador solo inicia al pulsar «Enfocar» o «Cronometrar».', onCloseSel: () => this.setState({ selId: null, delegatingId: null })
     }, detail);
   }
 
-  addProject() {
-    const name = this.state.newProject.trim();
-    if (!name) return;
-    this.setState(s => ({ projects: [...s.projects, { id: this.uid(), name }], newProject: '' }));
+  async addProject() {
+    const s = this.state, name = s.newProject.trim();
+    if (!name || s.projectBusy) return;
+    if (!s.auth) { this.setState({ projects: [...s.projects, { id: this.uid(), name, _can_manage: false }], newProject: '' }); return; }
+    this.setState({ projectBusy: true });
+    try {
+      const r = await this.api('project_save', { workspace_id: s.workspaceId, name, member_ids: [] });
+      if (!r.ok) { this.setState({ toast: r.error || 'No se pudo crear el proyecto.' }); return; }
+      this.setState({ projects: [...this.state.projects, r.project], newProject: '', view: 'project', projFilter: r.project.id, selId: null, projectEditId: r.project.id, projectMemberDraft: r.project.member_ids, toast: 'Proyecto creado. Selecciona miembros para compartirlo.' });
+    } catch (e) { this.setState({ toast: 'No se pudo conectar. El proyecto no se creó.' }); }
+    finally { this.setState({ projectBusy: false }); }
   }
+
 }
 </script>
 </body>
