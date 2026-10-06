@@ -81,6 +81,14 @@ existentes. Cuatro pruebas nuevas comprueban navegación/permisos, interacción 
 filas, Escape/foco y fechas compactas de uno o varios días y distintos años.
 Estas pruebas usan lógica y dobles de DOM; no sustituyen la QA visual en Chrome.
 
+La QA de `b68435c` encontró un recorte del detalle de planificación a 375 px:
+407,25 px de panel, con borde derecho en 431,25 px. En móvil el contenido ahora
+se apila en columna y el detalle ocupa el ancho disponible; sus tarjetas, campos
+nativos y botones permiten encogerse. La regresión visual de esta corrección debe
+confirmarse en Chrome a 375 × 667 y 320 × 568 antes de considerarla terminada.
+La validación de rangos y el modal de Delegar no se modificaron.
+
+
 ## Persistencia y permisos
 
 Se reutilizan `workspace_members`, `task_shares`, `tasks.payload_json` y

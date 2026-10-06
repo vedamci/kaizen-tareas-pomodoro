@@ -118,7 +118,8 @@
     .task-row > div:last-child { grid-column: 2; min-width: 0; flex-wrap: wrap; justify-content: flex-start; gap: 6px !important; }
     .task-row > div:last-child input[type="date"] { width: 132px !important; }
     .matrix-grid, .stats-kpis, .stats-lower-grid, .project-grid { grid-template-columns: 1fr !important; }
-    .detail-panel { width: auto !important; border-left: 0 !important; border-top: 2px solid var(--color-divider); padding: 16px 12px 44px !important; }
+    .content-layout { flex-direction:column; width:100%; max-width:100%; }
+    .detail-panel { width:100% !important; min-width:0; max-width:100%; border-left:0 !important; border-top:2px solid var(--color-divider); padding:16px 12px 44px !important; overflow-y:visible !important; }
     .main-content input, .main-content select, .main-content button { max-width: 100%; }
     .main-content .quick-add input, .main-content .quick-add button { width: 100% !important; }
     .main-content [style*="min-width:180px"], .main-content [style*="min-width:240px"] { min-width: 0 !important; width: 100%; }
@@ -189,6 +190,10 @@
     .active-timer-banner__actions { flex: 1 0 100%; }
     .active-timer-banner__actions .btn { width: 100%; }
   }
+  .detail-panel { min-width:0; max-width:100%; overflow-wrap:anywhere; }
+  .detail-panel .field, .detail-panel .card { min-width:0; max-width:100%; }
+  .detail-panel .input { min-width:0; max-width:100%; }
+  .detail-panel .btn { max-width:100%; min-height:44px; white-space:normal; }
   .app-header { display:flex; align-items:center; gap:16px; flex-wrap:wrap; flex:none; padding:12px 20px; border-bottom:1px solid var(--color-divider); background:var(--color-bg); position:relative; z-index:10; }
   .app-brand { font:800 18px var(--font-heading); }
   .header-clock { display:flex; flex-direction:column; font-variant-numeric:tabular-nums; }
@@ -362,7 +367,7 @@
       </div>
     </div>
 
-    <div style="flex:1;min-width:0;display:flex">
+    <div class="content-layout" style="flex:1;min-width:0;display:flex">
       <div class="main-content" style="flex:1;min-width:0;overflow-y:auto;padding:22px 28px 60px">
 
         <sc-if value="{{ hasActiveTimer }}" hint-placeholder-val="{{ false }}">
