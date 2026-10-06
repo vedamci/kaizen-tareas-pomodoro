@@ -6,7 +6,10 @@ function workspaceProjectAdmin(int $wid, array $u, ?array $access): bool {
     return ($u['role'] ?? '') === 'super_admin' || ($access['member_role'] ?? '') === 'admin' || (int)($access['created_by'] ?? 0) === (int)$u['id'];
 }
 function workspaceProjects(PDO $pdo, int $wid, bool $lock = false): array {
-    if ($lock) $pdo->prepare('INSERT IGNORE INTO workspace_data(workspace_id,projects_json) VALUES(?,?)')->execute([$wid, '[]']);
+    // Acquire an exclusive lock immediately on an existing workspace row.
+    // INSERT IGNORE can first hold a shared duplicate-key lock; concurrent
+    // readers upgrading it for FOR UPDATE can deadlock instead of returning 409.
+    if ($lock) $pdo->prepare('INSERT INTO workspace_data(workspace_id,projects_json) VALUES(?,?) ON DUPLICATE KEY UPDATE workspace_id=workspace_id')->execute([$wid, '[]']);
     $q = $pdo->prepare('SELECT projects_json FROM workspace_data WHERE workspace_id=?' . ($lock ? ' FOR UPDATE' : ''));
     $q->execute([$wid]);
     $raw = $q->fetchColumn();

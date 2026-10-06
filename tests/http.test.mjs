@@ -112,10 +112,12 @@ test('HTTP sessions, project access, delegation, persistence and concurrent edit
     check(!(await list(other)).tasks.some(t=>t.id==='project-task'),'removal restores personal visibility for former project member');
     check((await get(member,'project-task'))._shared_user_ids.includes(2),'removal preserves independent delegation');
     task=await get(owner,'project-task');task.project=a.id;await sync(owner,[task]);
-    const first=await get(owner,'project-task'),second=await get(member,'project-task');first.title='Owner concurrent';second.title='Member concurrent';
     async function race(c,t){const headers={'Content-Type':'application/json',Cookie:[...c.cookies].map(([k,v])=>k+'='+v).join('; ')};const res=await fetch(base+'?action=tasks_sync',{method:'POST',headers,body:JSON.stringify({workspace_id:1,tasks:[t]})});await res.json();return res.status;}
-    const statuses=await Promise.all([race(owner,first),race(member,second)]);check(statuses.sort().join(',')==='200,409','simultaneous HTTP editors cannot overwrite the same revision');
-    const winning=await get(owner,'project-task');check(['Owner concurrent','Member concurrent'].includes(winning.title),'winning concurrent edit persisted');
+    for(let round=1;round<=8;round++){
+      const first=await get(owner,'project-task'),second=await get(member,'project-task');first.title='Owner concurrent '+round;second.title='Member concurrent '+round;
+      const statuses=await Promise.all([race(owner,first),race(member,second)]);check(statuses.sort().join(',')==='200,409','simultaneous editors round '+round+' return one success and one revision conflict: '+statuses.join(','));
+    }
+    const winning=await get(owner,'project-task');check(['Owner concurrent 8','Member concurrent 8'].includes(winning.title),'winning concurrent edit persisted');
     const invalid={...winning,scheduledEnd:winning.scheduledStart};await sync(owner,[invalid],422);
     check((await get(owner,'project-task')).scheduledEnd===winning.scheduledEnd,'invalid schedule does not replace stored dates');
     const personal=await get(owner,'personal');personal.title='Rollback sentinel';await sync(owner,[personal,{...winning,project:'missing'}],422);
@@ -127,7 +129,7 @@ test('HTTP sessions, project access, delegation, persistence and concurrent edit
     await request(admin,'task_members',{workspace_id:1,task_id:'project-task'},403);
     await request(owner,'project_save',{workspace_id:1,project_id:a.id,name:'A',member_ids:[]});
     await request(member,'task_members',{workspace_id:1,task_id:'project-task'},403);
-    await sync(member,[second],403);
+    await sync(member,[winning],403);
     await share(owner,'delegated',[]);await request(member,'task_members',{workspace_id:1,task_id:'delegated'},403);
     check(!(await dashboard(member)).tasks.some(t=>t.id==='delegated'),'revocation removes recipient dashboard visibility');
     await request(member,'task_get',{workspace_id:1,task_id:'delegated'},403);
