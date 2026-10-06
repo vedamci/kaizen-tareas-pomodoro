@@ -206,3 +206,66 @@ test('compact calendar labels distinguish single-day, multi-day and cross-year r
   assert.doesNotMatch(rows[0].timeLabel,/oct/);assert.match(rows[1].timeLabel,/6.*oct.*7.*oct/);assert.match(rows[2].timeLabel,/2026.*2027/);
   assert.match(rows[2].openLabel,/2026.*2027/);
 });
+
+test('calendar responsibility uses confirmed recipients instead of creator or project membership',()=>{
+  const c=delegationFixture();
+  c.state.projects=[{id:'p',member_ids:[1,2,3]}];
+  const t={_owner_id:1,project:'p',sharedWith:[]};
+  assert.equal(c.responsibleLabel(t),'Sin asignar');
+  assert.equal(c.responsibleLabel({...t,sharedWith:[2]}),'Responsable: Recipient');
+  assert.equal(c.responsibleLabel({...t,sharedWith:[2,3,2]}),'Responsables: Recipient, Other');
+  assert.equal(c.responsibleLabel({...t,sharedWith:[2],_shared_user_ids:[]}),'Sin asignar');
+  assert.equal(c.responsibleLabel({...t,_shared_user_ids:[3],sharedWith:[2]}),'Responsable: Other');
+  assert.equal(c.responsibleLabel({...t,sharedWith:[99]}),'Responsable: nombre no disponible');
+  assert.equal(c.responsibleLabel({...t,sharedWith:[0,-1,'bad',null]}),'Sin asignar');
+});
+test('responsibility changes only after confirmed delegation; failed save and drafts preserve the label',async()=>{
+  const c=delegationFixture();c.state.tasks[0].scheduledStart='2026-10-06T10:00:00Z';c.state.tasks[0].scheduledEnd='2026-10-06T11:00:00Z';c.state.timelineAnchor=Date.parse(c.state.tasks[0].scheduledStart);
+  const label=()=>c.renderVals().timelineRows[0].responsibleLabel;
+  assert.equal(label(),'Responsable: Recipient');c.openDelegate('t');c.toggleDelegationDraft(2);c.toggleDelegationDraft(3);assert.equal(label(),'Responsable: Recipient');
+  c.api=async()=>({ok:false,error:'Denied'});await c.saveDelegation();assert.equal(label(),'Responsable: Recipient');
+  c.api=async()=>({ok:true,shared_user_ids:[3]});await c.saveDelegation();assert.equal(label(),'Responsable: Other');
+  c.state.workspaceMembers.find(m=>m.id===3).name='Renamed';assert.equal(label(),'Responsable: Renamed');
+  c.openDelegate('t');c.toggleDelegationDraft(3);c.api=async()=>({ok:true,shared_user_ids:[]});await c.saveDelegation();assert.equal(label(),'Sin asignar');
+});
+test('every calendar list includes responsibility without changing dates or task data',()=>{
+  const c=delegationFixture();const base=c.state.tasks[0];c.state.timelineAnchor=new Date(2026,9,6).getTime();
+  c.state.tasks=[{...base,scheduledStart:new Date(2026,9,6,10).toISOString(),scheduledEnd:new Date(2026,9,6,11).toISOString()},{...base,id:'outside',scheduledStart:new Date(2027,0,1,10).toISOString(),scheduledEnd:new Date(2027,0,1,11).toISOString()},{...base,id:'undated',sharedWith:[]}];
+  const before=JSON.stringify(c.state.tasks),v=c.renderVals();
+  assert.equal(v.timelineRows[0].responsibleLabel,'Responsable: Recipient');assert.match(v.timelineRows[0].openLabel,/Responsable: Recipient/);
+  assert.equal(v.outsideRows[0].responsibleLabel,'Responsable: Recipient');assert.equal(v.unscheduledRows[0].responsibleLabel,'Sin asignar');assert.equal(JSON.stringify(c.state.tasks),before);
+});
+test('personal dashboards and counters isolate users and admins while preserving project collaboration',()=>{
+  const c=component(),base={title:'Task',list:'inbox',quadrant:'q2',project:'p',tags:[],subtasks:[],seconds:0,pomos:0,done:false,sharedWith:[]};
+  c.state.projects=[{id:'p',name:'Shared',member_ids:[1,2,4]}];
+  c.state.tasks=[{...base,id:'owner',_owner_id:1},{...base,id:'member',_owner_id:2},{...base,id:'assigned',_owner_id:1,sharedWith:[2],_shared_user_ids:[2]},{...base,id:'admin',_owner_id:4},{...base,id:'stale',_owner_id:1,sharedWith:[2],_shared_user_ids:[]}];
+  c.state.view='inbox';
+  for(const [id,role,expected] of [[1,'user',['assigned','owner','stale']],[2,'user',['assigned','member']],[4,'admin',['admin']]]){
+    c.state.auth={id,role};const v=c.renderVals();assert.deepEqual([...v.listTasks.map(t=>t.id)].sort(),expected);assert.equal(v.navItems.find(n=>n.id==='inbox').count,expected.length);
+    assert.equal(v.quadCells.flatMap(q=>q.tasks).length,expected.length);
+  }
+  c.state.view='project';c.state.projFilter='p';assert.equal(c.renderVals().listTasks.length,5);
+});
+test('team overview is permission-gated and its tasks never enter personal lists or sync',async()=>{
+  const c=delegationFixture();c.state.auth={id:4,role:'admin'};c.state.workspaces=[{id:1,member_role:'member'},{id:2,member_role:'admin'}];
+  let calls=0;c.api=async()=>{calls++;return {ok:true,tasks:[],projects:[]};};
+  await c.loadTeamTasks();assert.equal(calls,0);assert.ok(!c.renderVals().navItems.some(n=>n.id==='team'));
+  c.state.workspaces[0].member_role='admin';const before=JSON.stringify(c.state.tasks);
+  c.api=async(action)=>{assert.equal(action,'team_tasks');calls++;return {ok:true,tasks:[{...c.state.tasks[0],id:'peer',_owner_id:2}],projects:[]};};
+  await c.loadTeamTasks();assert.equal(calls,1);assert.equal(c.state.teamTasks[0].id,'peer');assert.equal(JSON.stringify(c.state.tasks),before);
+  c.state.view='team';assert.equal(c.renderVals().isTeamView,true);assert.equal(c.renderVals().teamRows.length,1);
+  c.state.view='inbox';assert.equal(c.renderVals().listTasks.length,0);
+  c.state.auth.role='user';c.state.workspaces[0].member_role='member';c.state.view='team';assert.equal(c.renderVals().isTeamView,false);assert.equal(c.renderVals().teamRows.length,0);
+});
+test('late team responses cannot reveal data after switching user or workspace',async()=>{
+  const c=delegationFixture();c.state.workspaces=[{id:1,member_role:'admin'}];let finish;
+  c.api=()=>new Promise(resolve=>{finish=resolve;});const loading=c.loadTeamTasks();
+  c.state.auth={id:2,role:'user'};c.state.workspaces[0].member_role='member';finish({ok:true,tasks:[{id:'private',title:'Private'}],projects:[]});await loading;
+  assert.equal(c.state.teamTasks.length,0);assert.equal(c.renderVals().teamRows.length,0);
+});
+test('late collaboration reads cannot replace tasks after an identity switch',async()=>{
+  const c=delegationFixture();let finish;c.api=()=>new Promise(resolve=>{finish=resolve;});
+  const loading=c.loadRemoteTasks(1);c.state.auth={id:2,role:'user'};c.state.tasks=[];
+  finish({ok:true,tasks:[{id:'private',title:'Private',_owner_id:1}],projects:[]});await loading;
+  assert.equal(c.state.tasks.length,0);
+});

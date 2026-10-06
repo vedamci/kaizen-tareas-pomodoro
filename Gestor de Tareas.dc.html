@@ -37,6 +37,7 @@
   .timeline-heading, .timeline-task { position:sticky; left:0; background:var(--color-bg); border:0; border-right:1px solid var(--color-divider); padding:14px; z-index:3; text-align:left; color:var(--color-text); font-family:var(--font-body); min-width:0; }
   .timeline-heading { font-size:12px; display:flex; align-items:center; font-weight:700; background:var(--color-surface); }
   .timeline-task { cursor:pointer; display:flex; flex-direction:column; justify-content:center; gap:5px; }
+  .timeline-task .timeline-assignee, .timeline-backlog .timeline-assignee { font-weight:600; color:var(--color-text); overflow-wrap:anywhere; }
   .timeline-task:hover { background:var(--color-surface); }
   .timeline-task strong { font-size:13px; line-height:1.4; overflow-wrap:anywhere; }
   .timeline-task span { font-size:11px; line-height:1.4; color:color-mix(in srgb,var(--color-text) 70%,transparent); }
@@ -190,6 +191,10 @@
     .active-timer-banner__actions { flex: 1 0 100%; }
     .active-timer-banner__actions .btn { width: 100%; }
   }
+  .team-view { font-size:13px; line-height:1.6; }
+  .team-task { display:flex; flex-direction:column; gap:4px; padding:14px 0; border-bottom:1px solid var(--color-divider); overflow-wrap:anywhere; }
+  .team-task small { font-size:12px; }
+  .team-task .timeline-assignee { font-weight:600; }
   .detail-panel { min-width:0; max-width:100%; overflow-wrap:anywhere; }
   .detail-panel .field, .detail-panel .card { min-width:0; max-width:100%; }
   .detail-panel .input { min-width:0; max-width:100%; }
@@ -542,15 +547,15 @@
           <div class="timeline-summary">{{ timelineVisibleCount }} tareas en este periodo · {{ scheduleZoneLabel }}</div><details class="calendar-help"><summary>Opciones del calendario</summary><p>Haz clic en una tarea para editar sus fechas. La línea bajo la barra muestra la duración exacta.</p><p>{{ timelineScheduledCount }} tareas planificadas. El tiempo real de trabajo se consulta en el detalle.</p><button class="btn btn-secondary" onClick="{{ onRefreshTasks }}">Actualizar tareas</button></details>
           <div class="timeline-scroll" role="region" aria-label="Calendario de tareas; desplazamiento horizontal" tabIndex="0">
             <div class="timeline-sheet" style="{{ timelineSheetStyle }}">
-              <div class="timeline-grid-row timeline-grid-header"><div class="timeline-heading">Tarea / proyecto</div><div class="timeline-dates"><sc-for list="{{ timelineColumns }}" as="col"><div class="timeline-tick" style="{{ col.headerStyle }}">{{ col.label }}<small>{{ col.sublabel }}</small></div></sc-for><sc-if value="{{ timelineHasToday }}"><div class="timeline-now" style="{{ timelineTodayStyle }}"></div></sc-if></div></div>
+              <div class="timeline-grid-row timeline-grid-header"><div class="timeline-heading">Tarea / responsable</div><div class="timeline-dates"><sc-for list="{{ timelineColumns }}" as="col"><div class="timeline-tick" style="{{ col.headerStyle }}">{{ col.label }}<small>{{ col.sublabel }}</small></div></sc-for><sc-if value="{{ timelineHasToday }}"><div class="timeline-now" style="{{ timelineTodayStyle }}"></div></sc-if></div></div>
               <sc-for list="{{ timelineRows }}" as="t">
-                <div class="timeline-grid-row"><button class="timeline-task" onClick="{{ t.onOpen }}" aria-label="{{ t.openLabel }}"><strong>{{ t.title }}</strong><span>{{ t.projectName }} · {{ t.status }}</span><span>{{ t.timeLabel }}</span></button><div class="timeline-lane"><sc-for list="{{ timelineColumns }}" as="col"><div class="timeline-gridline" style="{{ col.gridStyle }}"></div></sc-for><sc-if value="{{ timelineHasToday }}"><div class="timeline-now" style="{{ timelineTodayStyle }}"></div></sc-if><button class="timeline-bar" style="{{ t.barStyle }}" onClick="{{ t.onOpen }}" aria-label="{{ t.openLabel }}" title="{{ t.openLabel }}">{{ t.barLabel }}</button><div class="timeline-duration" style="{{ t.durationStyle }}"></div></div></div>
+                <div class="timeline-grid-row"><button class="timeline-task" onClick="{{ t.onOpen }}" aria-label="{{ t.openLabel }}"><strong>{{ t.title }}</strong><span>{{ t.projectName }} · {{ t.status }}</span><span class="timeline-assignee">{{ t.responsibleLabel }}</span><span>{{ t.timeLabel }}</span></button><div class="timeline-lane"><sc-for list="{{ timelineColumns }}" as="col"><div class="timeline-gridline" style="{{ col.gridStyle }}"></div></sc-for><sc-if value="{{ timelineHasToday }}"><div class="timeline-now" style="{{ timelineTodayStyle }}"></div></sc-if><button class="timeline-bar" style="{{ t.barStyle }}" onClick="{{ t.onOpen }}" aria-label="{{ t.openLabel }}" title="{{ t.openLabel }}">{{ t.barLabel }}</button><div class="timeline-duration" style="{{ t.durationStyle }}"></div></div></div>
               </sc-for>
             </div>
             <sc-if value="{{ noScheduledTasks }}"><div class="timeline-empty">{{ timelineEmptyMessage }}</div></sc-if>
           </div>
-          <sc-if value="{{ hasOutsideTasks }}"><div class="timeline-backlog"><h4>Fuera de este periodo · {{ outsideCount }}</h4><sc-for list="{{ outsideRows }}" as="t"><div class="timeline-backlog-row"><div><strong>{{ t.title }}</strong><small>{{ t.projectName }} · {{ t.start }} → {{ t.end }}</small></div><button class="btn btn-secondary" onClick="{{ t.onLocate }}">Ver en calendario</button></div></sc-for></div></sc-if>
-          <div class="timeline-backlog"><h4>Sin planificación · {{ unscheduledCount }}</h4><sc-for list="{{ unscheduledRows }}" as="t"><div class="timeline-backlog-row"><div><strong>{{ t.title }}</strong><small>{{ t.projectName }} · {{ t.reason }}</small></div><button class="btn btn-secondary" onClick="{{ t.onOpen }}">{{ t.action }}</button></div></sc-for></div>
+          <sc-if value="{{ hasOutsideTasks }}"><div class="timeline-backlog"><h4>Fuera de este periodo · {{ outsideCount }}</h4><sc-for list="{{ outsideRows }}" as="t"><div class="timeline-backlog-row"><div><strong>{{ t.title }}</strong><small class="timeline-assignee">{{ t.responsibleLabel }}</small><small>{{ t.projectName }} · {{ t.start }} → {{ t.end }}</small></div><button class="btn btn-secondary" onClick="{{ t.onLocate }}">Ver en calendario</button></div></sc-for></div></sc-if>
+          <div class="timeline-backlog"><h4>Sin planificación · {{ unscheduledCount }}</h4><sc-for list="{{ unscheduledRows }}" as="t"><div class="timeline-backlog-row"><div><strong>{{ t.title }}</strong><small class="timeline-assignee">{{ t.responsibleLabel }}</small><small>{{ t.projectName }} · {{ t.reason }}</small></div><button class="btn btn-secondary" onClick="{{ t.onOpen }}">{{ t.action }}</button></div></sc-for></div>
         </sc-if>
 
         <sc-if value="{{ isIdeas }}" hint-placeholder-val="{{ false }}">
@@ -647,11 +652,25 @@
           </div>
         </sc-if>
 
+        <sc-if value="{{ isTeamView }}">
+          <div class="team-view">
+            <p>Consulta de las tareas de este espacio. Tus listas personales conservan solo las que creaste o recibiste por delegación directa.</p>
+            <button class="btn btn-secondary" onClick="{{ onRefreshTeam }}" disabled="{{ teamLoading }}">Actualizar equipo</button>
+            <sc-if value="{{ teamLoading }}"><p role="status">Cargando tareas del equipo…</p></sc-if>
+            <sc-if value="{{ teamError }}"><p role="alert">{{ teamError }}</p></sc-if>
+            <sc-if value="{{ teamEmpty }}"><p>No hay tareas en este espacio.</p></sc-if>
+            <sc-for list="{{ teamRows }}" as="t">
+              <article class="team-task"><strong>{{ t.title }}</strong><span>{{ t.creatorLabel }}</span><span class="timeline-assignee">{{ t.responsibleLabel }}</span><small>{{ t.projectName }} · {{ t.status }} · Tiempo real {{ t.time }}</small><small>{{ t.planLabel }}</small></article>
+            </sc-for>
+          </div>
+        </sc-if>
+
         <sc-if value="{{ isAdminView }}" hint-placeholder-val="{{ false }}">
           <div style="display:flex;flex-direction:column;gap:18px">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <div style="font-size:13px;color:color-mix(in srgb, var(--color-text) 60%, transparent)">Rol: {{ authRoleLabel }} · Las tareas visibles pertenecen al espacio seleccionado.</div>
             <button class="btn btn-secondary" onClick="{{ onRefreshAdmin }}" style="margin-left:auto">Actualizar</button>
+            <sc-if value="{{ canSeeTeam }}"><button class="btn btn-secondary" onClick="{{ onOpenTeam }}">Tareas del equipo</button></sc-if>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--color-divider);padding-bottom:16px">
             <input class="input" placeholder="Nuevo espacio de trabajo" value="{{ newWorkspaceName }}" onInput="{{ onWorkspaceName }}" style="flex:1;min-width:180px">
@@ -828,6 +847,7 @@ class Component extends DCLogic {
     timerSpeed: 1,
     pushReady: false,
     activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, full: false,
+    teamTasks:[], teamProjects:[], teamLoading:false, teamError:'',
     auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '', delegatingId: null, delegationDraft: [], delegationBusy: false, delegationError: '',
     authName: '', authEmail: '', authPassword: '', adminSummary: [], adminMembers: [], workspaceMembers: [], adminOpen: false, statsDay: null,
     newWorkspaceName: '', inviteEmail: '', memberRole: 'member', inviteRole: 'member', inviteWorkspaceId: null, inviteUrl: '', inviteWorkspace: '', inviteToken: '', suggestionTitle: '', suggestionBody: '', suggestions: [], improvementChecklist: [], checklistDraft: '', mobileNavOpen: false, toast: '', notificationState: 'default', theme: 'classic'
@@ -1255,14 +1275,16 @@ class Component extends DCLogic {
       const r = await this.api('me');
       if (r.ok && r.user) {
         const workspaceId = this.preferredWorkspaceId(r.workspaces || []);
-        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], improvementChecklist: [] });
+        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', improvementChecklist: [] });
         if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
       }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
   async loadRemoteTasks(workspaceId, options = {}) {
+    const request=this.taskLoadRequestId=(this.taskLoadRequestId||0)+1,userId=Number(this.state.auth?.id||0);
     try {
-      const r = await this.api('tasks', { workspace_id: workspaceId });
+      const r = await this.api('tasks', { workspace_id: workspaceId, scope:'projects' });
+      if(request!==this.taskLoadRequestId||Number(this.state.auth?.id||0)!==userId||Number(this.state.workspaceId)!==Number(workspaceId))return;
       if (r.ok) {
         let tasks = this.normalizeTaskBuckets(this.visibleRemoteTasks(r.tasks || [])), projects = r.projects || [];
         const fallback = options.fallback || null;
@@ -1381,13 +1403,13 @@ class Component extends DCLogic {
       const ws = r.workspaces || [];
       this.remoteReady = true;
       const workspaceId = this.preferredWorkspaceId(ws);
-      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [], improvementChecklist: [] });
+      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', improvementChecklist: [] });
       // Las cuentas nuevas empiezan vacías; los datos de demostración nunca se copian al espacio del usuario.
       if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
-  async logout() { this.remoteSaved = {};  await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], workspaceMembers: [], improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
-  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
+  async logout() { this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1; this.remoteSaved = {};  await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
+  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
   async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return; const r=await this.api('workspace_members',{workspace_id:workspaceId}); if(r.ok)this.setState({workspaceMembers:r.members||[]}); }
   async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], workspaceMembers: m.members || [], adminOpen: true }); } }
   async clearWorkspaceTasks(workspaceId, workspaceName) { if (this.state.auth?.role !== 'super_admin') return; const r=await this.api('workspace_tasks_clear',{workspace_id:workspaceId}); if(r.ok){ if(Number(this.state.workspaceId)===Number(workspaceId)) this.setState({tasks:[],selId:null}); this.setState({authError:'Se borraron ' + (r.deleted||0) + ' tareas de «' + workspaceName + '».'}); await this.loadAdminSummary(); } else this.setState({authError:r.error||'No se pudieron borrar las tareas.'}); }
@@ -1581,6 +1603,40 @@ class Component extends DCLogic {
   }
   quadOf(id) { return this.QUADS.find(q => q.id === id) || this.QUADS[1]; }
   projName(id) { const p = this.state.projects.find(x => x.id === id); return p ? p.name : ''; }
+  responsibleLabel(task) {
+    const confirmed=Array.isArray(task._shared_user_ids)?task._shared_user_ids:(Array.isArray(task.sharedWith)?task.sharedWith:[]);
+    const ids=[...new Set(confirmed.map(Number).filter(id=>Number.isInteger(id)&&id>0))];
+    if(!ids.length)return 'Sin asignar';
+    const names=ids.map(id=>{const member=this.state.workspaceMembers.find(m=>Number(m.id)===id);return String(member?.name||'').trim()||String(member?.email||'').trim()||'nombre no disponible';});
+    return (ids.length===1?'Responsable: ':'Responsables: ')+names.join(', ');
+  }
+  isPersonalTask(task) {
+    if(!this.state.auth)return true;
+    if(task._dashboard_visible===false)return false;
+    const id=Number(this.state.auth.id),owner=Number(task._owner_id||id);
+    const assigned=Array.isArray(task._shared_user_ids)?task._shared_user_ids:(task.sharedWith||[]);
+    return owner===id||assigned.map(Number).includes(id);
+  }
+  isWorkspaceAdmin() {
+    const {auth,workspaceId,workspaces}=this.state;
+    const workspace=workspaces.find(w=>Number(w.id)===Number(workspaceId));
+    return !!auth && !!workspaceId && (auth.role==='super_admin'||workspace?.member_role==='admin'||Number(workspace?.created_by)===Number(auth.id));
+  }
+  async loadTeamTasks() {
+    const {auth,workspaceId}=this.state;
+    if(!this.isWorkspaceAdmin()){this.setState({teamTasks:[],teamProjects:[],teamError:'Solo un administrador del espacio puede consultar el equipo.'});return;}
+    const request=this.teamRequestId=(this.teamRequestId||0)+1,userId=Number(auth.id);
+    this.setState({teamLoading:true,teamTasks:[],teamProjects:[],teamError:''});
+    try {
+      const r=await this.api('team_tasks',{workspace_id:workspaceId});
+      if(request!==this.teamRequestId||Number(this.state.auth?.id)!==userId||Number(this.state.workspaceId)!==Number(workspaceId)||!this.isWorkspaceAdmin())return;
+      if(!r.ok)throw new Error(r.error||'No se pudieron consultar las tareas del equipo.');
+      this.setState({teamTasks:this.normalizeTaskBuckets(r.tasks||[]),teamProjects:r.projects||[],teamLoading:false});
+    } catch(e) {
+      if(request===this.teamRequestId&&Number(this.state.auth?.id)===userId&&Number(this.state.workspaceId)===Number(workspaceId))this.setState({teamTasks:[],teamProjects:[],teamLoading:false,teamError:e.message||'No se pudo conectar con el servidor.'});
+    }
+  }
+
   memberName(id) { const member=this.state.workspaceMembers.find(x=>Number(x.id)===Number(id)); return member?.name || member?.email || 'un miembro'; }
 
   addTask() {
@@ -1700,11 +1756,11 @@ class Component extends DCLogic {
 
   renderVals() {
     const s = this.state, now = Date.now(), day = 86400000;
-    // Las tareas compartidas siguen sincronizadas para consultar su avance,
-    // pero la vista "Delegadas" las concentra y evita mezclar las recibidas
-    // con las listas propias.
-    const delegatedTasks = s.tasks.filter(t => t.list !== 'trash' && Array.isArray(t.sharedWith) && t.sharedWith.length > 0);
-    const personalTasks = s.tasks.filter(t => !this.isDelegatedTask(t));
+    // Project collaboration remains available in Proyectos/Cronograma.
+    // Personal lists and counters include only creator/direct delegation;
+    // administrative overview data never enters this task collection.
+    const personalTasks = s.tasks.filter(t => this.isPersonalTask(t));
+    const delegatedTasks = personalTasks.filter(t => t.list !== 'trash' && Array.isArray(t.sharedWith) && t.sharedWith.length > 0);
     const activeTasks = personalTasks.filter(t => t.list !== 'trash');
     const open = activeTasks.filter(t => !t.done);
     const counts = {
@@ -1729,10 +1785,11 @@ class Component extends DCLogic {
     ];
     const hasWorkspaceAdmin = s.auth && (s.auth.role === 'super_admin' || s.auth.role === 'admin' || s.workspaces.some(w => w.member_role === 'admin'));
     if (hasWorkspaceAdmin) navDefs.push({ id: 'admin', label: 'Supervisión' });
+    if(this.isWorkspaceAdmin())navDefs.push({id:'team',label:'Tareas del equipo'});
     const navItems = navDefs.map(n => {
       const on = s.view === n.id || (n.id === 'projects' && s.view === 'project');
       return {
-        id:n.id, label: n.label, count: counts[n.id] || 0, onClick: () => { this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, delegatingId: null, mobileNavOpen: false }); if (n.id === 'admin') this.loadAdminSummary(); },
+        id:n.id, label: n.label, count: counts[n.id] || 0, onClick: () => { this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, delegatingId: null, mobileNavOpen: false }); if (n.id === 'admin') this.loadAdminSummary(); if(n.id==='team')this.loadTeamTasks(); },
         style: {
           display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', cursor: 'pointer',
           padding: '9px 18px', border: 0, borderLeft: '3px solid ' + (on ? 'var(--color-accent)' : 'transparent'),
@@ -1749,7 +1806,7 @@ class Component extends DCLogic {
     const activeTimerFirst = (a, b) => (Number(b.id === activeTimerId) - Number(a.id === activeTimerId));
     let listTasks = [];
     if (isList) {
-      listTasks = (s.view === 'delegated' ? delegatedTasks : s.tasks.filter(t => t.list === s.view && !this.isDelegatedTask(t))).sort((a, b) => activeTimerFirst(a, b) || (s.view === 'done' || s.view === 'trash' ? (Number(b.doneAt || b.deletedAt || 0) - Number(a.doneAt || a.deletedAt || 0)) : ((a.done - b.done) || a.quadrant.localeCompare(b.quadrant))));
+      listTasks = (s.view === 'delegated' ? delegatedTasks : personalTasks.filter(t => t.list === s.view)).sort((a, b) => activeTimerFirst(a, b) || (s.view === 'done' || s.view === 'trash' ? (Number(b.doneAt || b.deletedAt || 0) - Number(a.doneAt || a.deletedAt || 0)) : ((a.done - b.done) || a.quadrant.localeCompare(b.quadrant))));
     } else if ((s.view === 'projects' || s.view === 'project') && s.projFilter) {
       listTasks = s.tasks.filter(t => t.project === s.projFilter && t.list !== 'trash').sort((a, b) => activeTimerFirst(a, b) || (a.done - b.done));
     }
@@ -1768,7 +1825,8 @@ class Component extends DCLogic {
       timeline: ['Cronograma', 'Planificación de inicio y fin'],
       stats: ['Estadísticas semanales', 'Últimos 7 días'],
       ideas: ['Mejoras', 'Ideas y sugerencias del espacio'],
-      admin: ['Supervisión', 'Espacios de trabajo y tareas del equipo']
+      admin: ['Supervisión', 'Espacios de trabajo y tareas del equipo'],
+      team:['Tareas del equipo','Consulta administrativa · separada de tus tareas personales']
     };
     const tt = titles[s.view] || titles.today;
 
@@ -1928,7 +1986,7 @@ class Component extends DCLogic {
       if(this.dkey(start)!==this.dkey(end)){options.day='numeric';options.month='short';if(start.getFullYear()!==end.getFullYear())options.year='numeric';}
       return start.toLocaleString('es-MX',options)+' — '+end.toLocaleString('es-MX',options);
     };
-    const taskInfo = t => ({timeLabel:compactRange(t),title:t.title,projectName:this.projName(t.project)||'Sin proyecto',status:t.done?'Hecha':'Pendiente',start:fmtPlan(t.scheduledStart),end:fmtPlan(t.scheduledEnd),duration:this.fmtDur((Date.parse(t.scheduledEnd)-Date.parse(t.scheduledStart))/1000),actual:this.fmtDur(t.seconds||0),onOpen:()=>this.openTimelineTask(t.id),openLabel:'Editar planificación de '+t.title+'. Inicio '+fmtPlan(t.scheduledStart)+'. Fin '+fmtPlan(t.scheduledEnd)});
+    const taskInfo = t => ({responsibleLabel:this.responsibleLabel(t),timeLabel:compactRange(t),title:t.title,projectName:this.projName(t.project)||'Sin proyecto',status:t.done?'Hecha':'Pendiente',start:fmtPlan(t.scheduledStart),end:fmtPlan(t.scheduledEnd),duration:this.fmtDur((Date.parse(t.scheduledEnd)-Date.parse(t.scheduledStart))/1000),actual:this.fmtDur(t.seconds||0),onOpen:()=>this.openTimelineTask(t.id),openLabel:'Editar planificación de '+t.title+'. '+this.responsibleLabel(t)+'. Inicio '+fmtPlan(t.scheduledStart)+'. Fin '+fmtPlan(t.scheduledEnd)});
     const timelineRows = calendarTasks.visible.map(({task:t,left,width,continuesBefore,continuesAfter}) => ({...taskInfo(t),
       barLabel:(continuesBefore?'‹ ':'')+new Date(t.scheduledStart).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})+(continuesAfter?' ›':''),
       // The target stays clickable for tiny intervals. The separate line and
@@ -1959,7 +2017,7 @@ class Component extends DCLogic {
       hasScheduledTasks:timelineRows.length>0,noScheduledTasks:timelineRows.length===0,
       timelineEmptyMessage:planning.scheduled.length?'No hay tareas en este periodo. Puedes navegar o localizar las tareas de la lista inferior.':'Añade inicio y fin a una tarea de la lista inferior para verla en el calendario.',
       hasOutsideTasks:calendarTasks.outside.length>0,outsideCount:calendarTasks.outside.length,outsideRows:calendarTasks.outside.map(t=>({...taskInfo(t),onLocate:()=>this.locateTimelineTask(t.id)})),
-      unscheduledCount: planning.unscheduled.length, unscheduledRows: planning.unscheduled.map(t=>({ title:t.title,projectName:this.projName(t.project)||'Sin proyecto',reason:t.scheduledStart||t.scheduledEnd?'Fechas incompletas o inválidas':'Añade inicio y fin',action:t.scheduledStart||t.scheduledEnd?'Revisar fechas':'Planificar',onOpen:()=>this.openTimelineTask(t.id) })),
+      unscheduledCount: planning.unscheduled.length, unscheduledRows: planning.unscheduled.map(t=>({ responsibleLabel:this.responsibleLabel(t),title:t.title,projectName:this.projName(t.project)||'Sin proyecto',reason:t.scheduledStart||t.scheduledEnd?'Fechas incompletas o inválidas':'Añade inicio y fin',action:t.scheduledStart||t.scheduledEnd?'Revisar fechas':'Planificar',onOpen:()=>this.openTimelineTask(t.id) })),
       scheduleZoneLabel: 'Zona horaria: '+KaizenPlanning.zone(), scheduleStartDraft:s.scheduleStartDraft, scheduleEndDraft:s.scheduleEndDraft, scheduleError:s.scheduleError,
       onScheduleStart:e=>this.setState({scheduleStartDraft:e.target.value,scheduleError:''}), onScheduleEnd:e=>this.setState({scheduleEndDraft:e.target.value,scheduleError:''}),
       onSaveSchedule:()=>this.saveTaskSchedule(), onClearSchedule:()=>{ if(s.selId)this.patch(s.selId,{scheduledStart:'',scheduledEnd:''}); this.setState({scheduleStartDraft:'',scheduleEndDraft:'',scheduleError:''}); },
@@ -2005,6 +2063,9 @@ class Component extends DCLogic {
       onRefreshAdmin: () => this.loadAdminSummary(),
       navItems, streak: streak,
       viewTitle: tt[0], viewSub: tt[1],
+      isTeamView:s.view==='team'&&this.isWorkspaceAdmin(),canSeeTeam:this.isWorkspaceAdmin(),teamLoading:s.teamLoading,teamError:s.teamError,teamEmpty:!s.teamLoading&&!s.teamTasks.length&&!s.teamError,
+      onRefreshTeam:()=>this.loadTeamTasks(),onOpenTeam:()=>{this.setState({view:'team',selId:null,delegatingId:null});this.loadTeamTasks();},
+      teamRows:this.isWorkspaceAdmin()?s.teamTasks.map(t=>({title:t.title,creatorLabel:'Creada por '+this.memberName(t._owner_id),responsibleLabel:this.responsibleLabel(t),projectName:s.teamProjects.find(p=>p.id===t.project)?.name||'Sin proyecto',status:t.list==='trash'?'Borrada':t.done?'Hecha':'Pendiente',time:this.fmtDur(t.seconds||0),planLabel:t.scheduledStart&&t.scheduledEnd?'Plan: '+fmtPlan(t.scheduledStart)+' → '+fmtPlan(t.scheduledEnd):'Sin planificación'})):[],
       isList, isMatrix: s.view === 'matrix', isProjects: s.view === 'projects', isProjectDetail: s.view === 'project', isIdeas: s.view === 'ideas', isStats: s.view === 'stats', isAdminView: s.view === 'admin',
       projectDetailName: this.projName(s.projFilter) || 'Proyecto',
       projectDetailStats: (() => { const a=s.tasks.filter(t=>t.project===s.projFilter && t.list !== 'trash'), d=a.filter(t=>t.done).length; return d + '/' + a.length + ' hechas · ' + this.fmtDur(a.reduce((sum,t)=>sum+t.seconds,0)); })(),

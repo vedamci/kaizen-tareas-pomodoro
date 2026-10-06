@@ -50,7 +50,7 @@ se prepara para revisión mediante un PR en borrador en el repositorio existente
 Verificación adicional por CLI: ocho pruebas de calendario y componente
 cubren rangos y límites, cambio de mes/año, DST, tareas cortas junto a tareas
 largas, contador, filtros, navegación, localizar tareas y conservación de datos.
-La suite JavaScript suma ahora 30 pruebas. La revisión visual e interacción real
+La suite JavaScript suma ahora 37 pruebas. La revisión visual e interacción real
 del nuevo cronograma y los nuevos menús sigue pendiente: esta sesión no expone
 una herramienta de control de Chrome, aunque el navegador está disponible.
 
@@ -88,6 +88,46 @@ nativos y botones permiten encogerse. La regresión visual de esta corrección d
 confirmarse en Chrome a 375 × 667 y 320 × 568 antes de considerarla terminada.
 La validación de rangos y el modal de Delegar no se modificaron.
 
+
+## Responsables y dashboard personal
+
+**Responsable** en Cronograma significa destinatario confirmado de **Delegar**:
+se resuelve el nombre por ID del equipo y se muestran todas las personas cuando
+hay varias. El creador (`tasks.owner_id`) y pertenecer al proyecto no implican
+asignación. Sin destinatarios aparece **Sin asignar**; si hay un ID asignado cuyo
+nombre ya no está disponible, se informa **nombre no disponible**. La relación
+`task_shares`, devuelta como `_shared_user_ids`, prevalece sobre una copia antigua
+de `sharedWith`. El nombre aparece también en Fuera de este periodo y Sin
+planificación; no cambia durante un borrador ni después de un guardado rechazado.
+
+Las listas personales y sus contadores (incluida Matriz) muestran tareas creadas
+por la persona o delegadas directamente a ella. Esto también se aplica a admins.
+Proyectos y Cronograma mantienen la colaboración de miembros existente mientras
+se aclara el alcance de los proyectos compartidos; pertenecer a un proyecto no
+mete las tareas de los compañeros en Hoy/Bandeja/Futuro. La vista **Tareas del
+equipo**, en Más vistas y Supervisión, permite al administrador del espacio
+consultar todas las tareas de ese espacio, con creador y responsables separados.
+Es de solo lectura y su colección no entra en listas, sincronización ni caché
+persistida personal. No se cambian usuarios ni roles.
+
+Protección en API (identidad y rol proceden de sesión/DB, no del payload):
+
+| Consulta | Alcance |
+| --- | --- |
+| `tasks` sin scope / `personal` | Creador o delegación directa, respetando revocación de proyecto |
+| `tasks` con `scope: projects` | Tareas autorizadas por el modelo de colaboración previo |
+| `team_tasks` | Solo admin real del espacio/creador del espacio/superadmin existentes, solo dentro del espacio autorizado |
+| `task_get` | Misma autorización por ID, scope personal por defecto; projects explícito para colaboración y team solo para admin |
+
+Solicitar `team` en la lista normal no activa la vista de equipo. Roles simulados
+en JSON, asignaciones inventadas en `sharedWith`, IDs de tareas privadas o de otro
+espacio no conceden acceso. Las escrituras siguen con sus permisos previos:
+consultar como admin no autoriza editar una tarea privada ajena. Las respuestas
+tardías de otra identidad/espacio se descartan. La ampliación de pruebas cubre
+estas consultas por HTTP con dos miembros, un administrador y un usuario de otro
+espacio; las pruebas JS cubren nombres, cambios de delegación y separación de
+colecciones. La API y la interfaz deben publicarse juntas en una futura entrega;
+no se ha desplegado este cambio.
 
 ## Persistencia y permisos
 
@@ -136,7 +176,7 @@ de PHP ni persistencia en MySQL. `preview/` y `tools/` no son archivos de produc
 
 No había comandos de prueba ni herramientas de build en el checkout original.
 
-Ejecutado: `node --test tests/planning.test.cjs`: **30 pruebas pasan**. Cubren
+Ejecutado: `node --test tests/planning.test.cjs`: **37 pruebas pasan**. Cubren
 renderizado, nombres de opciones nativas, tareas antiguas sin fechas, rangos
 inválidos, UTC/cambio de zona/DST, filtros, acceso de miembros en la interfaz,
 traslado a/sin proyecto, rechazo de traslado, errores y reversión, cola de
@@ -183,8 +223,8 @@ copia temporal de la API y configuración ficticia. Usa una segunda base vacía
 privada, no crea grants ni usa cuentas de producción. Detiene el servidor y elimina
 la copia y las sesiones al terminar. La base desaparece con el runner desechable.
 
-Resultado confirmado en CI: **18 pruebas JavaScript, 28 comprobaciones de políticas
-PHP, 21 comprobaciones MySQL y 95 comprobaciones HTTP**. La suite HTTP cubre login
+El workflow ejecuta las suites JavaScript, políticas PHP, persistencia MySQL
+y HTTP ampliada; el resultado de cada commit se consulta en el PR. La suite HTTP cubre login
 válido/inválido, rotación del ID de sesión, cookie y token persistente, logout y
 revocación, miembros/no miembros, lectura/escritura por ID, delegación/revocación,
 destinatarios inválidos, creación/asignación/traslado, cruce de espacios, conservación

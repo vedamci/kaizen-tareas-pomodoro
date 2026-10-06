@@ -237,9 +237,18 @@ try {
         $project=saveWorkspaceProject(db(),$wid,$u,workspaceProjectAdmin($wid,$u,$access),$data);
         out(['ok'=>true,'project'=>$project]);
     }
-    if ($action === 'tasks') {
+    if ($action === 'tasks' || $action === 'team_tasks' || $action === 'task_get') {
         $wid=(int)($data['workspace_id']??0); $access=workspaceAccess($wid,(int)$u['id']); if($u['role']!=='super_admin'&&!$access) out(['ok'=>false,'error'=>'Sin acceso a este espacio.'],403);
-        out(array_merge(['ok'=>true],loadWorkspaceTasks(db(),$wid,$u,workspaceProjectAdmin($wid,$u,$access))));
+        $admin=workspaceProjectAdmin($wid,$u,$access);
+        $scope=$action==='team_tasks'?'team':(string)($data['scope']??'personal');
+        validateTaskReadScope($scope,$admin);
+        // Team access is deliberate and separate from the normal list.
+        if($action==='tasks' && $scope==='team')out(['ok'=>false,'error'=>'Usa la vista administrativa de tareas del equipo.'],422);
+        if($action==='task_get'){
+            $id=(string)($data['task_id']??'');if(!preg_match('/^[a-zA-Z0-9_-]{1,32}$/D',$id))out(['ok'=>false,'error'=>'Identificador de tarea no válido.'],422);
+            out(['ok'=>true,'task'=>loadWorkspaceTaskById(db(),$wid,$id,$u,$admin,$scope)]);
+        }
+        out(array_merge(['ok'=>true],loadWorkspaceTasks(db(),$wid,$u,$admin,$scope)));
     }
     if ($action === 'tasks_sync') {
         $wid=(int)($data['workspace_id']??0); $access=workspaceAccess($wid,(int)$u['id']); if($u['role']!=='super_admin'&&!$access) out(['ok'=>false,'error'=>'Sin acceso a este espacio.'],403);

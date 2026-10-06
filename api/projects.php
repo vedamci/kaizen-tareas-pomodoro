@@ -56,22 +56,39 @@ function saveWorkspaceProject(PDO $pdo, int $wid, array $u, bool $admin, array $
     } catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $e; }
 }
 
-function loadWorkspaceTasks(PDO $pdo, int $wid, array $u, bool $admin): array {
+function decorateTaskRead(array $row, array $projects, array $shares, array $u, bool $admin, string $scope): array {
+    $item=json_decode($row['payload_json'],true)?:[]; $item['id']=$row['id']; $item['_owner_id']=(int)$row['owner_id']; $item['_revision']=hash('sha256',$row['payload_json']);
+    $ids=sharedIds($shares,$row['id']);
+    $item['_shared_user_ids']=$ids;
+    $item['_delegated_at']=!empty($shares[$row['id']])?min(array_column($shares[$row['id']],'shared_at')):null;
+    $project=projectFind($projects,(string)($item['project']??''));
+    $item['_project_member']=$project && projectMember($project,(int)$u['id']);
+    $item['_dashboard_visible']=taskPersonalAccess($item,(int)$u['id'],$ids) && projectTaskAccess($item,$projects,(int)$u['id'],$ids);
+    $item['_can_move']=$scope!=='team' && ((int)$row['owner_id']===(int)$u['id']||$admin);
+    $item['_team_read_only']=$scope==='team';
+    return $item;
+}
+function loadWorkspaceTasks(PDO $pdo, int $wid, array $u, bool $admin, string $scope = 'projects'): array {
+        validateTaskReadScope($scope,$admin);
         $projects=workspaceProjects($pdo,$wid); $shares=workspaceShares($pdo,$wid); 
         $q=$pdo->prepare('SELECT id,owner_id,payload_json FROM tasks WHERE workspace_id=? ORDER BY updated_at DESC'); $q->execute([$wid]); $tasks=[];
         foreach($q as $row){
             $item=json_decode($row['payload_json'],true)?:[]; $item['id']=$row['id']; $item['_owner_id']=(int)$row['owner_id']; $item['_revision']=hash('sha256',$row['payload_json']);
             $ids=sharedIds($shares,$row['id']);
-            if(!projectTaskAccess($item,$projects,(int)$u['id'],$ids))continue;
-            $item['_shared_user_ids']=$ids;
-            $item['_delegated_at']=!empty($shares[$row['id']])?min(array_column($shares[$row['id']],'shared_at')):null;
-            $project=projectFind($projects,(string)($item['project']??''));
-            $item['_project_member']= $project && projectMember($project,(int)$u['id']);
-            $item['_can_move']=(int)$row['owner_id']===(int)$u['id']||$admin;
-            $tasks[]=$item;
+            if(!taskReadAccess($item,$projects,(int)$u['id'],$ids,$scope,$admin))continue;
+            $tasks[]=decorateTaskRead($row,$projects,$shares,$u,$admin,$scope);
         }
-        $visible=[]; foreach($projects as $project) if(!projectIsShared($project)||projectMember($project,(int)$u['id'])||projectManage($project,$u,$admin)) $visible[]=decorateProject($project,$u,$admin);
+        $visible=[]; foreach($projects as $project) if($scope==='team'||!projectIsShared($project)||projectMember($project,(int)$u['id'])||projectManage($project,$u,$admin)) $visible[]=decorateProject($project,$u,$admin);
     return ['tasks'=>$tasks,'projects'=>$visible];
+}
+function loadWorkspaceTaskById(PDO $pdo, int $wid, string $id, array $u, bool $admin, string $scope = 'personal'): array {
+    validateTaskReadScope($scope,$admin);
+    $q=$pdo->prepare('SELECT id,owner_id,payload_json FROM tasks WHERE workspace_id=? AND id=?');$q->execute([$wid,$id]);$row=$q->fetch();
+    if(!$row)throw new DomainException('Tarea no encontrada.',404);
+    $projects=workspaceProjects($pdo,$wid);$shares=workspaceShares($pdo,$wid);
+    $task=json_decode($row['payload_json'],true)?:[];$task['_owner_id']=(int)$row['owner_id'];
+    if(!taskReadAccess($task,$projects,(int)$u['id'],sharedIds($shares,$id),$scope,$admin))throw new DomainException('No tienes acceso a esta tarea.',403);
+    return decorateTaskRead($row,$projects,$shares,$u,$admin,$scope);
 }
 function syncWorkspaceTasks(PDO $pdo, int $wid, array $u, bool $admin, array $tasks): array {
     try {

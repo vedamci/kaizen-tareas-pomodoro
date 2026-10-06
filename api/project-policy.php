@@ -19,6 +19,21 @@ function projectTaskAccess(array $task, array $projects, int $userId, array $sha
     if ($project && projectIsShared($project)) return projectMember($project, $userId);
     return (int)($task['_owner_id'] ?? 0) === $userId || in_array($userId, array_map('intval', $sharedIds), true);
 }
+function taskPersonalAccess(array $task, int $userId, array $sharedIds): bool {
+    // Owner is the creator recorded in SQL; shares are confirmed delegation,
+    // never a caller-supplied sharedWith payload or project membership.
+    return (int)($task['_owner_id'] ?? 0) === $userId || in_array($userId, array_map('intval', $sharedIds), true);
+}
+function validateTaskReadScope(string $scope, bool $admin): void {
+    if (!in_array($scope, ['personal', 'projects', 'team'], true)) throw new DomainException('Vista de tareas no válida.', 422);
+    if ($scope === 'team' && !$admin) throw new DomainException('Solo un administrador del espacio puede consultar las tareas del equipo.', 403);
+}
+function taskReadAccess(array $task, array $projects, int $userId, array $sharedIds, string $scope, bool $admin): bool {
+    validateTaskReadScope($scope, $admin);
+    if ($scope === 'team') return true; // Read-only, separately authorized workspace overview.
+    if (!projectTaskAccess($task, $projects, $userId, $sharedIds)) return false;
+    return $scope === 'projects' || taskPersonalAccess($task, $userId, $sharedIds);
+}
 function projectTaskWrite(array $next, ?array $previous, array $projects, array $user, bool $admin, array $sharedIds): void {
     $id = (int)$user['id'];
     if ($previous && !projectTaskAccess($previous, $projects, $id, $sharedIds)) throw new DomainException('No tienes acceso a esta tarea.', 403);

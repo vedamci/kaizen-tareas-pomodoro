@@ -11,6 +11,17 @@ check(!projectTaskAccess($task,$projects,3,[3]),'nonmember direct share does not
 check(!projectTaskAccess($task,$projects,4,[]),'outsider cannot read');
 check(projectTaskAccess(['project'=>'','_owner_id'=>1],$projects,1,[]),'unassigned task stays personal');
 check(!projectTaskAccess(['project'=>'','_owner_id'=>1],$projects,2,[]),'unassigned task hidden from teammate');
+check(taskReadAccess($task,$projects,1,[],'personal',false),'creator sees task in personal dashboard');
+check(!taskReadAccess($task,$projects,2,[],'personal',false),'membership alone does not place peer task in personal dashboard');
+check(taskReadAccess($task,$projects,2,[2],'personal',false),'confirmed delegation appears in recipient dashboard');
+check(!taskReadAccess(['project'=>'','_owner_id'=>1,'sharedWith'=>[2]],$projects,2,[],'personal',false),'forged payload cannot grant assignment access');
+check(taskReadAccess($task,$projects,2,[],'projects',false),'collaborative project read is preserved');
+check(!taskReadAccess(['project'=>'','_owner_id'=>1],$projects,4,[],'personal',true),'administrator personal dashboard excludes peer private tasks');
+check(taskReadAccess(['project'=>'','_owner_id'=>1],$projects,4,[],'team',true),'authorized team scope can read peer private task');
+check(rejected(fn()=>taskReadAccess($task,$projects,2,[],'team',false),403),'member cannot request team scope');
+check(rejected(fn()=>validateTaskReadScope('team',false),403),'empty team list still requires admin');
+check(rejected(fn()=>validateTaskReadScope('all',true),422),'unknown read scope is rejected');
+check(!taskReadAccess($task,$projects,3,[3],'personal',false),'revoked project access defeats a stale direct share');
 check(!projectTaskAccess(['project'=>'legacy','_owner_id'=>1],$projects,2,[]),'legacy project does not widen task visibility');
 check(projectTaskAccess(['project'=>'legacy','_owner_id'=>1],$projects,2,[2]),'legacy delegation preserved');
 projectTaskWrite(['project'=>'b'],$task,$projects,['id'=>1],false,[]);check(true,'owner moves between projects');

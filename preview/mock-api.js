@@ -17,7 +17,16 @@
     const access = t => t.project && data.projects.find(p=>p.id===t.project)?.member_ids ? projectMember(data.projects.find(p=>p.id===t.project)) : t._owner_id===id || (t.sharedWith||[]).includes(id);
     let result = {ok:true};
     if(action==='me') result={ok:true,user,workspaces:[{id:1,name:'Equipo de demostración',member_role:id===1?'admin':'member'}]};
-    else if(action==='tasks') result={ok:true,tasks:data.tasks.filter(access).map(t=>({...t,_project_member:!!t.project&&projectMember(data.projects.find(p=>p.id===t.project)),_can_move:t._owner_id===id||id===1,_shared_user_ids:t.sharedWith||[]})),projects:data.projects.filter(p=>projectMember(p)||id===1).map(p=>({...p,_legacy:!p.member_ids,_can_manage:p.owner_id===id||id===1,_can_assign:projectMember(p)}))};
+    else if(action==='tasks'||action==='team_tasks'||action==='task_get') {
+      const scope=action==='team_tasks'?'team':(payload.scope||'personal');
+      const personal=t=>t._owner_id===id||(t.sharedWith||[]).includes(id);
+      const decorate=t=>({...t,_project_member:!!t.project&&projectMember(data.projects.find(p=>p.id===t.project)),_can_move:scope!=='team'&&(t._owner_id===id||id===1),_shared_user_ids:t.sharedWith||[],_dashboard_visible:access(t)&&personal(t),_team_read_only:scope==='team'});
+      const readable=t=>scope==='team'||(access(t)&&(scope==='projects'||personal(t)));
+      if(!['personal','projects','team'].includes(scope)||(action==='tasks'&&scope==='team'))result={ok:false,error:'Vista no válida; usa la consulta de equipo.'};
+      else if(scope==='team'&&id!==1)result={ok:false,error:'Solo un administrador del espacio puede consultar el equipo.'};
+      else if(action==='task_get'){const t=data.tasks.find(t=>t.id===payload.task_id);result=t&&readable(t)?{ok:true,task:decorate(t)}:{ok:false,error:'Sin acceso a esta tarea.'};}
+      else result={ok:true,tasks:data.tasks.filter(readable).map(decorate),projects:data.projects.filter(p=>scope==='team'||projectMember(p)||id===1).map(p=>({...p,_legacy:!p.member_ids,_can_manage:p.owner_id===id||id===1,_can_assign:projectMember(p)}))};
+    }
     else if(action==='workspace_members')result={ok:true,members};
     else if(action==='suggestions')result={ok:true,suggestions:[]};
     else if(action==='checklist')result={ok:true,items:[]};
