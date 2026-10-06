@@ -168,3 +168,41 @@ test('planning, editing and removing dates update the calendar without changing 
   v.onClearSchedule();v=c.renderVals();assert.equal(v.timelineRows.length,0);assert.equal(v.unscheduledCount,1);assert.equal(v.navItems.find(n=>n.label==='Cronograma').count,0);
   const task=c.state.tasks[0];assert.equal(task.project,'p');assert.equal(task.seconds,1234);assert.equal(task.pomos,2);assert.deepEqual([...task.sharedWith],[2]);assert.equal(task.done,false);assert.equal(c.state.pomo.running,false);
 });
+
+test('simplified navigation retains all destinations and applies admin visibility',()=>{
+  const c=component();Object.assign(c.state,c.seed());c.state.auth={id:1,role:'user'};
+  let v=c.renderVals();assert.equal(v.primaryNavItems.length,5);
+  assert.deepEqual([...v.primaryNavItems.map(n=>n.id)].sort(),['delegated','inbox','projects','timeline','today']);
+  assert.deepEqual([...v.primaryNavItems,...v.secondaryNavItems].map(n=>n.id).sort(),[...v.navItems.map(n=>n.id)].sort());
+  assert.ok(!v.secondaryNavItems.some(n=>n.id==='admin'));
+  v.secondaryNavItems.find(n=>n.id==='stats').onClick();v=c.renderVals();assert.equal(v.isStats,true);assert.match(v.secondaryNavLabel,/Estadísticas/);
+  c.state.auth.role='admin';v=c.renderVals();assert.ok(v.secondaryNavItems.some(n=>n.id==='admin'));
+  v.primaryNavItems.find(n=>n.id==='projects').onClick();assert.equal(c.renderVals().isProjects,true);
+});
+test('opening row options never selects or swipes the task; text still opens it',()=>{
+  const c=component();Object.assign(c.state,c.seed());const t=c.state.tasks[0],row=c.taskRow(t);
+  for(const tag of ['summary','details','input','button']){
+    const target={closest:selector=>selector.split(',').includes(tag)?{}:null};
+    row.onRowOpen({target});c.beginSwipe(t.id,10,20,target);
+    assert.equal(c.state.selId,null);assert.equal(c.swipeId,undefined);
+  }
+  row.onRowOpen({target:{closest:()=>null}});assert.equal(c.state.selId,t.id);
+  assert.equal(c.state.pomo.running,false);
+});
+test('Escape closes the focused disclosure and restores focus before exiting full screen',()=>{
+  const c=component();c.state.full=true;let focused=0,prevented=0;
+  const disclosure={open:true,querySelector:()=>({focus:()=>focused++})};
+  const target={closest:()=>disclosure};
+  c.handleEscape({key:'Enter',target});assert.equal(disclosure.open,true);
+  c.handleEscape({key:'Escape',target,preventDefault:()=>prevented++});
+  assert.equal(disclosure.open,false);assert.equal(focused,1);assert.equal(prevented,1);assert.equal(c.state.full,true);
+  c.handleEscape({key:'Escape',target:{closest:()=>null}});assert.equal(c.state.full,false);
+});
+test('compact calendar labels distinguish single-day, multi-day and cross-year ranges',()=>{
+  const c=component();c.state.view='timeline';c.state.timelineMode='month';c.state.timelineAnchor=new Date(2026,9,6).getTime();
+  const task={id:'a',title:'Task',list:'inbox',tags:[],subtasks:[],project:'',scheduledStart:new Date(2026,9,6,10).toISOString(),scheduledEnd:new Date(2026,9,6,11).toISOString()};
+  c.state.tasks=[task,{...task,id:'b',scheduledEnd:new Date(2026,9,7,11).toISOString()},{...task,id:'c',scheduledEnd:new Date(2027,0,7,11).toISOString()}];
+  const rows=c.renderVals().timelineRows;
+  assert.doesNotMatch(rows[0].timeLabel,/oct/);assert.match(rows[1].timeLabel,/6.*oct.*7.*oct/);assert.match(rows[2].timeLabel,/2026.*2027/);
+  assert.match(rows[2].openLabel,/2026.*2027/);
+});

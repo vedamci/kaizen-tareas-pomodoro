@@ -33,7 +33,8 @@ se prepara para revisión mediante un PR en borrador en el repositorio existente
 - El calendario tiene scroll horizontal propio en pantallas estrechas. Los
   nombres permanecen visibles y las tareas cortas tienen un objetivo de clic
   de al menos 32 px. La línea debajo de la barra conserva la duración exacta;
-  inicio, fin, plan y tiempo real también están escritos en la columna fija.
+  la columna fija muestra horas y días cuando abarca varias fechas. El detalle
+  conserva inicio, fin y tiempo real; el nombre accesible de la barra incluye fechas completas.
 - Las tareas que cruzan un límite de periodo se recortan en el calendario,
   conservando sus fechas. Las que quedan fuera aparecen en una lista con
   **Ver en calendario**. Las fechas incompletas o inválidas aparecen en
@@ -49,13 +50,36 @@ se prepara para revisión mediante un PR en borrador en el repositorio existente
 Verificación adicional por CLI: ocho pruebas de calendario y componente
 cubren rangos y límites, cambio de mes/año, DST, tareas cortas junto a tareas
 largas, contador, filtros, navegación, localizar tareas y conservación de datos.
-La suite JavaScript suma ahora 26 pruebas. La revisión visual de este rediseño
-queda pendiente de coordinar Chrome, que está ocupado con otro trabajo.
+La suite JavaScript suma ahora 30 pruebas. La revisión visual e interacción real
+del nuevo cronograma y los nuevos menús sigue pendiente: esta sesión no expone
+una herramienta de control de Chrome, aunque el navegador está disponible.
 
 Referencias de diseño: [Linear Timeline](https://linear.app/docs/timeline) y
 [Notion Timeline](https://www.notion.com/help/timelines): escala explícita,
 navegación por periodos y nombres junto al calendario. No se añadió ninguna
 biblioteca ni dependencia de estos productos.
+
+## Interfaz diaria simplificada
+
+La cabecera conserva reloj, iniciar/pausar y tarea activa. **Temporizador** reúne
+modo, reinicio, cambio de ciclo y pantalla completa; **Más** reúne preferencias,
+avisos, cuenta y espacio de trabajo. Las opciones de prueba quedan en un segundo
+nivel. Hoy, Bandeja, Delegadas, Proyectos y Cronograma siguen visibles; **Más vistas**
+contiene el resto, con los mismos permisos de Supervisión.
+
+Las filas mantienen Delegar y Enfocar a mano. **Más** muestra fecha límite,
+Mover a Hoy y Borrar según la vista. Es un panel en el flujo de la fila que evita
+solaparse con otras tareas. Abrirlo no selecciona ni inicia un gesto sobre la tarea.
+Los desplegables usan `details`/`summary` nativos, foco visible y objetivo de 44 px.
+Escape cierra el desplegable enfocado y devuelve foco a su resumen. El calendario
+conserva sus controles y reduce la repetición en cada fila; ayuda y actualización
+están en **Opciones del calendario**.
+
+Claude Code (Opus 5.5) propuso la jerarquía visual a partir de un brief genérico
+sin código ni datos privados. La integración conserva los handlers y la API
+existentes. Cuatro pruebas nuevas comprueban navegación/permisos, interacción de
+filas, Escape/foco y fechas compactas de uno o varios días y distintos años.
+Estas pruebas usan lógica y dobles de DOM; no sustituyen la QA visual en Chrome.
 
 ## Persistencia y permisos
 
@@ -104,7 +128,7 @@ de PHP ni persistencia en MySQL. `preview/` y `tools/` no son archivos de produc
 
 No había comandos de prueba ni herramientas de build en el checkout original.
 
-Ejecutado: `node --test tests/planning.test.cjs`: **26 pruebas pasan**. Cubren
+Ejecutado: `node --test tests/planning.test.cjs`: **30 pruebas pasan**. Cubren
 renderizado, nombres de opciones nativas, tareas antiguas sin fechas, rangos
 inválidos, UTC/cambio de zona/DST, filtros, acceso de miembros en la interfaz,
 traslado a/sin proyecto, rechazo de traslado, errores y reversión, cola de
@@ -125,9 +149,10 @@ botones de las filas y del diálogo tienen un alto mínimo de 44 px y texto de
 acento oscuro; las acciones de las filas pueden saltar de línea. Se comprobó
 cancelar/reabrir, error de servidor, fallo de conexión, doble clic de guardado,
 persistencia al recargar y lectura desde un destinatario ficticio. No se inició
-el Pomodoro al delegar. La revisión móvil y adicional de teclado quedó pendiente:
-el control de Chrome falló al cambiar el viewport con «Unable to load browser
-request-header policy»; no se pudo confirmar el cambio ni la restauración del tamaño.
+el Pomodoro al delegar. La QA posterior del diálogo en `57fdf2a` completó
+320 × 568 y 375 × 667, Tab/Shift+Tab, Espacio, Enter, Escape, Guardar/Cancelar,
+errores, doble clic y persistencia. Se restauró 1200 × 710 y se liberó la pestaña.
+Esa evidencia precede a la simplificación actual y no confirma los nuevos menús.
 
 No ejecutado en este Mac por falta de PHP/MySQL; el workflow de GitHub Actions
 ejecuta estas comprobaciones en Ubuntu 24.04, además de las suites MySQL y HTTP:

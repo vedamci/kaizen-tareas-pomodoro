@@ -189,6 +189,60 @@
     .active-timer-banner__actions { flex: 1 0 100%; }
     .active-timer-banner__actions .btn { width: 100%; }
   }
+  .app-header { display:flex; align-items:center; gap:16px; flex-wrap:wrap; flex:none; padding:12px 20px; border-bottom:1px solid var(--color-divider); background:var(--color-bg); position:relative; z-index:10; }
+  .app-brand { font:800 18px var(--font-heading); }
+  .header-clock { display:flex; flex-direction:column; font-variant-numeric:tabular-nums; }
+  .header-clock strong { font:800 24px var(--font-heading); line-height:1.1; }
+  .header-clock small { font-size:11px; opacity:.7; }
+  .header-task { flex:1; min-width:120px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+  .header-menus { display:flex; gap:8px; align-items:flex-start; }
+  .app-disclosure { position:relative; }
+  .app-disclosure > summary, .row-options > summary { display:list-item; cursor:pointer; padding:11px 14px; min-height:44px; border:1px solid var(--color-divider); border-radius:4px; font-size:13px; font-weight:600; }
+  .app-disclosure[open] > summary, .row-options[open] > summary { background:var(--color-surface); }
+  .header-panel { position:absolute; top:calc(100% + 8px); right:0; width:min(340px, calc(100vw - 24px)); padding:16px; display:flex; flex-direction:column; gap:12px; background:var(--color-bg); border:1px solid var(--color-divider); border-radius:8px; box-shadow:var(--shadow-md); max-height:min(560px, 65dvh); overflow:auto; }
+  .panel-label { font-size:12px; }
+  .panel-actions { display:flex; flex-wrap:wrap; gap:8px; }
+  .app-header .btn { min-height:44px; }
+  .header-panel label, .account-name, .panel-help, .nested-options { font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+  .panel-help { margin:0; }
+  .header-panel .input { width:100%; min-width:0; }
+  .nested-options > summary, .calendar-help > summary { cursor:pointer; min-height:44px; padding:12px 0; font-size:13px; }
+  .nested-options[open] > summary { margin-bottom:8px; }
+  .nav-more > summary { cursor:pointer; padding:14px 18px; min-height:44px; font-size:13px; }
+  .nav-more button { width:100%; min-height:44px; }
+  .sidebar > button { min-height:44px; }
+  .task-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; max-width:100%; }
+  .row-options { min-width:0; }
+  .row-options[open] { flex-basis:100%; }
+  .row-options-body { display:flex; align-items:flex-end; flex-wrap:wrap; gap:8px; padding:12px 0; }
+  .row-date { display:flex; flex-direction:column; gap:6px; font-size:12px; }
+  .calendar-help { margin:-12px 0 16px; color:color-mix(in srgb,var(--color-text) 75%,transparent); }
+  .calendar-help p { font-size:13px; line-height:1.6; margin:0 0 10px; }
+  .timeline-grid-row { min-height:82px; }
+  .timeline-grid-header { min-height:58px; }
+  .timeline-bar { top:18px; }
+  .timeline-duration { top:62px; }
+  .app-header :focus-visible, .nav-more :focus-visible, .row-options :focus-visible, .calendar-help :focus-visible { outline:3px solid var(--color-accent-700); outline-offset:2px; }
+  @media (min-width:901px) and (max-width:1200px) {
+    .task-row { grid-template-columns:20px minmax(0,1fr) !important; }
+    .task-row > .task-actions { grid-column:2; }
+  }
+  @media (max-width:900px) {
+    .app-header { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:10px; padding:12px; }
+    .header-task { grid-column:1 / -1; min-width:0; }
+    .app-header .mobile-nav-toggle { width:auto; display:block; }
+    .header-menus { grid-column:2 / -1; justify-content:flex-end; }
+    .header-panel { position:fixed; top:auto; right:12px; margin-top:8px; }
+    .mobile-nav-panel { position:relative; top:auto; flex:none; z-index:11; }
+    .task-actions { gap:6px; }
+    .row-options-body { align-items:flex-start; flex-direction:column; }
+    .timeline-task strong { font-size:14px; }
+    .timeline-task span { font-size:12px; }
+    .timeline-toolbar label { font-size:13px; }
+    .timeline-toolbar > div, .timeline-navigation { width:100%; min-width:0; }
+    .timeline-toolbar .input { max-width:100%; min-height:44px; }
+  }
+
 </style>
 </helmet>
 <div class="app-shell" style="display:flex;flex-direction:column;height:100vh;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body);overflow:hidden">
@@ -214,52 +268,50 @@
     </div>
   </sc-if>
 
-  <div class="topbar" style="display:flex;align-items:center;gap:16px;padding:10px 20px;border-bottom:2px solid var(--color-divider);background:var(--color-bg);flex:none;min-width:0">
-    <div style="font-family:var(--font-heading);font-weight:800;font-size:16px;letter-spacing:0.1em;text-transform:uppercase">Kaizen</div>
-    <div class="topbar-controls" style="display:flex;align-items:center;gap:12px;padding-left:16px;border-left:2px solid var(--color-divider);flex:1;min-width:0">
-      <div style="font-family:var(--font-heading);font-weight:800;font-size:26px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-0.02em">{{ pomoClock }}</div>
-      <div style="display:flex;flex-direction:column;gap:2px;min-width:110px;flex:0 1 220px;overflow:hidden">
-        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-accent)">{{ pomoModeLabel }}</div>
-        <div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ activeLabel }}</div>
-      </div>
-      <div style="display:flex;gap:6px;flex:none;align-items:center">
-        <div style="display:flex;border:1px solid var(--color-divider);flex:none;margin-right:6px">
-          <sc-for list="{{ modeBtns }}" as="m" hint-placeholder-count="2">
-            <button onClick="{{ m.onClick }}" style="{{ m.style }}">{{ m.label }}</button>
-          </sc-for>
+  <header class="app-header">
+    <strong class="app-brand">Kaizen</strong>
+    <div class="header-clock"><strong>{{ pomoClock }}</strong><small>{{ pomoModeLabel }}</small></div>
+    <button class="btn btn-primary" onClick="{{ onPomoToggle }}">{{ pomoBtnLabel }}</button>
+    <span class="header-task" title="{{ activeLabel }}">{{ activeLabel }}</span>
+    <button class="btn btn-secondary mobile-nav-toggle" onClick="{{ onToggleMobileNav }}">Menú</button>
+    <div class="header-menus">
+      <details class="app-disclosure" name="header-options">
+        <summary>Temporizador</summary>
+        <div class="header-panel">
+          <strong class="panel-label">Modo de trabajo</strong>
+          <div class="panel-actions"><sc-for list="{{ modeBtns }}" as="m"><button class="btn btn-secondary" onClick="{{ m.onClick }}" style="{{ m.style }}">{{ m.label }}</button></sc-for></div>
+          <div class="panel-actions"><button class="btn btn-secondary" onClick="{{ onPomoReset }}">Reiniciar</button><sc-if value="{{ isPomoMode }}"><button class="btn btn-secondary" onClick="{{ onPomoSkip }}">Cambiar ciclo</button></sc-if><button class="btn btn-secondary" onClick="{{ onEnterFull }}">Pantalla completa</button></div>
+          <details class="nested-options"><summary>Opciones de prueba</summary><label for="timer-speed">Velocidad del reloj</label><select id="timer-speed" class="input" value="{{ timerSpeed }}" onChange="{{ onTimerSpeed }}"><option value="1">Normal · 1×</option><option value="10">Prueba · 10×</option><option value="60">Prueba · 60×</option></select></details>
         </div>
-        <button class="btn btn-primary" onClick="{{ onPomoToggle }}" style="white-space:nowrap">{{ pomoBtnLabel }}</button>
-        <button class="btn btn-secondary" onClick="{{ onPomoReset }}" style="white-space:nowrap">Reiniciar</button>
-        <sc-if value="{{ isPomoMode }}" hint-placeholder-val="{{ true }}">
-          <button class="btn btn-ghost" onClick="{{ onPomoSkip }}" style="white-space:nowrap">Saltar</button>
-        </sc-if>
-        <button class="btn btn-secondary" onClick="{{ onEnterFull }}" style="white-space:nowrap" title="Pantalla completa">⤢</button>
-        <button class="btn btn-secondary page-refresh-button" onClick="{{ onRefreshPage }}" style="white-space:nowrap" title="Actualizar la página">↻ Actualizar</button>
-        <button class="btn btn-secondary mobile-nav-toggle" onClick="{{ onToggleMobileNav }}">☰ Menú</button>
-        <button class="btn btn-secondary" onClick="{{ onOpenIdeas }}" title="Enviar una mejora o sugerencia">💡 Mejoras</button>
-        <select class="input timer-speed" value="{{ timerSpeed }}" onChange="{{ onTimerSpeed }}" title="Velocidad del reloj para pruebas" style="width:118px;flex:none"><option value="1">Reloj 1×</option><option value="10">Prueba 10×</option><option value="60">Prueba 60×</option></select>
-        <button class="btn btn-secondary" onClick="{{ onCycleTheme }}" title="Cambiar tema visual">🎨 {{ themeLabel }}</button>
-      </div>
-      <sc-if value="{{ hasAuth }}" hint-placeholder-val="{{ true }}">
-        <div class="auth-controls" style="display:flex;align-items:center;gap:6px;flex:0 1 290px;min-width:150px">
-          <div class="user-chip auth-name" style="font-size:12px;font-family:var(--font-heading);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ authUserLabel }}">{{ authUserLabel }}</div>
-          <sc-if value="{{ canSwitchWorkspace }}" hint-placeholder-val="{{ false }}">
-            <div class="auth-workspace-picker" style="display:flex;align-items:center;gap:5px;min-width:0;flex:1"><span style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-accent);white-space:nowrap">Espacio activo</span><select class="input" value="{{ workspaceId }}" onChange="{{ onWorkspaceChange }}" title="Cambiar espacio de trabajo" style="min-width:0;flex:1;border-color:var(--color-accent)"><sc-for list="{{ workspaceOptions }}" as="w" hint-placeholder-count="2"><option value="{{ w.id }}">{{ w.name }}</option></sc-for></select></div>
+      </details>
+      <details class="app-disclosure" name="header-options">
+        <summary>Más</summary>
+        <div class="header-panel">
+          <strong class="panel-label">Preferencias</strong>
+          <button class="btn btn-secondary" onClick="{{ onCycleTheme }}">Tema: {{ themeLabel }}</button>
+          <button class="btn btn-secondary" onClick="{{ onEnableNotifications }}">{{ notificationLabel }}</button>
+          <sc-if value="{{ showPushPrompt }}"><p class="panel-help">{{ pushPromptText }}</p></sc-if>
+          <details class="nested-options"><summary>Probar notificaciones</summary><button class="btn btn-secondary" onClick="{{ onTestNotification }}">Enviar aviso de prueba</button></details>
+          <button class="btn btn-secondary" onClick="{{ onRefreshPage }}">Actualizar página</button>
+          <button class="btn btn-secondary" onClick="{{ onOpenIdeas }}">Enviar sugerencia</button>
+          <sc-if value="{{ hasAuth }}">
+            <strong class="panel-label">Cuenta</strong><div class="account-name">{{ authUserLabel }}</div>
+            <sc-if value="{{ canSwitchWorkspace }}"><label for="header-workspace">Espacio de trabajo</label><select id="header-workspace" class="input" value="{{ workspaceId }}" onChange="{{ onWorkspaceChange }}"><sc-for list="{{ workspaceOptions }}" as="w"><option value="{{ w.id }}">{{ w.name }}</option></sc-for></select></sc-if>
+            <sc-if value="{{ isFixedWorkspace }}"><div class="panel-help">{{ activeWorkspaceName }}</div></sc-if>
+            <button class="btn btn-ghost" onClick="{{ onLogout }}">Cerrar sesión</button>
           </sc-if>
-          <sc-if value="{{ isFixedWorkspace }}" hint-placeholder-val="{{ false }}"><div class="user-chip auth-workspace" title="Espacio de trabajo asignado" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ activeWorkspaceName }}</div></sc-if>
-          <button class="btn btn-ghost auth-action" onClick="{{ onEnableNotifications }}" title="Activar avisos del Pomodoro">{{ notificationLabel }}</button>
-          <button class="btn btn-ghost auth-action" onClick="{{ onTestNotification }}" title="Enviar un aviso de prueba">Probar aviso</button>
-          <button class="btn btn-ghost auth-action" onClick="{{ onLogout }}" title="Cerrar sesión">Salir</button>
         </div>
-      </sc-if>
+      </details>
     </div>
-  </div>
+  </header>
 
   <sc-if value="{{ mobileNavOpen }}" hint-placeholder-val="{{ false }}">
     <div class="mobile-nav-panel">
-      <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="6">
+      <sc-for list="{{ primaryNavItems }}" as="item" hint-placeholder-count="6">
         <button onClick="{{ item.onClick }}" style="{{ item.style }}"><span>{{ item.label }}</span><span style="{{ item.countStyle }}">{{ item.count }}</span></button>
-      </sc-for>
+      </sc-for><details class="nav-more"><summary>{{ secondaryNavLabel }}</summary><sc-for list="{{ secondaryNavItems }}" as="item" hint-placeholder-count="6">
+        <button onClick="{{ item.onClick }}" style="{{ item.style }}"><span>{{ item.label }}</span><span style="{{ item.countStyle }}">{{ item.count }}</span></button>
+      </sc-for></details>
     </div>
   </sc-if>
   <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}"><div class="toast-message">{{ toast }}</div></sc-if>
@@ -285,12 +337,17 @@
   <div class="workspace" style="display:flex;flex:1;min-height:0">
 
     <div class="sidebar" style="width:212px;flex:none;border-right:2px solid var(--color-divider);padding:16px 0;display:flex;flex-direction:column;gap:2px;overflow-y:auto">
-      <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="6">
+      <sc-for list="{{ primaryNavItems }}" as="item" hint-placeholder-count="6">
         <button onClick="{{ item.onClick }}" style="{{ item.style }}" style-hover="background:color-mix(in srgb, var(--color-text) 6%, transparent)">
           <span>{{ item.label }}</span>
           <span style="{{ item.countStyle }}">{{ item.count }}</span>
         </button>
-      </sc-for>
+      </sc-for><details class="nav-more"><summary>{{ secondaryNavLabel }}</summary><sc-for list="{{ secondaryNavItems }}" as="item" hint-placeholder-count="6">
+        <button onClick="{{ item.onClick }}" style="{{ item.style }}" style-hover="background:color-mix(in srgb, var(--color-text) 6%, transparent)">
+          <span>{{ item.label }}</span>
+          <span style="{{ item.countStyle }}">{{ item.count }}</span>
+        </button>
+      </sc-for></details>
       <div style="margin-top:auto;padding:16px 18px 0;border-top:2px solid var(--color-divider);display:flex;flex-direction:column;gap:14px">
         <div>
           <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 55%, transparent)">Enfoque hoy</div>
@@ -314,7 +371,7 @@
             <div class="active-timer-banner__content">
               <div class="active-timer-banner__eyebrow">{{ pomoModeLabel }} · En curso</div>
               <div class="active-timer-banner__title">{{ activeLabel }}</div>
-              <div class="active-timer-banner__hint">Hecho. La tarea que se está cronometrando ahora:</div>
+              <div class="active-timer-banner__hint">Trabajando en esta tarea</div>
             </div>
             <div class="active-timer-banner__actions"><button class="btn btn-primary" onClick="{{ onPomoToggle }}">{{ pomoBtnLabel }}</button></div>
           </div>
@@ -327,11 +384,10 @@
         <hr class="hr">
         <sc-if value="{{ syncError }}" hint-placeholder-val="{{ false }}"><div role="alert" class="card" style="margin-bottom:16px">{{ syncError }} <button class="btn btn-secondary" onClick="{{ onRetrySync }}">Reintentar guardar</button><button class="btn btn-ghost" onClick="{{ onDiscardAndReload }}">Descartar cambios pendientes y recargar</button></div></sc-if>
 
-        <sc-if value="{{ showPushPrompt }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px;padding:14px 16px;background:var(--color-surface);border-left:3px solid var(--color-accent)"><div><div style="font-family:var(--font-heading);font-weight:800">Activa las notificaciones de Kaizen</div><div style="font-size:12px;margin-top:4px;color:color-mix(in srgb, var(--color-text) 65%, transparent)">{{ pushPromptText }}</div></div><button class="btn btn-primary" onClick="{{ onEnableNotifications }}" style="white-space:nowrap">Permitir notificaciones</button></div></sc-if>
 
         <sc-if value="{{ showQuickAdd }}" hint-placeholder-val="{{ true }}">
           <div class="quick-add" style="display:flex;gap:8px;margin-bottom:18px">
-            <input class="input" placeholder="Escribe una tarea y presiona Enter" value="{{ newTitle }}" onInput="{{ onNewInput }}" onKeyDown="{{ onNewKey }}">
+            <input class="input" placeholder="Nueva tarea · Enter para añadir" value="{{ newTitle }}" onInput="{{ onNewInput }}" onKeyDown="{{ onNewKey }}">
             <sc-if value="{{ showNewProjectPicker }}" hint-placeholder-val="{{ true }}"><select class="input" aria-label="Proyecto para la nueva tarea" value="{{ newTaskProject }}" onChange="{{ onNewTaskProject }}" style="max-width:220px"><option value="">Sin proyecto</option><sc-for list="{{ projectOptions }}" as="p"><option value="{{ p.id }}" label="{{ p.name }}">{{ p.name }}</option></sc-for></select></sc-if>
             <button class="btn btn-primary" onClick="{{ onAdd }}" style="flex:none">Agregar</button>
           </div>
@@ -353,11 +409,7 @@
                     <span style="font-size:11px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ item.meta }}</span>
                   </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:10px">
-                  <input class="input" type="date" value="{{ item.due }}" onInput="{{ item.onDue }}" style="width:140px;flex:none" title="Fecha límite">
-                  <sc-if value="{{ item.showMove }}" hint-placeholder-val="{{ false }}">
-                    <button class="btn btn-secondary" onClick="{{ item.onSendToday }}" style="flex:none;white-space:nowrap">→ Hoy</button>
-                  </sc-if>
+                <div class="task-actions">
                   <sc-if value="{{ item.showArchiveAction }}" hint-placeholder-val="{{ false }}">
                     <button class="btn btn-secondary" onClick="{{ item.onArchiveAction }}" style="flex:none;white-space:nowrap">{{ item.archiveActionLabel }}</button>
                   </sc-if>
@@ -368,9 +420,7 @@
                   </sc-if>
                   <span style="font-size:12px;font-variant-numeric:tabular-nums;color:color-mix(in srgb, var(--color-text) 60%, transparent)">{{ item.time }}</span>
                   <button class="btn btn-secondary" onClick="{{ item.onPlay }}" style="{{ item.playStyle }}">{{ item.playLabel }}</button>
-                  <sc-if value="{{ item.showDelete }}" hint-placeholder-val="{{ true }}">
-                    <button class="btn btn-ghost" onClick="{{ item.onDelete }}" style="flex:none;white-space:nowrap" title="Mover a Borrado">Borrar</button>
-                  </sc-if>
+                  <details class="row-options"><summary aria-label="{{ item.moreLabel }}">Más</summary><div class="row-options-body"><label class="row-date">Fecha límite<input class="input" type="date" value="{{ item.due }}" onInput="{{ item.onDue }}" style="width:140px;flex:none" title="Fecha límite"></label><sc-if value="{{ item.showMove }}"><button class="btn btn-secondary" onClick="{{ item.onSendToday }}">Mover a Hoy</button></sc-if><sc-if value="{{ item.showDelete }}"><button class="btn btn-ghost" onClick="{{ item.onDelete }}">Borrar</button></sc-if></div></details>
                 </div>
                 </div>
               </div>
@@ -438,8 +488,8 @@
                       <span style="font-size:11px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">{{ item.meta }}</span>
                     </div>
                   </div>
-                  <div style="display:flex;align-items:center;gap:10px">
-                    <input class="input" type="date" value="{{ item.due }}" onInput="{{ item.onDue }}" style="width:140px;flex:none" title="Fecha límite">
+                  <div class="task-actions">
+                    <details class="row-options"><summary aria-label="{{ item.moreLabel }}">Más</summary><div class="row-options-body"><label class="row-date">Fecha límite<input class="input" type="date" value="{{ item.due }}" onInput="{{ item.onDue }}" style="width:140px;flex:none" title="Fecha límite"></label></div></details>
                     <sc-if value="{{ item.showDelegate }}" hint-placeholder-val="{{ false }}">
                       <div style="position:relative;flex:none">
                         <button class="btn btn-secondary delegate-button" onClick="{{ item.onDelegate }}" title="Delegar esta tarea">Delegar</button>
@@ -481,15 +531,15 @@
         <sc-if value="{{ isTimeline }}" hint-placeholder-val="{{ false }}">
           <div class="timeline-toolbar">
             <div class="timeline-navigation"><label for="timeline-project">Proyecto</label><select id="timeline-project" class="input" value="{{ timelineProject }}" onChange="{{ onTimelineProject }}"><option value="">Todos los proyectos</option><option value="__none__">Sin proyecto</option><sc-for list="{{ allProjectOptions }}" as="p"><option value="{{ p.id }}" label="{{ p.name }}">{{ p.name }}</option></sc-for></select></div>
-            <div class="timeline-navigation"><label for="timeline-mode">Vista</label><select id="timeline-mode" class="input" value="{{ timelineMode }}" onChange="{{ onTimelineMode }}"><option value="day">Día</option><option value="week">Semana</option><option value="month">Mes</option></select><button class="btn btn-secondary" aria-label="Periodo anterior" onClick="{{ onTimelinePrevious }}">‹</button><button class="btn btn-secondary" onClick="{{ onTimelineToday }}">Hoy</button><button class="btn btn-secondary" aria-label="Periodo siguiente" onClick="{{ onTimelineNext }}">›</button><button class="btn btn-ghost" onClick="{{ onRefreshTasks }}">Actualizar tareas</button></div>
+            <div class="timeline-navigation"><label for="timeline-mode">Vista</label><select id="timeline-mode" class="input" value="{{ timelineMode }}" onChange="{{ onTimelineMode }}"><option value="day">Día</option><option value="week">Semana</option><option value="month">Mes</option></select><button class="btn btn-secondary" aria-label="Periodo anterior" onClick="{{ onTimelinePrevious }}">‹</button><button class="btn btn-secondary" onClick="{{ onTimelineToday }}">Hoy</button><button class="btn btn-secondary" aria-label="Periodo siguiente" onClick="{{ onTimelineNext }}">›</button></div>
           </div>
           <h3 class="timeline-period" aria-live="polite">{{ timelinePeriodLabel }}</h3>
-          <div class="timeline-summary">{{ timelineVisibleCount }} en este periodo · {{ timelineScheduledCount }} planificadas · {{ scheduleZoneLabel }}<br>Pulsa una tarea para editar sus fechas. La línea bajo cada barra muestra su duración exacta; el tiempo real de trabajo se conserva aparte.</div>
+          <div class="timeline-summary">{{ timelineVisibleCount }} tareas en este periodo · {{ scheduleZoneLabel }}</div><details class="calendar-help"><summary>Opciones del calendario</summary><p>Haz clic en una tarea para editar sus fechas. La línea bajo la barra muestra la duración exacta.</p><p>{{ timelineScheduledCount }} tareas planificadas. El tiempo real de trabajo se consulta en el detalle.</p><button class="btn btn-secondary" onClick="{{ onRefreshTasks }}">Actualizar tareas</button></details>
           <div class="timeline-scroll" role="region" aria-label="Calendario de tareas; desplazamiento horizontal" tabIndex="0">
             <div class="timeline-sheet" style="{{ timelineSheetStyle }}">
               <div class="timeline-grid-row timeline-grid-header"><div class="timeline-heading">Tarea / proyecto</div><div class="timeline-dates"><sc-for list="{{ timelineColumns }}" as="col"><div class="timeline-tick" style="{{ col.headerStyle }}">{{ col.label }}<small>{{ col.sublabel }}</small></div></sc-for><sc-if value="{{ timelineHasToday }}"><div class="timeline-now" style="{{ timelineTodayStyle }}"></div></sc-if></div></div>
               <sc-for list="{{ timelineRows }}" as="t">
-                <div class="timeline-grid-row"><button class="timeline-task" onClick="{{ t.onOpen }}" aria-label="{{ t.openLabel }}"><strong>{{ t.title }}</strong><span>{{ t.projectName }} · {{ t.status }}</span><span>{{ t.start }} → {{ t.end }}</span><span>Plan {{ t.duration }} · Real {{ t.actual }}</span></button><div class="timeline-lane"><sc-for list="{{ timelineColumns }}" as="col"><div class="timeline-gridline" style="{{ col.gridStyle }}"></div></sc-for><sc-if value="{{ timelineHasToday }}"><div class="timeline-now" style="{{ timelineTodayStyle }}"></div></sc-if><button class="timeline-bar" style="{{ t.barStyle }}" onClick="{{ t.onOpen }}" aria-label="{{ t.openLabel }}" title="{{ t.openLabel }}">{{ t.barLabel }}</button><div class="timeline-duration" style="{{ t.durationStyle }}"></div></div></div>
+                <div class="timeline-grid-row"><button class="timeline-task" onClick="{{ t.onOpen }}" aria-label="{{ t.openLabel }}"><strong>{{ t.title }}</strong><span>{{ t.projectName }} · {{ t.status }}</span><span>{{ t.timeLabel }}</span></button><div class="timeline-lane"><sc-for list="{{ timelineColumns }}" as="col"><div class="timeline-gridline" style="{{ col.gridStyle }}"></div></sc-for><sc-if value="{{ timelineHasToday }}"><div class="timeline-now" style="{{ timelineTodayStyle }}"></div></sc-if><button class="timeline-bar" style="{{ t.barStyle }}" onClick="{{ t.onOpen }}" aria-label="{{ t.openLabel }}" title="{{ t.openLabel }}">{{ t.barLabel }}</button><div class="timeline-duration" style="{{ t.durationStyle }}"></div></div></div>
               </sc-for>
             </div>
             <sc-if value="{{ noScheduledTasks }}"><div class="timeline-empty">{{ timelineEmptyMessage }}</div></sc-if>
@@ -856,7 +906,7 @@ class Component extends DCLogic {
   }
 
   beginSwipe(id, x, y, target) {
-    if (target?.closest?.('button,input,select,textarea')) return;
+    if (target?.closest?.('button,input,select,textarea,summary,details')) return;
     this.swipeStartX = x;
     this.swipeStartY = y;
     this.swipeId = id;
@@ -1111,6 +1161,13 @@ class Component extends DCLogic {
   }
   dkey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + this.pad(d.getMonth() + 1) + '-' + this.pad(d.getDate()); }
 
+  handleEscape(e) {
+    if(e.key !== 'Escape')return;
+    const disclosure=e.target?.closest?.('details[open]');
+    if(disclosure){disclosure.open=false;disclosure.querySelector('summary')?.focus();e.preventDefault();return;}
+    if(this.state.full)this.setState({full:false});
+  }
+
   componentDidMount() {
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch (e) { saved = null; }
@@ -1133,7 +1190,7 @@ class Component extends DCLogic {
     this.timer = setInterval(() => this.tick(), 1000);
     this.onVisibility = () => { if (!document.hidden) this.tick(); };
     document.addEventListener('visibilitychange', this.onVisibility);
-    this.onKey = e => { if (e.key === 'Escape' && this.state.full) this.setState({ full: false }); };
+    this.onKey = e => this.handleEscape(e);
     window.addEventListener('keydown', this.onKey);
     this.onPageHide = () => {
       const s = this.state;
@@ -1563,7 +1620,7 @@ class Component extends DCLogic {
     const tint = this.props.showQuadrantColors ?? true;
     return {
       id: t.id, title: t.title, meta: bits.join(' · '), time: taskTime, shareLabel, shareStyle, showDelegate: canDelegate,
-      due: t.due || '', showMove: t.list !== 'today' && t.list !== 'done' && t.list !== 'trash',
+      moreLabel:'Más opciones de '+t.title, due: t.due || '', showMove: t.list !== 'today' && t.list !== 'done' && t.list !== 'trash',
       onDue: e => this.patch(t.id, e.target.value ? { due: e.target.value, list: 'future' } : { due: '' }),
       onSendToday: () => this.patch(t.id, { list: 'today' }),
       showArchiveAction: t.list === 'done' || t.list === 'trash',
@@ -1614,7 +1671,7 @@ class Component extends DCLogic {
       onToggle: () => this.toggleTask(t.id),
       onOpen: () => this.openTask(t.id),
       onDelegate: e => { e?.stopPropagation?.(); this.openDelegate(t.id); },
-      onRowOpen: e => { if (e?.target?.closest?.('button,input,select,textarea')) return; this.openTask(t.id); },
+      onRowOpen: e => { if (e?.target?.closest?.('button,input,select,textarea,summary,details')) return; this.openTask(t.id); },
       onPlay: () => this.toggleTaskFocus(t.id),
       onDelete: () => this.animateSwipeDelete(t.id),
       onTouchStart: e => {
@@ -1670,7 +1727,7 @@ class Component extends DCLogic {
     const navItems = navDefs.map(n => {
       const on = s.view === n.id || (n.id === 'projects' && s.view === 'project');
       return {
-        label: n.label, count: counts[n.id] || 0, onClick: () => { this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, delegatingId: null, mobileNavOpen: false }); if (n.id === 'admin') this.loadAdminSummary(); },
+        id:n.id, label: n.label, count: counts[n.id] || 0, onClick: () => { this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, delegatingId: null, mobileNavOpen: false }); if (n.id === 'admin') this.loadAdminSummary(); },
         style: {
           display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', cursor: 'pointer',
           padding: '9px 18px', border: 0, borderLeft: '3px solid ' + (on ? 'var(--color-accent)' : 'transparent'),
@@ -1860,7 +1917,13 @@ class Component extends DCLogic {
     const fmtPlan = iso => new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
     const calendar = KaizenPlanning.calendar(s.timelineMode, s.timelineAnchor ?? Date.now());
     const calendarTasks = KaizenPlanning.calendarTasks(planning.scheduled, calendar);
-    const taskInfo = t => ({title:t.title,projectName:this.projName(t.project)||'Sin proyecto',status:t.done?'Hecha':'Pendiente',start:fmtPlan(t.scheduledStart),end:fmtPlan(t.scheduledEnd),duration:this.fmtDur((Date.parse(t.scheduledEnd)-Date.parse(t.scheduledStart))/1000),actual:this.fmtDur(t.seconds||0),onOpen:()=>this.openTimelineTask(t.id),openLabel:'Editar planificación de '+t.title+'. Inicio '+fmtPlan(t.scheduledStart)+'. Fin '+fmtPlan(t.scheduledEnd)});
+    const compactRange = t => {
+      const start=new Date(t.scheduledStart),end=new Date(t.scheduledEnd);
+      const options={hour:'2-digit',minute:'2-digit'};
+      if(this.dkey(start)!==this.dkey(end)){options.day='numeric';options.month='short';if(start.getFullYear()!==end.getFullYear())options.year='numeric';}
+      return start.toLocaleString('es-MX',options)+' — '+end.toLocaleString('es-MX',options);
+    };
+    const taskInfo = t => ({timeLabel:compactRange(t),title:t.title,projectName:this.projName(t.project)||'Sin proyecto',status:t.done?'Hecha':'Pendiente',start:fmtPlan(t.scheduledStart),end:fmtPlan(t.scheduledEnd),duration:this.fmtDur((Date.parse(t.scheduledEnd)-Date.parse(t.scheduledStart))/1000),actual:this.fmtDur(t.seconds||0),onOpen:()=>this.openTimelineTask(t.id),openLabel:'Editar planificación de '+t.title+'. Inicio '+fmtPlan(t.scheduledStart)+'. Fin '+fmtPlan(t.scheduledEnd)});
     const timelineRows = calendarTasks.visible.map(({task:t,left,width,continuesBefore,continuesAfter}) => ({...taskInfo(t),
       barLabel:(continuesBefore?'‹ ':'')+new Date(t.scheduledStart).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})+(continuesAfter?' ›':''),
       // The target stays clickable for tiny intervals. The separate line and
@@ -1875,6 +1938,7 @@ class Component extends DCLogic {
     const fmtDay = time => new Date(time).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
     const periodLabel = calendar.mode==='month' ? new Date(calendar.start).toLocaleDateString('es-MX',{month:'long',year:'numeric'}) : calendar.mode==='day' ? fmtDay(calendar.start) : fmtDay(calendar.start)+' — '+fmtDay(calendar.end-1);
     return Object.assign({
+      primaryNavItems:navItems.filter(n=>['today','inbox','projects','timeline','delegated'].includes(n.id)),secondaryNavItems:navItems.filter(n=>!['today','inbox','projects','timeline','delegated'].includes(n.id)),secondaryNavLabel:navItems.some(n=>!['today','inbox','projects','timeline','delegated'].includes(n.id)&&n.id===s.view)?'Más vistas · '+tt[0]:'Más vistas',
       syncError: s.syncError, onDiscardAndReload: () => this.discardAndReload(), onRetrySync: () => this.syncRemoteTasks(s.workspaceId,s.tasks,s.projects), onRefreshTasks: () => this.refreshTasks(),
       projectBusy: s.projectBusy, canManageProject: !!selectedProject?._can_manage, isEditingProjectMembers: !!selectedProject && s.projectEditId === selectedProject.id,
       projectSharingLabel: selectedProject?._legacy ? 'Acceso individual por tarea' : 'Proyecto compartido con sus miembros',
@@ -1918,7 +1982,7 @@ class Component extends DCLogic {
       onTestNotification: () => this.testNotification(),
       onOpenIdeas: () => this.setState({ view: 'ideas', projFilter: null, selId: null, delegatingId: null, mobileNavOpen: false }),
       toast: s.toast, onEnableNotifications: () => this.ensurePushSubscription(), showPushPrompt: !!s.auth && !s.pushReady, pushPromptText: s.notificationState === 'denied' ? 'Chrome está bloqueando este sitio. Permítelo desde el candado de la barra de direcciones.' : 'Pulsa el botón para recibir avisos aunque Kaizen esté en segundo plano.',
-      notificationLabel: s.pushReady ? 'Push activo' : s.notificationState === 'denied' ? 'Push bloqueado' : s.notificationState === 'unsupported' ? 'Push no disponible' : 'Activar push',
+      notificationLabel: s.pushReady ? 'Avisos activos' : s.notificationState === 'denied' ? 'Avisos bloqueados' : s.notificationState === 'unsupported' ? 'Avisos no disponibles' : 'Activar avisos',
       timerSpeed: s.timerSpeed, onTimerSpeed: e => this.changeTimerSpeed(e.target.value),
       theme: s.theme, themeLabel: ({classic:'Claro',night:'Noche',sunset:'Atardecer',ocean:'Océano'})[s.theme] || 'Claro', onThemeChange: e => this.changeTheme(e.target.value), onCycleTheme: () => this.cycleTheme(),
       authUserLabel: s.auth?.name || s.auth?.email || '',
