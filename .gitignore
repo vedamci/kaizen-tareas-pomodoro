@@ -4,3 +4,4 @@ api/config.php
 deploy-cpanel.sh
 github-webhook.php
 github-webhook-secret.txt
+qa/

@@ -171,8 +171,8 @@ test('planning, editing and removing dates update the calendar without changing 
 
 test('simplified navigation retains all destinations and applies admin visibility',()=>{
   const c=component();Object.assign(c.state,c.seed());c.state.auth={id:1,role:'user'};
-  let v=c.renderVals();assert.equal(v.primaryNavItems.length,5);
-  assert.deepEqual([...v.primaryNavItems.map(n=>n.id)].sort(),['delegated','inbox','projects','timeline','today']);
+  let v=c.renderVals();assert.equal(v.primaryNavItems.length,6);
+  assert.deepEqual([...v.primaryNavItems.map(n=>n.id)].sort(),['calendar','delegated','inbox','projects','timeline','today']);
   assert.deepEqual([...v.primaryNavItems,...v.secondaryNavItems].map(n=>n.id).sort(),[...v.navItems.map(n=>n.id)].sort());
   assert.ok(!v.secondaryNavItems.some(n=>n.id==='admin'));
   v.secondaryNavItems.find(n=>n.id==='stats').onClick();v=c.renderVals();assert.equal(v.isStats,true);assert.match(v.secondaryNavLabel,/Estadísticas/);
@@ -280,4 +280,76 @@ test('team navigation count follows loaded rows and refreshes without changing p
   fixture=fixture.slice(0,2);await c.loadTeamTasks();v=c.renderVals();assert.equal(v.teamRows.length,2);assert.equal(count(v),2);assert.equal(v.listTasks.length,1);
   fixture=[];await c.loadTeamTasks();assert.equal(count(c.renderVals()),0);
   c.state.workspaces[0].member_role='member';assert.equal(count(c.renderVals()),undefined);
+});
+test('daily calendar uses valid local dates, month boundaries and DST days',()=>{
+  assert.equal(planning.validDateKey('2028-02-29'),true);
+  for(const key of ['2026-02-29','2026-04-31','2026-13-01','2026-1-01','invalid'])assert.equal(planning.validDateKey(key),false);
+  const previous=process.env.TZ;
+  try {
+    process.env.TZ='America/New_York';
+    const start=new Date(2026,2,8,0).toISOString(),end=new Date(2026,2,9,0).toISOString();
+    const task={id:'dst',title:'DST',list:'future',scheduledStart:start,scheduledEnd:end};
+    assert.deepEqual(planning.dailyAgenda([task],'2026-03-08').map(t=>t.id),['dst']);
+    assert.equal(planning.dailyAgenda([task],'2026-03-09').length,0);
+    const month=planning.dailyMonth([task],'2026-03-08');
+    assert.equal(month.days.length,42);assert.equal(month.days.find(d=>d.key==='2026-03-08').count,1);
+    assert.equal(planning.shiftDailyMonth('2026-01-31',1),'2026-02-01');
+    assert.equal(planning.shiftDailyMonth('2026-01-31',-1),'2025-12-01');
+    assert.equal(planning.shiftDailyDay('2026-03-08',1),'2026-03-09');
+    assert.equal(planning.shiftDailyDay('2026-11-01',-1),'2026-10-31');
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
+test('daily agenda includes deadlines and planned intervals once, excludes trash and invalid ranges',()=>{
+  const tasks=[
+    {id:'both',title:'Both',list:'future',due:'2026-10-07',scheduledStart:'2026-10-07T08:00:00.000Z',scheduledEnd:'2026-10-07T10:00:00.000Z'},
+    {id:'due',title:'Due',list:'inbox',due:'2026-10-07'},
+    {id:'invalid',title:'Invalid',list:'future',scheduledStart:'bad',scheduledEnd:'2026-10-08T00:00:00.000Z'},
+    {id:'trash',title:'Trash',list:'trash',due:'2026-10-07'}
+  ];
+  assert.deepEqual(planning.dailyAgenda(tasks,'2026-10-07').map(t=>t.id),['both','due']);
+  assert.equal(planning.dailyAgenda(tasks,'2026-02-30').length,0);
+  assert.equal(planning.dailyMonth(tasks,'2026-10-07').agenda.length,2);
+});
+test('daily view isolates personal work for members and admins; team data stays separate',()=>{
+  const c=component();c.state.auth={id:1,role:'admin'};c.state.workspaceId=1;c.state.workspaces=[{id:1,member_role:'admin'}];c.state.dailyDate='2026-10-07';c.state.view='calendar';
+  const base={title:'Task',list:'future',due:'2026-10-07',done:false,project:'p',sharedWith:[],subtasks:[],tags:[]};
+  c.state.tasks=[{...base,id:'own',_owner_id:1},{...base,id:'assigned',_owner_id:2,_shared_user_ids:[1]},{...base,id:'project-only',_owner_id:2,_shared_user_ids:[],_project_member:true}];
+  c.state.teamTasks=[{...base,id:'team-only',_owner_id:3}];
+  let v=c.renderVals();assert.deepEqual(v.dailyRows.map(t=>t.title),['Task','Task']);assert.equal(v.dailyCount,2);
+  c.state.auth={id:2,role:'user'};v=c.renderVals();assert.equal(v.dailyCount,2);
+  c.state.auth={id:3,role:'user'};v=c.renderVals();assert.equal(v.dailyCount,0);
+});
+test('assigning an existing task from a day rejects project-only and team tasks',()=>{
+  const c=component();c.state.auth={id:1,role:'admin'};c.state.dailyDate='2026-10-07';c.state.view='calendar';
+  const base={title:'Task',list:'inbox',due:'',done:false,sharedWith:[],subtasks:[],tags:[]};
+  c.state.tasks=[{...base,id:'own',_owner_id:1},{...base,id:'collaborator',_owner_id:2,_project_member:true,_shared_user_ids:[]}];
+  c.state.teamTasks=[{...base,id:'team',_owner_id:3}];
+  let v=c.renderVals();assert.deepEqual(v.dailyAssignOptions.map(t=>t.id),['own']);
+  c.state.dailyAssignId='collaborator';c.assignDailyTask();assert.equal(c.state.tasks[1].due,'');
+  c.state.dailyAssignId='own';c.assignDailyTask();v=c.renderVals();assert.equal(c.state.tasks[0].due,'2026-10-07');assert.equal(v.dailyCount,1);assert.equal(v.dailyAssignOptions.length,0);
+});
+test('creating, dating and completing from a day update the same task without changing planning or time',()=>{
+  const c=component();c.state.auth={id:1};c.state.dailyDate='2026-10-07';c.state.view='calendar';c.state.dailyTitle='  Prepare report  ';c.state.dailyProject='p';c.state.projects=[{id:'p',_can_assign:true}];
+  c.addDailyTask();assert.equal(c.state.tasks.length,1);const id=c.state.tasks[0].id;
+  assert.equal(c.state.tasks[0].due,'2026-10-07');assert.equal(c.state.tasks[0].title,'Prepare report');
+  c.patch(id,{scheduledStart:'2026-10-07T08:00:00.000Z',scheduledEnd:'2026-10-07T09:00:00.000Z',seconds:120});
+  c.changeDailyDue(id,'2026-10-08');assert.equal(c.state.tasks[0].list,'future');assert.equal(c.state.tasks[0].due,'2026-10-08');
+  c.changeDailyDue(id,'2026-02-30');assert.equal(c.state.tasks[0].due,'2026-10-08');
+  c.state.dailyDate='2026-10-08';let v=c.renderVals();assert.equal(v.dailyCount,1);assert.match(v.dailyRows[0].responsibleLabel,/Sin asignar/);
+  v.dailyRows[0].onToggle();assert.equal(c.state.tasks[0].done,true);assert.equal(c.state.tasks[0].seconds,120);assert.equal(c.state.tasks[0].scheduledStart,'2026-10-07T08:00:00.000Z');
+  assert.equal(c.renderVals().dailyPending,0);
+  c.changeDailyDue(id,'');assert.equal(c.state.tasks[0].due,'');assert.equal(c.state.tasks[0].project,'p');
+});
+test('today-first navigation keeps the agenda separate from month browsing and restores a valid date',()=>{
+  const c=component();c.state.view='calendar';c.state.dailyDate='2026-10-31';
+  let v=c.renderVals();v.onDailyNext();assert.equal(c.state.dailyDate,'2026-10-31');assert.equal(c.state.dailyBrowseMonth,'2026-11-01');
+  v=c.renderVals();assert.equal(v.dailyMonthLabel,'Noviembre de 2026');assert.match(v.dailyDayLabel,/31 de octubre/);
+  v.onDailyNextDay();assert.equal(c.state.dailyDate,'2026-11-01');assert.equal(c.state.dailyBrowseMonth,'');
+  v=c.renderVals();assert.equal(v.dailyDays.some(d=>d.selected),true);assert.equal(v.dailyHeroLabel,'Día seleccionado');
+  assert.equal(v.navItems.find(n=>n.id==='calendar').label,'Calendario de hoy');
+  v.navItems.find(n=>n.id==='calendar').onClick();assert.equal(c.state.dailyDate,c.dkey(Date.now()));assert.equal(c.renderVals().dailyHeroLabel,'Hoy');
+  c.state.dailyDate='bad';assert.equal(c.selectedDailyDate(),c.dkey(Date.now()));
+  assert.match(html,/class="daily-hero"/);assert.ok(html.indexOf('class="daily-hero"')<html.indexOf('class="daily-month-picker"'));
+  assert.match(html,/dailyDate:s\.dailyDate/);
+  assert.match(html,/KaizenPlanning\.validDateKey\(base\.dailyDate/);
 });

@@ -10,7 +10,7 @@ http.createServer(async(req,res)=>{
     const pathname=new URL(req.url,'http://127.0.0.1').pathname;
     let content,type;
     if(pathname==='/'){
-      content=(await readFile(path.join(root,'Gestor de Tareas.dc.html'),'utf8')).replace('<script src="./support.js">','<script src="./preview/mock-api.js"></script><script src="./support.js">').replace("KEY = 'tareas-modernist-v1'","KEY = 'kaizen-local-preview-ui-v1'");
+      content=(await readFile(path.join(root,'Gestor de Tareas.dc.html'),'utf8')).replace(/(<script src="\.\/support\.js\?[^\"]+"><\/script>)/,'<script src="./preview/mock-api.js"></script>$1').replace("KEY = 'tareas-modernist-v1'","KEY = 'kaizen-local-preview-ui-v1'");
       type='text/html';
     }else{
       const file=pathname.slice(1);if(!allowed.has(file)){res.writeHead(404);res.end('Not available in the local preview');return;}

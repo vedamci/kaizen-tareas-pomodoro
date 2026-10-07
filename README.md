@@ -1,8 +1,29 @@
 # Kaizen: proyectos compartidos y cronograma
 
-Implementación local en `feature/shared-projects`, basada en el checkout de
-KINGSTON. No se modificó ese respaldo ni se publicó la app. La rama de función
-se prepara para revisión mediante un PR en borrador en el repositorio existente.
+## Calendario de hoy
+
+**Calendario de hoy** es una sección propia, separada de **Cronograma**. Abre
+con la agenda de hoy en primer plano; las flechas cambian de día y **Elegir otra
+fecha** despliega el mes. Cuenta las tareas
+personales creadas por ti o delegadas directamente a ti, incluso si eres admin.
+La consulta de todas las tareas del espacio sigue en **Tareas del equipo**.
+Pertenecer a un proyecto compartido no incorpora tareas de colegas al calendario
+personal; **Proyectos** y **Cronograma** conservan su alcance colaborativo.
+
+Puedes crear una tarea en el día, poner fecha a una tarea existente, cambiar su
+fecha límite o marcarla hecha desde la agenda. Cada tarjeta muestra el responsable
+confirmado. Las tareas con inicio y fin planificados aparecen en los días que
+cubren y enlazan al Cronograma; si también tienen fecha límite, aparecen en ese
+día. Se usan los mismos campos `due`, `scheduledStart` y `scheduledEnd`, sin
+copiar tareas ni modificar su tiempo de Pomodoro. No se generan tareas recurrentes
+automáticamente. El día se calcula en la zona local del dispositivo y la fecha
+elegida se restaura al recargar Kaizen. Al entrar de nuevo desde la navegación,
+la agenda vuelve a hoy.
+
+La vista móvil mantiene la página dentro del ancho disponible. A 320 px la
+cuadrícula desplegable permite un desplazamiento horizontal propio para conservar botones
+de día de al menos 44 px; la agenda permanece primero. La vista previa local usa
+datos ficticios y nunca debe conectarse a la API publicada.
 
 ## Uso
 
