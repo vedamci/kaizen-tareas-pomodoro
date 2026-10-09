@@ -84,7 +84,54 @@
     });
     return { visible, outside };
   }
-  const api = { localInput, schedule, timeline, zone, calendar, shiftCalendar, calendarTasks };
+  function localDateKey(value) {
+    const d = new Date(value);
+    return Number.isFinite(+d) ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` : '';
+  }
+  function validDateKey(key) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return false;
+    const [year, month, day] = key.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+  }
+  function dailyAgenda(tasks, key) {
+    if (!validDateKey(key)) return [];
+    const [year, month, day] = key.split('-').map(Number);
+    const start = +new Date(year, month - 1, day);
+    const end = +new Date(year, month - 1, day + 1);
+    return tasks.filter(task => {
+      if (task.list === 'trash') return false;
+      if (task.due === key) return true;
+      const plannedStart = Date.parse(task.scheduledStart), plannedEnd = Date.parse(task.scheduledEnd);
+      return Number.isFinite(plannedStart) && Number.isFinite(plannedEnd) && plannedEnd > plannedStart && plannedStart < end && plannedEnd > start;
+    }).sort((a, b) => Number(!!a.done) - Number(!!b.done) || String(a.title || '').localeCompare(String(b.title || ''), 'es'));
+  }
+  function dailyMonth(tasks, key, today = Date.now()) {
+    if (!validDateKey(key)) key = localDateKey(today);
+    const [year, month] = key.split('-').map(Number);
+    const first = new Date(year, month - 1, 1);
+    const offset = (first.getDay() + 6) % 7;
+    const start = new Date(year, month - 1, 1 - offset);
+    const weeks = Math.ceil((offset + new Date(year, month, 0).getDate()) / 7);
+    const days = Array.from({ length: weeks * 7 }, (_, i) => {
+      const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const dateKey = localDateKey(date);
+      const entries = dailyAgenda(tasks, dateKey);
+      return { key: dateKey, day: date.getDate(), inMonth: date.getMonth() === month - 1, today: dateKey === localDateKey(today), count: entries.length, pending: entries.filter(task => !task.done).length };
+    });
+    return { days, month: first.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }), selected: key, agenda: dailyAgenda(tasks, key) };
+  }
+  function shiftDailyMonth(key, direction) {
+    if (!validDateKey(key)) key = localDateKey(Date.now());
+    const [year, month] = key.split('-').map(Number);
+    return localDateKey(new Date(year, month - 1 + direction, 1));
+  }
+  function shiftDailyDay(key, direction) {
+    if (!validDateKey(key)) key = localDateKey(Date.now());
+    const [year, month, day] = key.split('-').map(Number);
+    return localDateKey(new Date(year, month - 1, day + direction));
+  }
+  const api = { localInput, schedule, timeline, zone, calendar, shiftCalendar, calendarTasks, localDateKey, validDateKey, dailyAgenda, dailyMonth, shiftDailyMonth, shiftDailyDay };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.KaizenPlanning = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
