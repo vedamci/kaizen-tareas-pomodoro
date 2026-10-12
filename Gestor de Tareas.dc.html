@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="./kaizen-icon-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
 <script src="./support.js?v=b3aae4f45716"></script>
-<script src="./planning.js?v=daily-calendar-1"></script>
+<script src="./planning.js?v=hourly-agenda-1"></script>
 </head>
 <body>
 <x-dc>
@@ -95,6 +95,31 @@
   .daily-month-picker { margin-top:26px; padding-top:8px; border-top:1px solid var(--color-divider); }
   .daily-month-picker summary { cursor:pointer; min-height:44px; display:flex; align-items:center; font-weight:700; }
   .daily-month-picker .daily-toolbar { margin-top:12px; }
+  .hourly-agenda { margin-top:22px; max-width:1000px; }
+  .hourly-agenda h3 { margin:0 0 4px; font:800 18px var(--font-heading); }
+  .hourly-agenda p { margin:0 0 12px; font-size:12px; line-height:1.5; color:color-mix(in srgb,var(--color-text) 72%,transparent); }
+  .hourly-scroll { max-height:min(620px,70dvh); overflow:auto; border:1px solid var(--color-divider); border-radius:8px; background:var(--color-bg); }
+  .hourly-sheet { position:relative; min-width:360px; }
+  .hourly-axis { position:absolute; inset:0 auto 0 0; width:72px; border-right:1px solid var(--color-divider); background:var(--color-surface); }
+  .hourly-tick { position:absolute; left:0; right:0; height:60px; border-top:1px solid var(--color-divider); padding:4px 6px; text-align:right; font-size:11px; font-variant-numeric:tabular-nums; }
+  .hourly-events { position:absolute; inset:0 0 0 72px; background:repeating-linear-gradient(to bottom,transparent 0,transparent 59px,var(--color-divider) 59px,var(--color-divider) 60px); }
+  .hourly-block { position:absolute; box-sizing:border-box; border:1px solid var(--color-accent-700); border-left:4px solid var(--color-accent-700); border-radius:4px; padding:2px 5px; overflow:hidden; background:color-mix(in srgb,var(--color-accent) 22%,var(--color-bg)); color:var(--color-text); text-align:left; cursor:pointer; font:12px var(--font-body); line-height:1.25; }
+  .hourly-block:hover { background:color-mix(in srgb,var(--color-accent) 34%,var(--color-bg)); z-index:3; }
+  .hourly-block[data-done="true"] { opacity:.65; }
+  .hourly-block strong, .hourly-block small { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hourly-block small { font-size:10px; }
+  .hourly-now { position:absolute; left:0; right:0; height:2px; background:var(--color-accent-700); pointer-events:none; z-index:2; }
+  .hourly-now::before { content:""; position:absolute; left:-4px; top:-4px; width:10px; height:10px; border-radius:50%; background:var(--color-accent-700); }
+  .hourly-free { margin-top:14px; font-size:12px; }
+  .hourly-entries { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:7px; margin-top:12px; }
+  .hourly-entries button { min-height:44px; padding:8px 10px; border:1px solid var(--color-divider); border-left:3px solid var(--color-accent-700); border-radius:5px; background:var(--color-surface); color:var(--color-text); text-align:left; cursor:pointer; font:12px var(--font-body); overflow-wrap:anywhere; }
+  .hourly-entries strong, .hourly-entries small { display:block; }
+  .hourly-entries small { margin-top:3px; line-height:1.35; }
+  .hourly-entries button:focus-visible { outline:3px solid var(--color-accent-700); outline-offset:2px; }
+  .hourly-free h4 { margin:0 0 5px; font-size:13px; }
+  .hourly-free ul { display:flex; flex-wrap:wrap; gap:6px; list-style:none; padding:0; margin:0; }
+  .hourly-free li { padding:7px 9px; border:1px solid var(--color-divider); border-radius:5px; font-variant-numeric:tabular-nums; }
+  .hourly-scroll:focus-visible, .hourly-block:focus-visible { outline:3px solid var(--color-accent-700); outline-offset:2px; }
   @media (max-width:900px) {
     .timeline-sheet { --task-width:160px; }
     .timeline-toolbar { align-items:flex-start; flex-direction:column; }
@@ -584,12 +609,18 @@
 
         <sc-if value="{{ isDailyCalendar }}" hint-placeholder-val="{{ false }}">
           <div class="daily-hero"><div><small>{{ dailyHeroLabel }}</small><h3 aria-live="polite">{{ dailyDayLabel }}</h3><p>{{ dailyCount }} tareas · {{ dailyPending }} pendientes</p></div><div class="daily-actions"><button class="btn btn-secondary" aria-label="Día anterior" onClick="{{ onDailyPreviousDay }}">‹</button><button class="btn btn-secondary" onClick="{{ onDailyToday }}">Hoy</button><button class="btn btn-secondary" aria-label="Día siguiente" onClick="{{ onDailyNextDay }}">›</button></div></div>
+          <section class="hourly-agenda" aria-label="Horas ocupadas del día seleccionado">
+            <h3>Horas ocupadas</h3><p>{{ hourlyCount }} tareas con inicio y fin · {{ scheduleZoneLabel }}. Las horas sin bloque están libres. Selecciona una tarea para ver o editar su planificación.</p>
+            <div class="hourly-scroll" role="region" aria-label="Agenda por horas; desplázate vertical y horizontalmente para recorrer el día" tabIndex="0"><div class="hourly-sheet" style="{{ hourlySheetStyle }}"><div class="hourly-axis" aria-hidden="true"><sc-for list="{{ hourlyTicks }}" as="tick"><div class="hourly-tick" style="{{ tick.style }}">{{ tick.label }}</div></sc-for></div><div class="hourly-events"><sc-for list="{{ hourlyBlocks }}" as="event"><button class="hourly-block" data-done="{{ event.done }}" style="{{ event.style }}" onClick="{{ event.onOpen }}" title="{{ event.label }}" aria-label="{{ event.label }}"><strong>{{ event.title }}</strong><small>{{ event.timeLabel }}</small><small>{{ event.peopleLabel }}</small></button></sc-for><sc-if value="{{ hourlyHasNow }}"><div class="hourly-now" style="{{ hourlyNowStyle }}" aria-hidden="true"></div></sc-if></div></div></div>
+            <div class="hourly-entries" aria-label="Detalle de tareas con horario"><sc-for list="{{ hourlyBlocks }}" as="event"><button onClick="{{ event.onOpen }}" aria-label="{{ event.label }}"><strong>{{ event.title }}</strong><small>{{ event.timeLabel }}</small><small>{{ event.peopleLabel }}</small></button></sc-for></div>
+            <div class="hourly-free"><h4>Espacios libres de 30 minutos o más</h4><sc-if value="{{ hourlyHasFree }}"><ul><sc-for list="{{ hourlyFree }}" as="slot"><li>{{ slot.label }}</li></sc-for></ul></sc-if><sc-if value="{{ hourlyNoFree }}"><p>No hay huecos de 30 minutos o más en este día.</p></sc-if></div>
+          </section>
           <section class="daily-agenda" aria-label="Tareas del día seleccionado">
-            <h3>Agenda del día</h3>
+            <h3>Tareas sin bloque horario en este día</h3>
             <div class="daily-add"><input class="input" aria-label="Título de la nueva tarea del día" placeholder="Nueva tarea para este día" value="{{ dailyTitle }}" onInput="{{ onDailyTitle }}" onKeyDown="{{ onDailyTitleKey }}"><select class="input" aria-label="Proyecto para la nueva tarea" value="{{ dailyProject }}" onChange="{{ onDailyProject }}"><option value="">Sin proyecto</option><sc-for list="{{ projectOptions }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for></select><button class="btn btn-primary" onClick="{{ onDailyAdd }}">Agregar al día</button></div>
             <sc-if value="{{ hasDailyAssignOptions }}"><details class="daily-assign"><summary>Poner fecha a una tarea existente</summary><div><select class="input" aria-label="Tarea existente para este día" value="{{ dailyAssignId }}" onChange="{{ onDailyAssign }}"><option value="">Selecciona una tarea</option><sc-for list="{{ dailyAssignOptions }}" as="t"><option value="{{ t.id }}">{{ t.title }}</option></sc-for></select><button class="btn btn-secondary" disabled="{{ dailyAssignDisabled }}" onClick="{{ onDailyAssignApply }}">Asignar a este día</button></div></details></sc-if>
-            <sc-if value="{{ dailyEmpty }}"><p class="daily-empty">No hay tareas para este día. Puedes añadir una arriba o poner fecha a una tarea existente.</p></sc-if>
-            <sc-for list="{{ dailyRows }}" as="t"><article class="daily-card"><div><strong style="{{ t.titleStyle }}">{{ t.title }}</strong><small>{{ t.sourceLabel }} · {{ t.projectName }} · {{ t.responsibleLabel }}</small></div><label>Fecha límite <input class="input daily-date" type="date" value="{{ t.due }}" aria-label="Fecha límite de {{ t.title }}" onChange="{{ t.onDate }}"></label><div class="daily-actions"><button class="btn btn-secondary" onClick="{{ t.onToggle }}" aria-label="{{ t.toggleLabel }}">{{ t.toggleLabel }}</button><button class="btn btn-secondary" onClick="{{ t.onOpen }}">Abrir</button><sc-if value="{{ t.hasSchedule }}"><button class="btn btn-ghost" onClick="{{ t.onTimeline }}">Ver cronograma</button></sc-if></div></article></sc-for>
+            <sc-if value="{{ dailyEmpty }}"><p class="daily-empty">No hay tareas sin bloque horario en este día. Puedes añadir una arriba o poner fecha a una tarea existente.</p></sc-if>
+            <sc-for list="{{ dailyRows }}" as="t"><article class="daily-card"><div><strong style="{{ t.titleStyle }}">{{ t.title }}</strong><small>{{ t.sourceLabel }} · {{ t.projectName }} · {{ t.creatorLabel }} · {{ t.responsibleLabel }}</small></div><label>Fecha límite <input class="input daily-date" type="date" value="{{ t.due }}" aria-label="Fecha límite de {{ t.title }}" onChange="{{ t.onDate }}"></label><div class="daily-actions"><button class="btn btn-secondary" onClick="{{ t.onToggle }}" aria-label="{{ t.toggleLabel }}">{{ t.toggleLabel }}</button><button class="btn btn-secondary" onClick="{{ t.onOpen }}">Abrir</button><sc-if value="{{ t.hasSchedule }}"><button class="btn btn-ghost" onClick="{{ t.onTimeline }}">Ver cronograma</button></sc-if></div></article></sc-for>
           </section>
           <details class="daily-month-picker"><summary>Elegir otra fecha · {{ dailyMonthLabel }}</summary><div class="daily-toolbar"><h3>{{ dailyMonthLabel }}</h3><div class="daily-actions"><button class="btn btn-secondary" aria-label="Mes anterior" onClick="{{ onDailyPrevious }}">‹</button><button class="btn btn-secondary" aria-label="Mes siguiente" onClick="{{ onDailyNext }}">›</button></div></div><div class="daily-scroll" role="region" aria-label="Calendario de tareas diarias; desplazamiento horizontal" tabIndex="0"><div class="daily-weekdays" aria-hidden="true"><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span></div><div class="daily-grid"><sc-for list="{{ dailyDays }}" as="day"><button class="daily-day" data-selected="{{ day.selected }}" data-other="{{ day.other }}" aria-label="{{ day.label }}" aria-pressed="{{ day.selected }}" onClick="{{ day.onClick }}"><strong>{{ day.day }}</strong><small>{{ day.countLabel }}</small></button></sc-for></div></div></details>
         </sc-if>
@@ -1302,6 +1333,20 @@ class Component extends DCLogic {
       }));
       if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId));
     } catch (e) {}
+    // On first opening a date, show useful occupied hours instead of midnight.
+    // A later task edit does not move a reader who has already scrolled.
+    const dailyScrollKey=s.view==='calendar'?[this.selectedDailyDate(),s.auth?.id,s.workspaceId].join('|'):'';
+    if(!dailyScrollKey)this.dailyScrollKey='';
+    if(dailyScrollKey && dailyScrollKey!==this.dailyScrollKey){
+      this.dailyScrollKey=dailyScrollKey;
+      if(typeof document!=='undefined')setTimeout(()=>{
+        const region=document.querySelector('.hourly-scroll');
+        if(!region||this.state.view!=='calendar'||this.selectedDailyDate()!==dailyScrollKey.split('|')[0])return;
+        const day=KaizenPlanning.hourlyDay(this.state.tasks.filter(t=>this.isPersonalTask(t)),this.selectedDailyDate());
+        const first=day.blocks.find(b=>new Date(b.start).getHours()>=6)||day.blocks[0];
+        region.scrollTop=Math.max(0,(first?.top??day.nowMinute??0)-120);
+      },0);
+    }
     if (s.auth && s.workspaceId && this.remoteReady) {
       const key = this.remoteStateKey(s.workspaceId,s.tasks);
       if (key !== this.remoteSyncKey) {
@@ -2063,10 +2108,20 @@ class Component extends DCLogic {
     const dailyDate=this.selectedDailyDate();
     const daily=KaizenPlanning.dailyMonth(personalTasks,s.dailyBrowseMonth||dailyDate,now);
     const dailyAgenda=KaizenPlanning.dailyAgenda(personalTasks,dailyDate);
+    const hourly=KaizenPlanning.hourlyDay(personalTasks,dailyDate,now);
     const dailyAssignOptions=personalTasks.filter(t=>t.list!=='trash'&&!dailyAgenda.includes(t)).map(t=>({id:t.id,title:t.title}));
     const dailyLabel=date=>new Date(date+'T12:00:00').toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    const dailyRows=dailyAgenda.map(t=>({
-      title:t.title,due:t.due||'',done:!!t.done,projectName:this.projName(t.project)||'Sin proyecto',responsibleLabel:this.responsibleLabel(t),
+    const hourlyTime=value=>new Date(value).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hourCycle:'h23',...(hourly.minutes!==1440?{timeZoneName:'shortOffset'}:{})});
+    const creatorLabel=t=>'Creada por '+this.memberName(t._owner_id||s.auth?.id);
+    const hourlyBlocks=hourly.blocks.map(({task:t,start,end,top,duration,lane,lanes,continuesBefore,continuesAfter})=>{
+      const timeLabel=(continuesBefore?'← ':'')+hourlyTime(start)+'–'+(end===hourly.end?'24:00':hourlyTime(end))+(continuesAfter?' → día siguiente':'');
+      const peopleLabel=creatorLabel(t)+' · '+this.responsibleLabel(t);
+      return {title:t.title,done:!!t.done,timeLabel,peopleLabel,label:t.title+'. '+timeLabel+'. '+peopleLabel+'. '+(t.done?'Hecha. ':'Pendiente. ')+'Abrir detalle.',
+        style:{top:top+'px',height:duration+'px',left:(lane/lanes*100)+'%',width:'calc('+(100/lanes)+'% - 4px)',opacity:t.done?0.65:1},onOpen:()=>this.openTask(t.id)};
+    });
+    const hourlyFree=hourly.free.filter(slot=>slot.minutes>=30).map(slot=>({label:hourlyTime(slot.start)+'–'+(slot.end===hourly.end?'24:00':hourlyTime(slot.end))+' · '+Math.round(slot.minutes)+' min'}));
+    const dailyRows=dailyAgenda.filter(t=>!hourly.blocks.some(block=>block.task.id===t.id)).map(t=>({
+      title:t.title,due:t.due||'',done:!!t.done,projectName:this.projName(t.project)||'Sin proyecto',creatorLabel:creatorLabel(t),responsibleLabel:this.responsibleLabel(t),
       sourceLabel:t.due===dailyDate?'Fecha límite':'Cronograma',
       titleStyle:{textDecoration:t.done?'line-through':'none',opacity:t.done?0.65:1},
       toggleLabel:t.done?'Reabrir '+t.title:'Marcar hecha '+t.title,
@@ -2106,7 +2161,9 @@ class Component extends DCLogic {
       projectMemberOptions: s.workspaceMembers.map(m=>({ name:m.name||m.email, selected:memberDraft.map(Number).includes(Number(m.id)), locked:Number(m.id)===projectOwner, ownerLabel:Number(m.id)===projectOwner?'(creador)':'', onToggle:()=>{ const id=Number(m.id); if(id===projectOwner)return; this.setState({projectMemberDraft:memberDraft.map(Number).includes(id)?memberDraft.filter(x=>Number(x)!==id):[...memberDraft,id]}); } })),
       onEditProjectMembers: () => this.beginProjectMembers(), onSaveProjectMembers: () => this.saveProjectMembers(), onCancelProjectMembers: () => this.setState({projectEditId:null}),
       showNewProjectPicker: s.view !== 'project', newTaskProject: s.newTaskProject, onNewTaskProject: e => this.setState({newTaskProject:e.target.value}),
-      isDailyCalendar:s.view==='calendar',dailyMonthLabel:daily.month[0].toUpperCase()+daily.month.slice(1),dailyDayLabel:dailyLabel(dailyDate),dailyHeroLabel:dailyDate===this.dkey(now)?'Hoy':'Día seleccionado',dailyCount:dailyRows.length,dailyPending:dailyRows.filter(t=>!t.done).length,dailyEmpty:dailyRows.length===0,dailyRows,
+      isDailyCalendar:s.view==='calendar',dailyMonthLabel:daily.month[0].toUpperCase()+daily.month.slice(1),dailyDayLabel:dailyLabel(dailyDate),dailyHeroLabel:dailyDate===this.dkey(now)?'Hoy':'Día seleccionado',dailyCount:dailyAgenda.length,dailyPending:dailyAgenda.filter(t=>!t.done).length,dailyEmpty:dailyRows.length===0,dailyRows,
+      hourlyCount:hourlyBlocks.length,hourlySheetStyle:{height:hourly.minutes+'px'},hourlyTicks:hourly.ticks.map(t=>({label:t.label,style:{top:t.minute+'px'}})),hourlyBlocks,
+      hourlyHasNow:hourly.nowMinute!==null,hourlyNowStyle:{top:(hourly.nowMinute??0)+'px'},hourlyFree,hourlyHasFree:hourlyFree.length>0,hourlyNoFree:hourlyFree.length===0,
       dailyDays:daily.days.map(day=>({day:day.day,selected:day.key===dailyDate,other:!day.inMonth,countLabel:day.count?(day.count===1?'1 tarea':day.count+' tareas'):'Sin tareas',label:dailyLabel(day.key)+', '+day.count+' tareas, '+day.pending+' pendientes',onClick:()=>this.selectDailyDate(day.key)})),
       dailyTitle:s.dailyTitle,dailyProject:s.dailyProject,onDailyTitle:e=>this.setState({dailyTitle:e.target.value}),onDailyTitleKey:e=>{if(e.key==='Enter')this.addDailyTask();},onDailyProject:e=>this.setState({dailyProject:e.target.value}),onDailyAdd:()=>this.addDailyTask(),
       hasDailyAssignOptions:dailyAssignOptions.length>0,dailyAssignOptions,dailyAssignId:s.dailyAssignId,dailyAssignDisabled:!dailyAssignOptions.some(t=>t.id===s.dailyAssignId),onDailyAssign:e=>this.setState({dailyAssignId:e.target.value}),onDailyAssignApply:()=>this.assignDailyTask(),

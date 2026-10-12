@@ -3,8 +3,14 @@
 ## Calendario de hoy
 
 **Calendario de hoy** es una sección propia, separada de **Cronograma**. Abre
-con la agenda de hoy en primer plano; las flechas cambian de día y **Elegir otra
-fecha** despliega el mes. Cuenta las tareas
+con una agenda vertical de horas: los bloques muestran el inicio y fin reales,
+los solapamientos ocupan columnas paralelas y los huecos de al menos 30 minutos
+aparecen debajo. Los intervalos que cruzan medianoche se recortan al día visible.
+La zona horaria es la del dispositivo; los días de 23 o 25 horas se representan
+con su duración real. Cada bloque y su ficha accesible muestran creador y
+responsable confirmado. Las tareas con fecha pero sin bloque horario en el día
+aparecen en una sección aparte. Las flechas cambian de día y **Elegir otra fecha** despliega el
+mes. Cuenta las tareas
 personales creadas por ti o delegadas directamente a ti, incluso si eres admin.
 La consulta de todas las tareas del espacio sigue en **Tareas del equipo**.
 Pertenecer a un proyecto compartido no incorpora tareas de colegas al calendario
@@ -12,11 +18,14 @@ personal; **Proyectos** y **Cronograma** conservan su alcance colaborativo.
 
 Puedes crear una tarea en el día, poner fecha a una tarea existente, cambiar su
 fecha límite o marcarla hecha desde la agenda. Cada tarjeta muestra el responsable
-confirmado. Las tareas con inicio y fin planificados aparecen en los días que
-cubren y enlazan al Cronograma; si también tienen fecha límite, aparecen en ese
-día. Se usan los mismos campos `due`, `scheduledStart` y `scheduledEnd`, sin
+confirmado. Las tareas con inicio y fin planificados aparecen como bloques en
+los días que cubren y abren el detalle al seleccionarlas. Si también tienen
+fecha límite, el día la cuenta una sola vez. Se usan los mismos campos
+`due`, `scheduledStart` y `scheduledEnd`, sin
 copiar tareas ni modificar su tiempo de Pomodoro. No se generan tareas recurrentes
-automáticamente. El día se calcula en la zona local del dispositivo y la fecha
+automáticamente. La vista horaria solo lee estas fechas: no mueve ni crea
+horarios, ni importa eventos de Google Calendar. El día se calcula en la zona
+local del dispositivo y la fecha
 elegida se restaura al recargar Kaizen. Al entrar de nuevo desde la navegación,
 la agenda vuelve a hoy.
 
@@ -197,13 +206,16 @@ de PHP ni persistencia en MySQL. `preview/` y `tools/` no son archivos de produc
 
 No había comandos de prueba ni herramientas de build en el checkout original.
 
-Ejecutado: `node --test tests/planning.test.cjs`: **38 pruebas pasan**. Cubren
+Ejecutado: `node --test tests/planning.test.cjs`: **49 pruebas pasan**. Cubren
 renderizado, nombres de opciones nativas, tareas antiguas sin fechas, rangos
 inválidos, UTC/cambio de zona/DST, filtros, acceso de miembros en la interfaz,
 traslado a/sin proyecto, rechazo de traslado, errores y reversión, cola de
 escrituras, envío solo de cambios/revisiones y conservación del tiempo real. También
 cubren borrador/cancelación de delegación, bloqueo de doble guardado, rechazo y
 fallo de conexión, reintento, tarea nueva antes de delegar y revocación directa.
+Incluyen también la agenda horaria, solapamientos, cruces de medianoche, días
+de 23/25 horas, alcance personal y conservación exacta de los datos. La QA
+aislada en Chrome pasó a 1280, 375 y 320 px con datos ficticios.
 
 Ejecutado manualmente en Chrome con API simulada: crear proyecto, elegir miembros,
 crear tarea dentro del proyecto y verla desde otro miembro; no ver proyectos
@@ -261,6 +273,6 @@ Límite: la prueba HTTP usa el servidor integrado de PHP; no valida la configura
 Apache/cPanel/HTTPS de producción ni la entrega de notificaciones push. La vista
 previa en Chrome sigue usando datos ficticios. No se probó ni publicó en producción.
 
-Archivos para una futura publicación: HTML principal, `planning.js`, `support.js`,
-`api/index.php`, `api/projects.php` y `api/project-policy.php`. Publicación pendiente
-de confirmación separada. El PR permanece en borrador; no se mezcló con `main`.
+El calendario diario anterior se fusionó en `main` el 9 de octubre de 2026.
+Esta mejora horaria está solo en la rama local `feature/hourly-agenda`; no se
+ha fusionado ni desplegado. No se verificó el código servido actualmente.
