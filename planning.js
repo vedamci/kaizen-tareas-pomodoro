@@ -8,13 +8,23 @@
     if (!Number.isFinite(d.getTime())) return '';
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
-  function schedule(start, end) {
+  function schedule(start, end, preferred = {}) {
     if (!start && !end) return { scheduledStart: '', scheduledEnd: '', scheduleTimeZone: zone() };
-    const dates = [start, end].map(value => {
+    const dates = [start, end].map((value, index) => {
       if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) throw new Error('Indica fecha y hora de inicio y fin.');
       const date = new Date(value);
       // Reject invalid calendar dates and times skipped by a DST transition.
       if (!Number.isFinite(date.getTime()) || localInput(date.toISOString()) !== value) throw new Error('La fecha u hora no existe en tu zona horaria.');
+      // A repeated autumn hour has two instants with the same local input.
+      // Keep the offset of the slot the person actually selected when editing it.
+      const selected = Date.parse(index ? preferred.end : preferred.start);
+      if (Number.isFinite(selected)) {
+        const offset = new Date(selected).getTimezoneOffset();
+        for (let delta = -180; delta <= 180; delta += 30) {
+          const candidate = new Date(date.getTime() + delta * 60000);
+          if (candidate.getTimezoneOffset() === offset && localInput(candidate.toISOString()) === value) return candidate;
+        }
+      }
       return date;
     });
     if (dates[1] <= dates[0]) throw new Error('El fin debe ser posterior al inicio.');
@@ -109,7 +119,7 @@
   // Use elapsed minutes between local midnights. This keeps skipped and
   // repeated daylight-saving hours honest and clips overnight tasks at the day.
   function hourlyDay(tasks, key, now = Date.now()) {
-    if (!validDateKey(key)) return { ticks: [], blocks: [], free: [], minutes: 0, nowMinute: null };
+    if (!validDateKey(key)) return { ticks: [], blocks: [], free: [], slots: [], minutes: 0, nowMinute: null };
     const [year, month, day] = key.split('-').map(Number);
     const start = +new Date(year, month - 1, day);
     const end = +new Date(year, month - 1, day + 1);
@@ -152,7 +162,14 @@
       cursor = Math.max(cursor, block.end);
     }
     if (cursor < end) free.push({ start: cursor, end, minutes: (end - cursor) / 60000 });
-    return { start, end, ticks, blocks, free, minutes, nowMinute: now >= start && now < end ? (now - start) / 60000 : null };
+    const slots = [];
+    const step = 30 * 60000;
+    for (const gap of free) {
+      for (let time = gap.start; time + step <= gap.end; time += step) {
+        slots.push({ start: time, end: time + step, top: (time - start) / 60000, duration: 30 });
+      }
+    }
+    return { start, end, ticks, blocks, free, slots, minutes, nowMinute: now >= start && now < end ? (now - start) / 60000 : null };
   }
   function dailyMonth(tasks, key, today = Date.now()) {
     if (!validDateKey(key)) key = localDateKey(today);

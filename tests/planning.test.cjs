@@ -41,6 +41,97 @@ test('hourly agenda uses actual 23 and 25 hour days across DST',()=>{
     assert.equal(overnight.blocks[0].top,0);assert.equal(overnight.blocks[0].duration,210);
   } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
 });
+test('free half-hour targets exclude occupied spans and reach midnight',()=>{
+  const previous=process.env.TZ;process.env.TZ='UTC';
+  try {
+    const tasks=[{id:'busy',title:'Busy',list:'inbox',scheduledStart:'2026-10-05T09:15:00Z',scheduledEnd:'2026-10-05T10:15:00Z'}];
+    const day=planning.hourlyDay(tasks,'2026-10-05');
+    assert.equal(day.slots.length,45);
+    assert.equal(day.slots.some(slot=>slot.start===Date.parse('2026-10-05T09:00:00Z')),false);
+    assert.equal(day.slots.some(slot=>slot.start===Date.parse('2026-10-05T10:00:00Z')),false);
+    assert.equal(day.slots.at(-1).start,Date.parse('2026-10-05T23:15:00Z'));
+    assert.equal(day.slots.at(-1).end,Date.parse('2026-10-05T23:45:00Z'));
+    assert.equal(planning.hourlyDay(tasks,'bad').slots.length,0);
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
+test('unaligned thirty-minute gaps remain clickable in the hourly grid',()=>{
+  const previous=process.env.TZ;process.env.TZ='UTC';
+  try {
+    const day=planning.hourlyDay([
+      {id:'a',scheduledStart:'2026-10-05T08:00:00Z',scheduledEnd:'2026-10-05T08:45:00Z'},
+      {id:'b',scheduledStart:'2026-10-05T09:15:00Z',scheduledEnd:'2026-10-05T10:00:00Z'}
+    ],'2026-10-05');
+    assert.ok(day.slots.some(slot=>slot.start===Date.parse('2026-10-05T08:45:00Z')&&slot.end===Date.parse('2026-10-05T09:15:00Z')));
+    assert.ok(day.slots.every(slot=>day.free.some(gap=>slot.start>=gap.start&&slot.end<=gap.end)));
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
+test('draft data is cleared on identity changes and cannot be saved in another account or workspace',async()=>{
+  const previous=process.env.TZ;process.env.TZ='UTC';
+  try {
+    const c=component();c.state.view='calendar';c.state.dailyDate='2026-10-05';c.state.auth={id:1,role:'member'};c.state.workspaceId=10;
+    const slot=c.renderVals().hourlySlots[0];slot.onOpen();c.state.slotTitle='Private draft';
+    c.state.auth={id:2,role:'member'};c.createSlotTask({preventDefault(){}});
+    assert.equal(c.state.tasks.length,0);assert.equal(c.state.slotTitle,'');assert.equal(c.state.slotCreateOpen,false);
+    slot.onOpen();c.state.slotTitle='Other private draft';c.state.workspaceId=11;c.createSlotTask({preventDefault(){}});
+    assert.equal(c.state.tasks.length,0);assert.equal(c.state.slotTitle,'');
+    slot.onOpen();c.state.slotTitle='Logout draft';c.api=async()=>({ok:true});await c.logout();
+    assert.equal(c.state.slotTitle,'');assert.equal(c.state.slotStartDraft,'');assert.equal(c.state.auth,null);
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
+test('a free hour opens a draft; cancel, Escape, day change and navigation do not create',()=>{
+  const previous=process.env.TZ;process.env.TZ='UTC';
+  try {
+    const c=component();c.state.view='calendar';c.state.dailyDate='2026-10-05';
+    c.state.tasks=[{id:'old',title:'Existing',list:'future',due:'2026-10-05',scheduledStart:'2026-10-05T11:00:00Z',scheduledEnd:'2026-10-05T12:00:00Z'}];
+    const before=JSON.stringify(c.state.tasks),slot=c.renderVals().hourlySlots.find(x=>x.label.startsWith('Crear tarea de 09:00'));
+    slot.onOpen();assert.equal(c.state.slotCreateOpen,true);assert.equal(c.state.slotStartDraft,'2026-10-05T09:00');assert.equal(c.state.slotEndDraft,'2026-10-05T09:30');
+    c.state.slotTitle='Draft';slot.onOpen();assert.equal(c.state.slotTitle,'Draft');
+    c.cancelSlotCreate();assert.equal(c.state.slotCreateOpen,false);assert.equal(JSON.stringify(c.state.tasks),before);
+    slot.onOpen();c.handleEscape({key:'Escape',preventDefault(){}});assert.equal(c.state.slotCreateOpen,false);
+    slot.onOpen();c.selectDailyDate('2026-10-06');assert.equal(c.state.slotCreateOpen,false);
+    c.selectDailyDate('2026-10-05');c.renderVals().hourlySlots.find(x=>x.label.startsWith('Crear tarea de 09:00')).onOpen();
+    c.renderVals().navItems.find(x=>x.id==='today').onClick();assert.equal(c.state.slotCreateOpen,false);assert.equal(JSON.stringify(c.state.tasks),before);
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
+test('slot form confirms once, validates edits and can cross midnight',()=>{
+  const previous=process.env.TZ;process.env.TZ='UTC';
+  try {
+    const c=component();c.state.view='calendar';c.state.dailyDate='2026-10-05';c.state.auth={id:1,role:'member'};
+    c.state.projects=[{id:'allowed',_can_assign:true},{id:'denied',_can_assign:false}];
+    const slot=c.renderVals().hourlySlots.at(-1);slot.onOpen();
+    assert.equal(c.state.slotStartDraft,'2026-10-05T23:30');assert.equal(c.state.slotEndDraft,'2026-10-06T00:00');
+    const event={preventDefault(){this.prevented=true;}};
+    c.createSlotTask(event);assert.equal(event.prevented,true);assert.equal(c.state.tasks.length,0);assert.match(c.state.slotError,/nombre/);
+    c.state.slotTitle='Night task';c.state.slotProject='denied';c.createSlotTask(event);assert.equal(c.state.tasks.length,0);assert.match(c.state.slotError,/acceso/);
+    c.state.slotProject='allowed';c.state.slotEndDraft='2026-10-05T23:00';c.createSlotTask(event);assert.equal(c.state.tasks.length,0);assert.match(c.state.slotError,/posterior/);
+    c.state.slotEndDraft='2026-10-06T00:30';c.createSlotTask(event);c.createSlotTask(event);
+    assert.equal(c.state.tasks.length,1);const task=c.state.tasks[0];
+    assert.equal(task.title,'Night task');assert.equal(task.project,'allowed');assert.equal(task.due,'2026-10-05');
+    assert.equal(task.scheduledStart,'2026-10-05T23:30:00.000Z');assert.equal(task.scheduledEnd,'2026-10-06T00:30:00.000Z');
+    assert.equal(c.state.slotCreateOpen,false);assert.equal(c.renderVals().hourlyBlocks.length,1);
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
+test('occupied blocks open existing tasks; stale free targets cannot create a draft',()=>{
+  const previous=process.env.TZ;process.env.TZ='UTC';
+  try {
+    const c=component();c.state.view='calendar';c.state.dailyDate='2026-10-05';
+    const slot=c.renderVals().hourlySlots.find(x=>x.label.startsWith('Crear tarea de 09:00'));
+    const existing={id:'busy',title:'Busy',list:'future',scheduledStart:'2026-10-05T09:00:00Z',scheduledEnd:'2026-10-05T09:30:00Z'};
+    c.state.tasks=[existing];slot.onOpen();assert.equal(c.state.slotCreateOpen,false);
+    const block=c.renderVals().hourlyBlocks[0];block.onOpen();assert.equal(c.state.selId,'busy');assert.equal(c.state.tasks.length,1);
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
+test('repeated DST hour keeps the selected instant and visible offset when saved',()=>{
+  const previous=process.env.TZ;process.env.TZ='America/New_York';
+  try {
+    const c=component();c.state.view='calendar';c.state.dailyDate='2026-11-01';
+    const slot=c.renderVals().hourlySlots.find(x=>x.label.startsWith('Crear tarea de 01:00 GMT-5'));
+    assert.ok(slot);slot.onOpen();c.state.slotTitle='Second one';c.createSlotTask({preventDefault(){}});
+    assert.equal(c.state.tasks.length,1);assert.equal(c.state.tasks[0].scheduledStart,'2026-11-01T06:00:00.000Z');
+    assert.equal(c.state.tasks[0].scheduledEnd,'2026-11-01T06:30:00.000Z');
+    assert.equal(planning.hourlyDay([], '2026-03-08').slots.length,46);
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
 test('repeated autumn hour labels distinguish both UTC offsets',()=>{
   const previous=process.env.TZ;process.env.TZ='America/New_York';
   try {
