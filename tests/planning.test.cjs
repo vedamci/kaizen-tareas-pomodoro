@@ -10,6 +10,67 @@ function component() {
   const context = vm.createContext({ DCLogic:Logic, KaizenPlanning:planning, console, setTimeout, clearTimeout, Intl, Date, localStorage:{setItem(){}} });
   return new (vm.runInContext(source+'; Component',context))();
 }
+test('hourly agenda clips overnight tasks and leaves due-only tasks without hours',()=>{
+  const previous=process.env.TZ;process.env.TZ='UTC';
+  try {
+    const tasks=[
+      {id:'overnight',title:'Overnight',scheduledStart:'2026-10-04T23:30:00Z',scheduledEnd:'2026-10-05T01:30:00Z'},
+      {id:'morning',title:'Morning',scheduledStart:'2026-10-05T01:00:00Z',scheduledEnd:'2026-10-05T02:00:00Z'},
+      {id:'later',title:'Later',scheduledStart:'2026-10-05T02:00:00Z',scheduledEnd:'2026-10-05T02:30:00Z'},
+      {id:'due',title:'Due only',due:'2026-10-05'},
+      {id:'trash',title:'Deleted',list:'trash',scheduledStart:'2026-10-05T03:00:00Z',scheduledEnd:'2026-10-05T04:00:00Z'}
+    ];
+    const before=JSON.stringify(tasks),day=planning.hourlyDay(tasks,'2026-10-05');
+    assert.equal(day.minutes,1440);assert.equal(day.ticks.length,24);assert.deepEqual(day.blocks.map(b=>b.task.id),['overnight','morning','later']);
+    assert.equal(day.blocks[0].top,0);assert.equal(day.blocks[0].duration,90);assert.equal(day.blocks[0].continuesBefore,true);
+    assert.equal(day.blocks[0].lanes,2);assert.equal(day.blocks[1].lane,1);assert.equal(day.blocks[2].lanes,1);
+    assert.equal(day.free[0].start,Date.parse('2026-10-05T02:30:00Z'));assert.equal(day.free[0].minutes,1290);
+    assert.equal(JSON.stringify(tasks),before);
+    assert.equal(planning.hourlyDay(tasks,'invalid').blocks.length,0);
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
+test('hourly agenda uses actual 23 and 25 hour days across DST',()=>{
+  const previous=process.env.TZ;process.env.TZ='America/New_York';
+  try {
+    const spring=planning.hourlyDay([], '2026-03-08');
+    const autumn=planning.hourlyDay([], '2026-11-01');
+    assert.equal(spring.minutes,1380);assert.equal(spring.ticks.length,23);
+    assert.equal(autumn.minutes,1500);assert.equal(autumn.ticks.length,25);
+    assert.equal(new Set(autumn.ticks.map(t=>t.label)).size,25);
+    const overnight=planning.hourlyDay([{id:'x',scheduledStart:'2026-11-01T03:30:00Z',scheduledEnd:'2026-11-01T07:30:00Z'}],'2026-11-01');
+    assert.equal(overnight.blocks[0].top,0);assert.equal(overnight.blocks[0].duration,210);
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
+test('repeated autumn hour labels distinguish both UTC offsets',()=>{
+  const previous=process.env.TZ;process.env.TZ='America/New_York';
+  try {
+    const c=component();c.state.view='calendar';c.state.dailyDate='2026-11-01';
+    c.state.tasks=[{id:'fold',title:'Fold',list:'inbox',scheduledStart:'2026-11-01T05:30:00Z',scheduledEnd:'2026-11-01T06:15:00Z'}];
+    const view=c.renderVals();
+    assert.match(view.hourlyBlocks[0].timeLabel,/01:30 GMT-4.*01:15 GMT-5/);
+    assert.match(view.hourlyFree.at(-1).label,/01:15 GMT-5.*24:00/);
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
+test('adding tasks keeps the current day scroll identity stable',()=>{
+  const c=component();c.state.view='calendar';c.state.dailyDate='2026-10-05';
+  c.componentDidUpdate();const key=c.dailyScrollKey;
+  c.state.tasks.push({id:'new',title:'New',list:'inbox'});c.componentDidUpdate();
+  assert.equal(c.dailyScrollKey,key);
+});
+test('daily hour blocks keep personal scope and show creator and confirmed assignee',()=>{
+  const c=component();c.state.auth={id:1,role:'admin'};c.state.workspaceMembers=[{id:1,name:'Owner'},{id:2,name:'Recipient'}];
+  c.state.dailyDate='2026-10-05';c.state.view='calendar';
+  c.state.tasks=[
+    {id:'own',title:'Own',_owner_id:1,_shared_user_ids:[2],list:'inbox',scheduledStart:'2026-10-05T10:00:00Z',scheduledEnd:'2026-10-05T11:00:00Z'},
+    {id:'team',title:'Team',_owner_id:2,_shared_user_ids:[],list:'inbox',scheduledStart:'2026-10-05T12:00:00Z',scheduledEnd:'2026-10-05T13:00:00Z'},
+    {id:'due',title:'Due only',_owner_id:1,list:'future',due:'2026-10-05'}
+  ];
+  const before=JSON.stringify(c.state.tasks),view=c.renderVals();
+  assert.deepEqual([...view.hourlyBlocks.map(b=>b.title)],['Own']);
+  assert.match(view.hourlyBlocks[0].peopleLabel,/Owner.*Responsable: Recipient/);
+  assert.deepEqual([...view.dailyRows.map(t=>t.title)],['Due only']);
+  assert.equal(view.dailyCount,2);assert.equal(JSON.stringify(c.state.tasks),before);
+});
 test('component parses and renders project and timeline views',()=>{
   const c=component(); Object.assign(c.state,c.seed()); c.state.view='timeline'; const view=c.renderVals(); assert.equal(view.isTimeline,true);assert.equal(view.timelineRows.length,0);assert.equal(view.unscheduledCount,c.state.tasks.length); c.state.view='project';c.state.projFilter='p1';assert.ok(c.renderVals().listTasks.length>0);
 });

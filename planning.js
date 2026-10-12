@@ -106,6 +106,54 @@
       return Number.isFinite(plannedStart) && Number.isFinite(plannedEnd) && plannedEnd > plannedStart && plannedStart < end && plannedEnd > start;
     }).sort((a, b) => Number(!!a.done) - Number(!!b.done) || String(a.title || '').localeCompare(String(b.title || ''), 'es'));
   }
+  // Use elapsed minutes between local midnights. This keeps skipped and
+  // repeated daylight-saving hours honest and clips overnight tasks at the day.
+  function hourlyDay(tasks, key, now = Date.now()) {
+    if (!validDateKey(key)) return { ticks: [], blocks: [], free: [], minutes: 0, nowMinute: null };
+    const [year, month, day] = key.split('-').map(Number);
+    const start = +new Date(year, month - 1, day);
+    const end = +new Date(year, month - 1, day + 1);
+    const minutes = (end - start) / 60000;
+    const ticks = [];
+    for (let time = start; time < end; time += 3600000) {
+      const date = new Date(time);
+      const repeated = new Date(time + 3600000).getHours() === date.getHours() ||
+        (time > start && new Date(time - 3600000).getHours() === date.getHours());
+      ticks.push({ minute: (time - start) / 60000,
+        label: date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', ...(repeated ? { timeZoneName: 'shortOffset' } : {}) }) });
+    }
+    const blocks = tasks.filter(t => t.list !== 'trash').map(task => {
+      const from = Date.parse(task.scheduledStart), to = Date.parse(task.scheduledEnd);
+      if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to <= start || from >= end) return null;
+      return { task, start: Math.max(from, start), end: Math.min(to, end), continuesBefore: from < start, continuesAfter: to > end };
+    }).filter(Boolean).sort((a, b) => a.start - b.start || b.end - a.end || String(a.task.id).localeCompare(String(b.task.id)));
+    // Connected overlapping intervals share a lane count; touching intervals do not.
+    for (let i = 0; i < blocks.length;) {
+      let j = i, groupEnd = blocks[i].end;
+      while (++j < blocks.length && blocks[j].start < groupEnd) groupEnd = Math.max(groupEnd, blocks[j].end);
+      const laneEnds = [];
+      for (let k = i; k < j; k++) {
+        let lane = laneEnds.findIndex(value => value <= blocks[k].start);
+        if (lane < 0) lane = laneEnds.length;
+        laneEnds[lane] = blocks[k].end;
+        blocks[k].lane = lane;
+      }
+      for (let k = i; k < j; k++) blocks[k].lanes = laneEnds.length;
+      i = j;
+    }
+    blocks.forEach(block => {
+      block.top = (block.start - start) / 60000;
+      block.duration = (block.end - block.start) / 60000;
+    });
+    const free = [];
+    let cursor = start;
+    for (const block of blocks) {
+      if (block.start > cursor) free.push({ start: cursor, end: block.start, minutes: (block.start - cursor) / 60000 });
+      cursor = Math.max(cursor, block.end);
+    }
+    if (cursor < end) free.push({ start: cursor, end, minutes: (end - cursor) / 60000 });
+    return { start, end, ticks, blocks, free, minutes, nowMinute: now >= start && now < end ? (now - start) / 60000 : null };
+  }
   function dailyMonth(tasks, key, today = Date.now()) {
     if (!validDateKey(key)) key = localDateKey(today);
     const [year, month] = key.split('-').map(Number);
@@ -131,7 +179,7 @@
     const [year, month, day] = key.split('-').map(Number);
     return localDateKey(new Date(year, month - 1, day + direction));
   }
-  const api = { localInput, schedule, timeline, zone, calendar, shiftCalendar, calendarTasks, localDateKey, validDateKey, dailyAgenda, dailyMonth, shiftDailyMonth, shiftDailyDay };
+  const api = { localInput, schedule, timeline, zone, calendar, shiftCalendar, calendarTasks, localDateKey, validDateKey, dailyAgenda, hourlyDay, dailyMonth, shiftDailyMonth, shiftDailyDay };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.KaizenPlanning = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

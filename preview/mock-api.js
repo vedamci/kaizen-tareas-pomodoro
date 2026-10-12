@@ -1,11 +1,13 @@
 // Disposable demonstration data. This is loaded only by the preview server.
 (function () {
-  const KEY = 'kaizen-local-preview-api-v1';
+  const KEY = 'kaizen-local-preview-api-v2';
   const members = [{ id:1,name:'Ana (demo)',email:'ana@example.test',workspace_role:'admin' },{id:2,name:'Luis (demo)',email:'luis@example.test',workspace_role:'member'},{id:3,name:'Mar (demo)',email:'mar@example.test',workspace_role:'member'}];
   let data;
   try { data = JSON.parse(localStorage.getItem(KEY)); } catch (_) {}
-  const task = (id,title,project,owner,start='',end='') => ({id,title,project,_owner_id:owner,scheduledStart:start,scheduledEnd:end,scheduleTimeZone:'UTC',list:'inbox',due:'',quadrant:'q2',tags:[],subtasks:[],sharedWith:[],estPomos:1,pomos:0,seconds:900,done:false,createdAt:Date.now()});
-  data ||= { projects:[{id:'demo-a',name:'Lanzamiento (demo)',owner_id:1,member_ids:[1,2]},{id:'demo-b',name:'Contenido (demo)',owner_id:1,member_ids:[1,3]}],tasks:[task('demo-t1','Preparar propuesta (demo)','demo-a',1,'2026-10-05T15:00:00.000Z','2026-10-05T17:00:00.000Z'),task('demo-t2','Revisar materiales (demo)','demo-a',2,'2026-10-05T16:00:00.000Z','2026-10-05T18:30:00.000Z'),task('demo-t3','Ideas por clasificar (demo)','',1),task('demo-t4','Definir calendario (demo)','demo-b',1)] };
+  const task = (id,title,project,owner,start='',end='') => ({id,title,project,_owner_id:owner,scheduledStart:start,scheduledEnd:end,scheduleTimeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,list:'inbox',due:'',quadrant:'q2',tags:[],subtasks:[],sharedWith:[],estPomos:1,pomos:0,seconds:900,done:false,createdAt:Date.now()});
+  const today=new Date(),key=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
+  const at=(day,hour,minute=0)=>new Date(today.getFullYear(),today.getMonth(),today.getDate()+day,hour,minute).toISOString();
+  data ||= { projects:[{id:'demo-a',name:'Lanzamiento (demo)',owner_id:1,member_ids:[1,2]},{id:'demo-b',name:'Contenido (demo)',owner_id:1,member_ids:[1,3]}],tasks:[task('demo-t1','Preparar propuesta (demo)','demo-a',1,at(0,9),at(0,10,30)),task('demo-t2','Revisar materiales (demo)','demo-a',1,at(0,9,30),at(0,11)),task('demo-t3','Cierre del día anterior (demo)','demo-a',1,at(-1,23,30),at(0,1)),{...task('demo-t4','Entrega sin horario (demo)','demo-b',1),due:key},task('demo-t5','Tarea del equipo (demo)','demo-a',2,at(0,12),at(0,13))] };
   const nativeFetch = window.fetch.bind(window);
   window.fetch = async (input, options = {}) => {
     const url = new URL(String(input), location.href);
