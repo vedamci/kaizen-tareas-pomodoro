@@ -5,7 +5,9 @@
 **Calendario de hoy** es una sección propia, separada de **Cronograma**. Abre
 con una agenda vertical de horas: los bloques muestran el inicio y fin reales,
 los solapamientos ocupan columnas paralelas y los huecos de al menos 30 minutos
-aparecen debajo. Los intervalos que cruzan medianoche se recortan al día visible.
+aparecen debajo. Al pulsar un hueco libre de la cuadrícula se abre allí mismo un
+editor: título, proyecto, inicio y fin; **Crear tarea** guarda y **Cancelar** descarta
+el borrador. Los intervalos que cruzan medianoche se recortan al día visible.
 La zona horaria es la del dispositivo; los días de 23 o 25 horas se representan
 con su duración real. Cada bloque y su ficha accesible muestran creador y
 responsable confirmado. Las tareas con fecha pero sin bloque horario en el día
@@ -23,8 +25,8 @@ los días que cubren y abren el detalle al seleccionarlas. Si también tienen
 fecha límite, el día la cuenta una sola vez. Se usan los mismos campos
 `due`, `scheduledStart` y `scheduledEnd`, sin
 copiar tareas ni modificar su tiempo de Pomodoro. No se generan tareas recurrentes
-automáticamente. La vista horaria solo lee estas fechas: no mueve ni crea
-horarios, ni importa eventos de Google Calendar. El día se calcula en la zona
+automáticamente. La vista horaria no cambia las fechas existentes ni asigna
+horas a tareas sin planificar. No importa eventos de Google Calendar. El día se calcula en la zona
 local del dispositivo y la fecha
 elegida se restaura al recargar Kaizen. Al entrar de nuevo desde la navegación,
 la agenda vuelve a hoy.
@@ -80,9 +82,9 @@ datos ficticios y nunca debe conectarse a la API publicada.
 Verificación adicional por CLI: ocho pruebas de calendario y componente
 cubren rangos y límites, cambio de mes/año, DST, tareas cortas junto a tareas
 largas, contador, filtros, navegación, localizar tareas y conservación de datos.
-La suite JavaScript suma ahora 38 pruebas. La revisión visual e interacción real
-del nuevo cronograma y los nuevos menús sigue pendiente: esta sesión no expone
-una herramienta de control de Chrome, aunque el navegador está disponible.
+La suite JavaScript suma ahora 56 pruebas. La captura directa en el calendario
+se verificó con datos ficticios en Chrome a 1280, 375 y 320 px, incluido el
+acceso por teclado, cancelar y guardar.
 
 Referencias de diseño: [Linear Timeline](https://linear.app/docs/timeline) y
 [Notion Timeline](https://www.notion.com/help/timelines): escala explícita,
