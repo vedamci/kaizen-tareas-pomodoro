@@ -7,6 +7,25 @@ CREATE TABLE users (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE password_reset_tokens (
+  token_hash CHAR(64) PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_password_reset_user (user_id),
+  INDEX idx_password_reset_expiry (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE password_reset_limits (
+  scope VARCHAR(20) NOT NULL,
+  subject_hash CHAR(64) NOT NULL,
+  window_start DATETIME NOT NULL,
+  attempts INT UNSIGNED NOT NULL DEFAULT 1,
+  PRIMARY KEY (scope,subject_hash,window_start),
+  INDEX idx_password_reset_window (window_start)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE workspaces (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/projects.php';
+require_once __DIR__ . '/password-reset.php';
 $config = require __DIR__ . '/config.php';
 session_name($config['session_name'] ?? 'tareas_session');
 // Mantener la sesión web en este dispositivo durante 30 días. Además, cada
@@ -19,6 +20,7 @@ session_set_cookie_params([
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
+header('Referrer-Policy: no-referrer');
 
 function db(): PDO {
     static $pdo;
@@ -40,13 +42,23 @@ function db(): PDO {
         try { $pdo->exec("ALTER TABLE push_jobs ADD COLUMN subscription_hash CHAR(64) NULL AFTER user_id"); } catch (Throwable $e) {}
         try { $pdo->exec("ALTER TABLE push_jobs ADD INDEX idx_push_subscription (subscription_hash)"); } catch (Throwable $e) {}
         $pdo->exec("CREATE TABLE IF NOT EXISTS device_sessions (token_hash CHAR(64) PRIMARY KEY, user_id INT UNSIGNED NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT fk_device_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, INDEX idx_device_sessions_expiry (expires_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS password_reset_tokens (token_hash CHAR(64) PRIMARY KEY, user_id INT UNSIGNED NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, INDEX idx_password_reset_user (user_id), INDEX idx_password_reset_expiry (expires_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS password_reset_limits (scope VARCHAR(20) NOT NULL, subject_hash CHAR(64) NOT NULL, window_start DATETIME NOT NULL, attempts INT UNSIGNED NOT NULL DEFAULT 1, PRIMARY KEY (scope,subject_hash,window_start), INDEX idx_password_reset_window (window_start)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     }
     return $pdo;
 }
 function body(): array { $raw = file_get_contents('php://input'); return $raw ? (json_decode($raw, true) ?: []) : []; }
 function out(array $data, int $status = 200): never { http_response_code($status); echo json_encode($data, JSON_UNESCAPED_UNICODE); exit; }
 function user(): ?array {
-    if (!empty($_SESSION['user'])) return $_SESSION['user'];
+    if (!empty($_SESSION['user'])) {
+        $q=db()->prepare('SELECT password_hash FROM users WHERE id=?');
+        $q->execute([(int)$_SESSION['user']['id']]);
+        $hash=$q->fetchColumn();
+        if ($hash && !empty($_SESSION['password_marker']) && hash_equals((string)$_SESSION['password_marker'], hash('sha256',(string)$hash))) return $_SESSION['user'];
+        // Sessions from before this change must reauthenticate. This also
+        // invalidates every cookie session after a password change.
+        $_SESSION=[];
+    }
     $token = trim((string)($_SERVER['HTTP_X_REMEMBER_TOKEN'] ?? ''));
     if ($token === '' || strlen($token) > 200) return null;
     $q = db()->prepare('SELECT u.* FROM device_sessions ds JOIN users u ON u.id=ds.user_id WHERE ds.token_hash=? AND ds.expires_at>NOW() LIMIT 1');
@@ -56,6 +68,7 @@ function user(): ?array {
     // Así no se expira aunque la persona use la app con frecuencia durante meses.
     db()->prepare('UPDATE device_sessions SET expires_at=DATE_ADD(NOW(), INTERVAL 365 DAY) WHERE token_hash=?')->execute([hash('sha256', $token)]);
     $_SESSION['user'] = currentUserPayload($u);
+    $_SESSION['password_marker'] = hash('sha256', (string)$u['password_hash']);
     return $_SESSION['user'];
 }
 function requireUser(): array { $u = user(); if (!$u) out(['ok'=>false,'error'=>'No has iniciado sesión.'], 401); return $u; }
@@ -65,6 +78,8 @@ function workspaceAccess(int $workspaceId, int $userId): ?array {
     $q->execute([$userId, $workspaceId, $userId, $userId]); return $q->fetch() ?: null;
 }
 function currentUserPayload(array $u): array { unset($u['password_hash']); return $u; }
+function csrfToken(): string { if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token']=bin2hex(random_bytes(32)); return $_SESSION['csrf_token']; }
+function validCsrf(): bool { $given=(string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''); return $given!=='' && hash_equals(csrfToken(),$given); }
 function issueDeviceToken(int $userId): string {
     $token = bin2hex(random_bytes(32));
     db()->prepare('INSERT INTO device_sessions(token_hash,user_id,expires_at) VALUES(?,?,DATE_ADD(NOW(), INTERVAL 365 DAY))')->execute([hash('sha256', $token), $userId]);
@@ -94,7 +109,7 @@ function sendWebPush(array $subscription, string $payload, array $config): array
 try {
     $action = $_GET['action'] ?? '';
     $data = body();
-    if ($action === 'me') out(['ok'=>true, 'user'=>user(), 'workspaces'=>user() ? workspacesFor(user()) : []]);
+    if ($action === 'me') { $current=user(); out(['ok'=>true, 'user'=>$current, 'workspaces'=>$current ? workspacesFor($current) : [], 'csrf_token'=>$current ? csrfToken() : null]); }
     if ($action === 'push_config') out(['ok'=>true,'public_key'=>$config['vapid_public_key']??'']);
     if ($action === 'push_run') {
         $secret=(string)($_GET['secret']??$data['secret']??''); if(empty($config['push_cron_secret'])||!hash_equals($config['push_cron_secret'],$secret))out(['ok'=>false,'error'=>'No autorizado.'],403);
@@ -130,16 +145,37 @@ try {
         else { $q = $pdo->prepare('INSERT INTO workspaces(name,created_by) VALUES(?,?)'); $q->execute(['Espacio de ' . $name, $id]); $wid=(int)$pdo->lastInsertId(); $pdo->prepare('INSERT INTO workspace_members(workspace_id,user_id,role) VALUES(?,?,?)')->execute([$wid,$id,'admin']); }
         $pdo->commit();
         session_regenerate_id(true);
-        $q=$pdo->prepare('SELECT * FROM users WHERE id=?'); $q->execute([$id]); $_SESSION['user']=currentUserPayload($q->fetch()); out(['ok'=>true,'user'=>$_SESSION['user'],'workspaces'=>workspacesFor($_SESSION['user']),'remember_token'=>issueDeviceToken($id)],201);
+        unset($_SESSION['csrf_token']);
+        $q=$pdo->prepare('SELECT * FROM users WHERE id=?'); $q->execute([$id]); $created=$q->fetch(); $_SESSION['user']=currentUserPayload($created); $_SESSION['password_marker']=hash('sha256',(string)$created['password_hash']); out(['ok'=>true,'user'=>$_SESSION['user'],'workspaces'=>workspacesFor($_SESSION['user']),'remember_token'=>issueDeviceToken($id),'csrf_token'=>csrfToken()],201);
     }
     if ($action === 'login') {
         $email=cleanEmail((string)($data['email']??'')); $q=db()->prepare('SELECT * FROM users WHERE email=?'); $q->execute([$email]); $u=$q->fetch();
         if (!$u || !password_verify((string)($data['password']??''),$u['password_hash'])) out(['ok'=>false,'error'=>'Correo o contraseña incorrectos.'],401);
         session_regenerate_id(true);
-        $_SESSION['user']=currentUserPayload($u); out(['ok'=>true,'user'=>$_SESSION['user'],'workspaces'=>workspacesFor($_SESSION['user']),'remember_token'=>issueDeviceToken((int)$u['id'])]);
+        unset($_SESSION['csrf_token']);
+        $_SESSION['user']=currentUserPayload($u); $_SESSION['password_marker']=hash('sha256',(string)$u['password_hash']); out(['ok'=>true,'user'=>$_SESSION['user'],'workspaces'=>workspacesFor($_SESSION['user']),'remember_token'=>issueDeviceToken((int)$u['id']),'csrf_token'=>csrfToken()]);
     }
     if ($action === 'logout') { revokeDeviceToken(); $_SESSION=[]; session_destroy(); out(['ok'=>true]); }
+    if ($action === 'password_reset_request') {
+        if (!passwordResetConfigured($config) || strlen((string)($config['password_reset_rate_secret']??''))<32) out(['ok'=>false,'error'=>'La recuperación por correo no está disponible todavía.'],503);
+        passwordResetRequest(db(),(string)($data['email']??''),(string)($_SERVER['REMOTE_ADDR']??''),$config,$config['password_reset_mailer']??null);
+        out(['ok'=>true,'message'=>PASSWORD_RESET_MESSAGE]);
+    }
+    if ($action === 'password_reset_confirm') {
+        if (!passwordResetConfigured($config)) out(['ok'=>false,'error'=>'La recuperación por correo no está disponible todavía.'],503);
+        if (($data['password']??null)!==($data['confirmation']??null)) out(['ok'=>false,'error'=>'Las contraseñas nuevas no coinciden.'],422);
+        if (!passwordResetConfirm(db(),(string)($data['token']??''),(string)($data['password']??''))) out(['ok'=>false,'error'=>'El enlace no es válido o ya venció, o la contraseña es demasiado corta.'],422);
+        $_SESSION=[]; session_regenerate_id(true);
+        out(['ok'=>true,'message'=>'Contraseña actualizada. Inicia sesión de nuevo.']);
+    }
     $u=requireUser();
+    if ($action === 'password_change') {
+        if (!validCsrf()) out(['ok'=>false,'error'=>'La sesión de seguridad venció. Recarga la página.'],403);
+        $error=passwordChange(db(),(int)$u['id'],(string)($data['current_password']??''),(string)($data['new_password']??''),(string)($data['confirmation']??''),(string)($_SERVER['REMOTE_ADDR']??''));
+        if ($error!=='') out(['ok'=>false,'error'=>$error],422);
+        $_SESSION=[]; session_regenerate_id(true);
+        out(['ok'=>true,'message'=>'Contraseña actualizada. Inicia sesión de nuevo.']);
+    }
     if ($action === 'push_subscribe') {
         $endpoint=trim((string)($data['endpoint']??''));$keys=is_array($data['keys']??null)?$data['keys']:[];$p256dh=trim((string)($keys['p256dh']??''));$auth=trim((string)($keys['auth']??''));$deviceLabel=substr(trim((string)($data['device_label']??'Navegador')),0,80) ?: 'Navegador';if($endpoint===''||$p256dh===''||$auth==='')out(['ok'=>false,'error'=>'Suscripción de push incompleta.'],422);$pdo=db();$subHash=hash('sha256',$endpoint);$q=$pdo->prepare('INSERT INTO push_subscriptions(user_id,endpoint_hash,endpoint,p256dh,auth,device_label) VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE user_id=VALUES(user_id),endpoint=VALUES(endpoint),p256dh=VALUES(p256dh),auth=VALUES(auth),device_label=VALUES(device_label)');$q->execute([(int)$u['id'],$subHash,$endpoint,$p256dh,$auth,$deviceLabel]);
         // Retira trabajos creados por versiones antiguas, que no distinguían
