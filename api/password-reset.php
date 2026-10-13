@@ -20,7 +20,7 @@ function passwordResetConfigured(array $config): bool {
 
 function passwordResetMail(string $to, string $link, array $config, ?callable $sender = null): bool {
     $subject = 'Restablecer contraseña de Kaizen';
-    $message = "Solicitaste restablecer tu contraseña de Kaizen.\n\nAbre este enlace dentro de 30 minutos:\n".$link."\n\nSi no solicitaste el cambio, ignora este mensaje.\n";
+    $message = "Solicitaste restablecer tu contraseña de Kaizen.\n\nEste enlace vence 30 minutos después de la solicitud:\n".$link."\n\nSi no solicitaste el cambio, ignora este mensaje.\n";
     if ($sender !== null) return $sender($to, $subject, $message) === true;
     $from = (string)$config['password_reset_from_email'];
     return mail($to, $subject, $message, ['From' => $from, 'Content-Type' => 'text/plain; charset=UTF-8']);
@@ -53,7 +53,7 @@ function passwordResetRateAllowed(PDO $pdo, string $scope, string $subject, int 
     return (int)$q->fetchColumn() <= $limit;
 }
 
-function passwordResetRequest(PDO $pdo, string $email, string $ip, array $config): void {
+function passwordResetRequest(PDO $pdo, string $email, string $ip, array $config, ?callable $afterUserLock = null): void {
     if (!passwordResetConfigured($config)) throw new RuntimeException('Password reset mail is not configured.');
     $secret = (string)($config['password_reset_rate_secret'] ?? '');
     if (strlen($secret) < 32) throw new RuntimeException('Password reset rate key is not configured.');
@@ -70,20 +70,32 @@ function passwordResetRequest(PDO $pdo, string $email, string $ip, array $config
     $token = bin2hex(random_bytes(32));
     $hash = hash('sha256', $token);
     $ciphertext = passwordResetQueueEncrypt($token, $secret);
-    try {
-        $pdo->beginTransaction();
-        if ($id) {
-            $pdo->prepare('DELETE FROM password_reset_tokens WHERE user_id=?')->execute([(int)$id]);
-            $pdo->prepare('INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(?,?,DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE))')->execute([$hash,(int)$id]);
+    for ($attempt = 0; $attempt < 3; $attempt++) {
+        try {
+            $pdo->beginTransaction();
+            if ($id) {
+                // Match reset/change/login lock order: users before tokens.
+                $lock = $pdo->prepare('SELECT id FROM users WHERE id=? FOR UPDATE');
+                $lock->execute([(int)$id]);
+                if (!$lock->fetchColumn()) $id = null;
+                else {
+                    if ($afterUserLock !== null) $afterUserLock(); // Race test barrier.
+                    $pdo->prepare('DELETE FROM password_reset_tokens WHERE user_id=?')->execute([(int)$id]);
+                    $pdo->prepare('INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(?,?,DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE))')->execute([$hash,(int)$id]);
+                }
+            }
+            // Both known and unknown addresses enqueue the same shaped job.
+            // The separate worker alone performs variable-duration mail delivery.
+            $pdo->prepare('INSERT INTO password_reset_mail_queue(user_id,token_cipher,expires_at) VALUES(?,?,DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE))')->execute([$id ? (int)$id : null,$ciphertext]);
+            $pdo->commit();
+            return;
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            $driverCode = $e instanceof PDOException ? (int)($e->errorInfo[1] ?? 0) : 0;
+            if (!in_array($driverCode, [1205, 1213], true)) throw $e;
+            if ($attempt === 2) { error_log('Kaizen password reset request deferred by database contention.'); return; }
+            usleep(random_int(10000, 50000));
         }
-        // Both known and unknown addresses enqueue the same shaped job. Only
-        // the separate worker can send mail, so HTTP response timing cannot
-        // include the variable duration of mail delivery.
-        $pdo->prepare('INSERT INTO password_reset_mail_queue(user_id,token_cipher,expires_at) VALUES(?,?,DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE))')->execute([$id ? (int)$id : null,$ciphertext]);
-        $pdo->commit();
-    } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        throw $e;
     }
 }
 
