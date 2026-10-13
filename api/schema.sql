@@ -17,6 +17,18 @@ CREATE TABLE password_reset_tokens (
   INDEX idx_password_reset_expiry (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE password_reset_mail_queue (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NULL,
+  token_cipher VARCHAR(256) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  claimed_at DATETIME NULL,
+  attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_password_mail_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_password_mail_pending (claimed_at,expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE password_reset_limits (
   scope VARCHAR(20) NOT NULL,
   subject_hash CHAR(64) NOT NULL,

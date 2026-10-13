@@ -42,8 +42,7 @@ function db(): PDO {
         try { $pdo->exec("ALTER TABLE push_jobs ADD COLUMN subscription_hash CHAR(64) NULL AFTER user_id"); } catch (Throwable $e) {}
         try { $pdo->exec("ALTER TABLE push_jobs ADD INDEX idx_push_subscription (subscription_hash)"); } catch (Throwable $e) {}
         $pdo->exec("CREATE TABLE IF NOT EXISTS device_sessions (token_hash CHAR(64) PRIMARY KEY, user_id INT UNSIGNED NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT fk_device_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, INDEX idx_device_sessions_expiry (expires_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-        $pdo->exec("CREATE TABLE IF NOT EXISTS password_reset_tokens (token_hash CHAR(64) PRIMARY KEY, user_id INT UNSIGNED NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, INDEX idx_password_reset_user (user_id), INDEX idx_password_reset_expiry (expires_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-        $pdo->exec("CREATE TABLE IF NOT EXISTS password_reset_limits (scope VARCHAR(20) NOT NULL, subject_hash CHAR(64) NOT NULL, window_start DATETIME NOT NULL, attempts INT UNSIGNED NOT NULL DEFAULT 1, PRIMARY KEY (scope,subject_hash,window_start), INDEX idx_password_reset_window (window_start)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        ensurePasswordResetTables($pdo);
     }
     return $pdo;
 }
@@ -61,12 +60,22 @@ function user(): ?array {
     }
     $token = trim((string)($_SERVER['HTTP_X_REMEMBER_TOKEN'] ?? ''));
     if ($token === '' || strlen($token) > 200) return null;
-    $q = db()->prepare('SELECT u.* FROM device_sessions ds JOIN users u ON u.id=ds.user_id WHERE ds.token_hash=? AND ds.expires_at>NOW() LIMIT 1');
-    $q->execute([hash('sha256', $token)]); $u = $q->fetch();
-    if (!$u) return null;
-    // Renovar la sesión persistente mientras el dispositivo siga utilizándolo.
-    // Así no se expira aunque la persona use la app con frecuencia durante meses.
-    db()->prepare('UPDATE device_sessions SET expires_at=DATE_ADD(NOW(), INTERVAL 365 DAY) WHERE token_hash=?')->execute([hash('sha256', $token)]);
+    $pdo=db(); $pdo->beginTransaction();
+    try {
+        // Lock users before device_sessions, matching password changes.
+        $tokenHash=hash('sha256',$token);
+        $q=$pdo->prepare('SELECT user_id FROM device_sessions WHERE token_hash=? AND expires_at>NOW()');
+        $q->execute([$tokenHash]);$id=$q->fetchColumn();
+        if (!$id) { $pdo->rollBack(); return null; }
+        $q=$pdo->prepare('SELECT * FROM users WHERE id=? FOR UPDATE');
+        $q->execute([(int)$id]);$u=$q->fetch();
+        if (!$u) { $pdo->rollBack(); return null; }
+        $q=$pdo->prepare('SELECT 1 FROM device_sessions WHERE token_hash=? AND user_id=? AND expires_at>NOW() FOR UPDATE');
+        $q->execute([$tokenHash,(int)$id]);
+        if (!$q->fetchColumn()) { $pdo->rollBack(); return null; }
+        $pdo->prepare('UPDATE device_sessions SET expires_at=DATE_ADD(NOW(), INTERVAL 365 DAY) WHERE token_hash=?')->execute([hash('sha256', $token)]);
+        $pdo->commit();
+    } catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $e; }
     $_SESSION['user'] = currentUserPayload($u);
     $_SESSION['password_marker'] = hash('sha256', (string)$u['password_hash']);
     return $_SESSION['user'];
@@ -143,22 +152,24 @@ try {
         $q = $pdo->prepare('INSERT INTO users(email,name,password_hash,role) VALUES(?,?,?,?)'); $q->execute([$email,$name,password_hash($password,PASSWORD_DEFAULT),$first?'super_admin':'user']); $id=(int)$pdo->lastInsertId();
         if ($invite) { $wid=(int)$invite['workspace_id']; $pdo->prepare('INSERT INTO workspace_members(workspace_id,user_id,role) VALUES(?,?,?)')->execute([$wid,$id,$invite['role']]); }
         else { $q = $pdo->prepare('INSERT INTO workspaces(name,created_by) VALUES(?,?)'); $q->execute(['Espacio de ' . $name, $id]); $wid=(int)$pdo->lastInsertId(); $pdo->prepare('INSERT INTO workspace_members(workspace_id,user_id,role) VALUES(?,?,?)')->execute([$wid,$id,'admin']); }
+        $rememberToken=issueDeviceToken($id);
         $pdo->commit();
         session_regenerate_id(true);
         unset($_SESSION['csrf_token']);
-        $q=$pdo->prepare('SELECT * FROM users WHERE id=?'); $q->execute([$id]); $created=$q->fetch(); $_SESSION['user']=currentUserPayload($created); $_SESSION['password_marker']=hash('sha256',(string)$created['password_hash']); out(['ok'=>true,'user'=>$_SESSION['user'],'workspaces'=>workspacesFor($_SESSION['user']),'remember_token'=>issueDeviceToken($id),'csrf_token'=>csrfToken()],201);
+        $q=$pdo->prepare('SELECT * FROM users WHERE id=?'); $q->execute([$id]); $created=$q->fetch(); $_SESSION['user']=currentUserPayload($created); $_SESSION['password_marker']=hash('sha256',(string)$created['password_hash']); out(['ok'=>true,'user'=>$_SESSION['user'],'workspaces'=>workspacesFor($_SESSION['user']),'remember_token'=>$rememberToken,'csrf_token'=>csrfToken()],201);
     }
     if ($action === 'login') {
-        $email=cleanEmail((string)($data['email']??'')); $q=db()->prepare('SELECT * FROM users WHERE email=?'); $q->execute([$email]); $u=$q->fetch();
-        if (!$u || !password_verify((string)($data['password']??''),$u['password_hash'])) out(['ok'=>false,'error'=>'Correo o contraseña incorrectos.'],401);
+        $email=cleanEmail((string)($data['email']??'')); $login=passwordLogin(db(),$email,(string)($data['password']??''));
+        if (!$login) out(['ok'=>false,'error'=>'Correo o contraseña incorrectos.'],401);
+        $u=$login['user'];
         session_regenerate_id(true);
         unset($_SESSION['csrf_token']);
-        $_SESSION['user']=currentUserPayload($u); $_SESSION['password_marker']=hash('sha256',(string)$u['password_hash']); out(['ok'=>true,'user'=>$_SESSION['user'],'workspaces'=>workspacesFor($_SESSION['user']),'remember_token'=>issueDeviceToken((int)$u['id']),'csrf_token'=>csrfToken()]);
+        $_SESSION['user']=currentUserPayload($u); $_SESSION['password_marker']=hash('sha256',(string)$u['password_hash']); out(['ok'=>true,'user'=>$_SESSION['user'],'workspaces'=>workspacesFor($_SESSION['user']),'remember_token'=>$login['remember_token'],'csrf_token'=>csrfToken()]);
     }
     if ($action === 'logout') { revokeDeviceToken(); $_SESSION=[]; session_destroy(); out(['ok'=>true]); }
     if ($action === 'password_reset_request') {
         if (!passwordResetConfigured($config) || strlen((string)($config['password_reset_rate_secret']??''))<32) out(['ok'=>false,'error'=>'La recuperación por correo no está disponible todavía.'],503);
-        passwordResetRequest(db(),(string)($data['email']??''),(string)($_SERVER['REMOTE_ADDR']??''),$config,$config['password_reset_mailer']??null);
+        passwordResetRequest(db(),(string)($data['email']??''),(string)($_SERVER['REMOTE_ADDR']??''),$config);
         out(['ok'=>true,'message'=>PASSWORD_RESET_MESSAGE]);
     }
     if ($action === 'password_reset_confirm') {

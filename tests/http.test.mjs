@@ -33,7 +33,7 @@ test('HTTP sessions, project access, delegation, persistence and concurrent edit
   const make=(id,project='')=>({id,title:id,project,list:'inbox',tags:[],subtasks:[],sharedWith:[],seconds:0,pomos:0,done:false});
   try {
     await mkdir(path.join(scratch,'api'));await mkdir(path.join(scratch,'sessions'));
-    for(const name of ['index.php','projects.php','project-policy.php','password-reset.php'])await copyFile(path.join(repo,'api',name),path.join(scratch,'api',name));
+    for(const name of ['index.php','projects.php','project-policy.php','password-reset.php','password-reset-worker.php'])await copyFile(path.join(repo,'api',name),path.join(scratch,'api',name));
     execFileSync('php',[path.join(repo,'tests/http-fixture.php'),scratch],{stdio:'pipe'});
     server=spawn('php',['-d','session.save_path='+path.join(scratch,'sessions'),'-S','127.0.0.1:4180','-t',scratch],{env:{...process.env,PHP_CLI_SERVER_WORKERS:'4'},detached:true,stdio:['ignore','pipe','pipe']});
     server.stdout.on('data',d=>{logs+=d;});server.stderr.on('data',d=>{logs+=d;});
@@ -146,6 +146,8 @@ test('HTTP sessions, project access, delegation, persistence and concurrent edit
     const unknown=await request(anon,'password_reset_request',{email:'absent@example.test'});
     const known=await request(anon,'password_reset_request',{email:'fixture1@example.test'});
     check(unknown.message===known.message,'reset request does not reveal whether account exists');
+    check((await readFile(path.join(scratch,'mail-outbox.jsonl'),'utf8').catch(()=>''))==='','HTTP response returns before fake mail delivery');
+    execFileSync('php',[path.join(scratch,'api/password-reset-worker.php')],{stdio:'pipe'});
     const outbox=JSON.parse((await readFile(path.join(scratch,'mail-outbox.jsonl'),'utf8')).trim());
     check(outbox.to==='fixture1@example.test'&&outbox.message.includes('https://example.test/kaizen/#reset='),'only known fake account receives reset link in fragment');
     const resetToken=outbox.message.match(/#reset=([a-f0-9]{64})/)?.[1];

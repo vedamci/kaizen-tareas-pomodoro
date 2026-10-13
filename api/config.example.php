@@ -10,5 +10,5 @@ return [
     'password_reset_enabled' => false,
     'password_reset_url' => 'https://vedamci.com.mx/tareas-pomodoro/',
     'password_reset_from_email' => '',
-    'password_reset_rate_secret' => '', // Valor aleatorio privado de al menos 32 caracteres.
+    'password_reset_rate_secret' => '', // Clave privada aleatoria de 32+ caracteres para límites y cola cifrada.
 ];
