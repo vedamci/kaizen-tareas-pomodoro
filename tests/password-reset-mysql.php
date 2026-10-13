@@ -14,6 +14,8 @@ $sender=static function(string $to,string $subject,string $message)use(&$outbox)
 $settings=['password_reset_enabled'=>true,'password_reset_url'=>'https://example.test/kaizen/','password_reset_from_email'=>'noreply@example.test','password_reset_rate_secret'=>'disposable-fixture-rate-key-only-for-tests'];
 try {
     $pdo->exec(file_get_contents(__DIR__.'/../api/schema.sql'));
+    // Existing production table is created by db() at runtime, not schema.sql.
+    $pdo->exec('CREATE TABLE device_sessions (token_hash CHAR(64) PRIMARY KEY, user_id INT UNSIGNED NOT NULL, expires_at DATETIME NOT NULL, CONSTRAINT fk_device_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     $pdo->prepare('INSERT INTO users(id,email,name,password_hash) VALUES(?,?,?,?),(?,?,?,?)')->execute([1,'one@example.test','One',password_hash('old-fixture-password-1',PASSWORD_DEFAULT),2,'two@example.test','Two',password_hash('old-fixture-password-2',PASSWORD_DEFAULT)]);
     $pdo->prepare('INSERT INTO device_sessions(token_hash,user_id,expires_at) VALUES(?,?,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 1 DAY))')->execute([hash('sha256','fake-device-token'),1]);
     verifyReset(!passwordResetConfigured(array_replace($settings,['password_reset_enabled'=>false])),'reset stays disabled without approval and configuration');
