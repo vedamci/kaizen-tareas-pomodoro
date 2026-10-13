@@ -113,7 +113,11 @@
       if (task.list === 'trash') return false;
       if (task.due === key) return true;
       const plannedStart = Date.parse(task.scheduledStart), plannedEnd = Date.parse(task.scheduledEnd);
-      return Number.isFinite(plannedStart) && Number.isFinite(plannedEnd) && plannedEnd > plannedStart && plannedStart < end && plannedEnd > start;
+      if (Number.isFinite(plannedStart) && Number.isFinite(plannedEnd) && plannedEnd > plannedStart && plannedStart < end && plannedEnd > start) return true;
+      return Array.isArray(task.workBlocks) && task.workBlocks.some(block => {
+        const from = Date.parse(block.start), to = Date.parse(block.end);
+        return Number.isFinite(from) && Number.isFinite(to) && to > from && from < end && to > start;
+      });
     }).sort((a, b) => Number(!!a.done) - Number(!!b.done) || String(a.title || '').localeCompare(String(b.title || ''), 'es'));
   }
   // Use elapsed minutes between local midnights. This keeps skipped and
@@ -132,11 +136,13 @@
       ticks.push({ minute: (time - start) / 60000,
         label: date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', ...(repeated ? { timeZoneName: 'shortOffset' } : {}) }) });
     }
-    const blocks = tasks.filter(t => t.list !== 'trash').map(task => {
-      const from = Date.parse(task.scheduledStart), to = Date.parse(task.scheduledEnd);
-      if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to <= start || from >= end) return null;
-      return { task, start: Math.max(from, start), end: Math.min(to, end), continuesBefore: from < start, continuesAfter: to > end };
-    }).filter(Boolean).sort((a, b) => a.start - b.start || b.end - a.end || String(a.task.id).localeCompare(String(b.task.id)));
+    const blocks = tasks.filter(t => t.list !== 'trash').flatMap(task =>
+      (Array.isArray(task.workBlocks) ? task.workBlocks : []).map(block => {
+        const from = Date.parse(block.start), to = Date.parse(block.end);
+        if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to <= start || from >= end) return null;
+        return { task, block, start: Math.max(from, start), end: Math.min(to, end), continuesBefore: from < start, continuesAfter: to > end };
+      }).filter(Boolean)
+    ).sort((a, b) => a.start - b.start || b.end - a.end || String(a.task.id).localeCompare(String(b.task.id)) || String(a.block.id).localeCompare(String(b.block.id)));
     // Connected overlapping intervals share a lane count; touching intervals do not.
     for (let i = 0; i < blocks.length;) {
       let j = i, groupEnd = blocks[i].end;

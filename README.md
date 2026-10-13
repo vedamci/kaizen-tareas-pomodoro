@@ -3,10 +3,11 @@
 ## Calendario de hoy
 
 **Calendario de hoy** es una sección propia, separada de **Cronograma**. Abre
-con una agenda vertical de horas: los bloques muestran el inicio y fin reales,
+con una agenda vertical de horas: los bloques de trabajo muestran su inicio y fin,
 los solapamientos ocupan columnas paralelas y los huecos de al menos 30 minutos
 aparecen debajo. Al pulsar un hueco libre de la cuadrícula se abre allí mismo un
-editor: título, proyecto, inicio y fin; **Crear tarea** guarda y **Cancelar** descarta
+editor: se puede elegir una tarea existente o crear una nueva, ajustar inicio y fin;
+**Guardar bloque** confirma y **Cancelar** descarta
 el borrador. Los intervalos que cruzan medianoche se recortan al día visible.
 La zona horaria es la del dispositivo; los días de 23 o 25 horas se representan
 con su duración real. Cada bloque y su ficha accesible muestran creador y
@@ -20,13 +21,14 @@ personal; **Proyectos** y **Cronograma** conservan su alcance colaborativo.
 
 Puedes crear una tarea en el día, poner fecha a una tarea existente, cambiar su
 fecha límite o marcarla hecha desde la agenda. Cada tarjeta muestra el responsable
-confirmado. Las tareas con inicio y fin planificados aparecen como bloques en
-los días que cubren y abren el detalle al seleccionarlas. Si también tienen
-fecha límite, el día la cuenta una sola vez. Se usan los mismos campos
-`due`, `scheduledStart` y `scheduledEnd`, sin
-copiar tareas ni modificar su tiempo de Pomodoro. No se generan tareas recurrentes
-automáticamente. La vista horaria no cambia las fechas existentes ni asigna
-horas a tareas sin planificar. No importa eventos de Google Calendar. El día se calcula en la zona
+confirmado. Las tareas con un rango en Cronograma aparecen en la lista del día,
+pero no ocupan la cuadrícula horaria hasta que se les añada un bloque. Si también
+tienen fecha límite, el día las cuenta una sola vez. `workBlocks` guarda cero o
+más intervalos UTC con identificador y zona horaria dentro de la misma tarea;
+`scheduledStart` y `scheduledEnd` siguen siendo exclusivos del Cronograma. Los
+datos anteriores no se migran a bloques ni reciben horas inventadas. Al editar o
+quitar un bloque se conservan rango, fecha límite y tiempo Pomodoro. No se generan
+tareas recurrentes automáticamente ni se importan eventos de Google Calendar. El día se calcula en la zona
 local del dispositivo y la fecha
 elegida se restaura al recargar Kaizen. Al entrar de nuevo desde la navegación,
 la agenda vuelve a hoy.
@@ -275,6 +277,6 @@ Límite: la prueba HTTP usa el servidor integrado de PHP; no valida la configura
 Apache/cPanel/HTTPS de producción ni la entrega de notificaciones push. La vista
 previa en Chrome sigue usando datos ficticios. No se probó ni publicó en producción.
 
-El calendario diario anterior se fusionó en `main` el 9 de octubre de 2026.
-Esta mejora horaria está solo en la rama local `feature/hourly-agenda`; no se
-ha fusionado ni desplegado. No se verificó el código servido actualmente.
+El calendario horario anterior llegó a `main` el 12 de octubre de 2026. La
+separación de bloques y cronograma está en `feature/daily-work-blocks` para revisión;
+no se ha fusionado ni desplegado.

@@ -51,6 +51,7 @@ function projectTaskWrite(array $next, ?array $previous, array $projects, array 
 function validateTaskSchedule(array $task): void {
     $start = $task['scheduledStart'] ?? '';
     $end = $task['scheduledEnd'] ?? '';
+    validateTaskWorkBlocks($task['workBlocks'] ?? []);
     if ($start === '' && $end === '') return;
     $dates = [];
     foreach ([$start, $end] as $value) {
@@ -62,6 +63,26 @@ function validateTaskSchedule(array $task): void {
     if ($dates[1] <= $dates[0]) throw new DomainException('El fin debe ser posterior al inicio.', 422);
     $zone = $task['scheduleTimeZone'] ?? 'UTC';
     if (!is_string($zone) || !in_array($zone, DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), true)) throw new DomainException('La zona horaria no es válida.', 422);
+}
+function validateTaskWorkBlocks($blocks): void {
+    if (!is_array($blocks) || array_values($blocks) !== $blocks || count($blocks) > 500) throw new DomainException('Los bloques horarios no son válidos.', 422);
+    $ids = [];
+    foreach ($blocks as $block) {
+        if (!is_array($block) || !preg_match('/^[a-zA-Z0-9_-]{1,32}$/D', (string)($block['id'] ?? ''))) throw new DomainException('Identificador de bloque no válido.', 422);
+        if (isset($ids[$block['id']])) throw new DomainException('Bloque horario duplicado.', 422);
+        $ids[$block['id']] = true;
+        $dates = [];
+        foreach (['start', 'end'] as $field) {
+            $value = $block[$field] ?? null;
+            if (!is_string($value) || !preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/D', $value)) throw new DomainException('Fecha de bloque no válida.', 422);
+            $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:s.v\Z', $value, new DateTimeZone('UTC'));
+            if (!$date || $date->format('Y-m-d\TH:i:s.v\Z') !== $value) throw new DomainException('Fecha de bloque no válida.', 422);
+            $dates[] = $date;
+        }
+        if ($dates[1] <= $dates[0]) throw new DomainException('El fin del bloque debe ser posterior al inicio.', 422);
+        $zone = $block['timeZone'] ?? 'UTC';
+        if (!is_string($zone) || !in_array($zone, DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), true)) throw new DomainException('La zona horaria del bloque no es válida.', 422);
+    }
 }
 function validateTaskRevision(string $storedJson, array $incoming): void {
     if (!is_string($incoming['_revision'] ?? null) || !hash_equals(hash('sha256', $storedJson), $incoming['_revision'])) {
