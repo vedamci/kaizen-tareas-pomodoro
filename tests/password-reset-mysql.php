@@ -12,6 +12,18 @@ function verifyReset(bool $ok,string $name):void {global $count;if(!$ok)throw ne
 $outbox=[];
 $sender=static function(string $to,string $subject,string $message)use(&$outbox):bool {$outbox[]=['to'=>$to,'subject'=>$subject,'message'=>$message];return true;};
 $settings=['password_reset_enabled'=>true,'password_reset_url'=>'https://example.test/kaizen/','password_reset_from_email'=>'noreply@example.test','password_reset_rate_secret'=>'disposable-fixture-rate-key-only-for-tests'];
+class TransientLockPDO extends PDO {
+    public int $failures=0;
+    public function prepare(string $query, array $options=[]): PDOStatement|false {
+        if($this->failures>0 && str_contains($query,'SELECT id FROM users WHERE id=? FOR UPDATE')){
+            --$this->failures;
+            $error=new PDOException('Synthetic disposable deadlock');
+            $error->errorInfo=['40001',1213,'Synthetic disposable deadlock'];
+            throw $error;
+        }
+        return parent::prepare($query,$options);
+    }
+}
 try {
     $pdo->exec(file_get_contents(__DIR__.'/../api/schema.sql'));
     // Existing production table is created by db() at runtime, not schema.sql.
@@ -64,7 +76,7 @@ try {
     verifyReset(passwordResetQueueDecrypt(base64_encode($tampered),$settings['password_reset_rate_secret'])===null,'tampered queue ciphertext fails authentication');
     verifyReset(passwordResetQueueDecrypt($cipher,str_repeat('x',40))===null,'wrong queue secret cannot decrypt token');
     $insert=$pdo->prepare('INSERT INTO users(id,email,name,password_hash) VALUES(?,?,?,?)');
-    foreach([3,4,5] as $id)$insert->execute([$id,"queue$id@example.test","Queue $id",password_hash("queue-fixture-password-$id",PASSWORD_DEFAULT)]);
+    foreach([3,4,5,6,7] as $id)$insert->execute([$id,"queue$id@example.test","Queue $id",password_hash("queue-fixture-password-$id",PASSWORD_DEFAULT)]);
     passwordResetProcessQueue($pdo,$settings,$sender); // Discard earlier unknown-address dummy jobs.
     passwordResetRequest($pdo,'queue3@example.test','127.0.0.13',$settings);
     $attempts=0;
@@ -79,6 +91,13 @@ try {
     passwordResetRequest($pdo,'queue5@example.test','127.0.0.15',$settings);
     $pdo->exec('UPDATE password_reset_mail_queue SET expires_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 SECOND) WHERE user_id=5');
     verifyReset(passwordResetProcessQueue($pdo,$settings,$sender)===0 && (int)$pdo->query('SELECT COUNT(*) FROM password_reset_mail_queue WHERE user_id=5')->fetchColumn()===0,'expired queued job is discarded without sending');
+    $retryPdo=new TransientLockPDO($dsn,getenv('KAIZEN_TEST_DB_USER')?:'root',getenv('KAIZEN_TEST_DB_PASSWORD')?:'',[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
+    $retryPdo->failures=1;
+    passwordResetRequest($retryPdo,'queue6@example.test','127.0.0.16',$settings);
+    verifyReset($retryPdo->failures===0 && (int)$pdo->query('SELECT COUNT(*) FROM password_reset_mail_queue WHERE user_id=6')->fetchColumn()===1,'transient deadlock retries and queues once');
+    $retryPdo->failures=3;
+    passwordResetRequest($retryPdo,'queue7@example.test','127.0.0.17',$settings);
+    verifyReset($retryPdo->failures===0 && (int)$pdo->query('SELECT COUNT(*) FROM password_reset_mail_queue WHERE user_id=7')->fetchColumn()===0,'repeated deadlock ends without leaking account status or partial job');
     echo "$count password reset MySQL checks passed\n";
 } finally {
     if($pdo->inTransaction())$pdo->rollBack();
