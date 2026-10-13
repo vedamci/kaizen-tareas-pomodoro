@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, copyFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, copyFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,15 +12,17 @@ test('HTTP sessions, project access, delegation, persistence and concurrent edit
   const scratch=await mkdtemp(path.join(tmpdir(),'kaizen-http-'));
   let server, count=0, logs='';
   const check=(ok,label)=>{assert.ok(ok,label);count++;console.log('PASS '+label);};
-  const client=()=>({cookies:new Map(),token:''});
+  const client=()=>({cookies:new Map(),token:'',csrf:''});
   async function request(c,action,data={},expected=200,useToken=false){
     const headers={'Content-Type':'application/json'};
     if(c.cookies.size)headers.Cookie=[...c.cookies].map(([k,v])=>k+'='+v).join('; ');
     if(useToken&&c.token)headers['X-Remember-Token']=c.token;
+    if(action==='password_change'&&c.csrf)headers['X-CSRF-Token']=c.csrf;
     const res=await fetch(base+'?action='+action,{method:'POST',headers,body:JSON.stringify(data)});
     for(const cookie of res.headers.getSetCookie()){const pair=cookie.split(';',1)[0],i=pair.indexOf('=');c.cookies.set(pair.slice(0,i),pair.slice(i+1));}
     const json=await res.json();assert.equal(res.status,expected,action+': '+(json.error||'unexpected status'));check(json.ok===(expected<400),action+' HTTP '+expected);
     if(json.remember_token)c.token=json.remember_token;
+    if(json.csrf_token)c.csrf=json.csrf_token;
     return json;
   }
   const list=(c,w=1)=>request(c,'tasks',{workspace_id:w,scope:'projects'});
@@ -31,7 +33,7 @@ test('HTTP sessions, project access, delegation, persistence and concurrent edit
   const make=(id,project='')=>({id,title:id,project,list:'inbox',tags:[],subtasks:[],sharedWith:[],seconds:0,pomos:0,done:false});
   try {
     await mkdir(path.join(scratch,'api'));await mkdir(path.join(scratch,'sessions'));
-    for(const name of ['index.php','projects.php','project-policy.php'])await copyFile(path.join(repo,'api',name),path.join(scratch,'api',name));
+    for(const name of ['index.php','projects.php','project-policy.php','password-reset.php','password-reset-worker.php'])await copyFile(path.join(repo,'api',name),path.join(scratch,'api',name));
     execFileSync('php',[path.join(repo,'tests/http-fixture.php'),scratch],{stdio:'pipe'});
     server=spawn('php',['-d','session.save_path='+path.join(scratch,'sessions'),'-S','127.0.0.1:4180','-t',scratch],{env:{...process.env,PHP_CLI_SERVER_WORKERS:'4'},detached:true,stdio:['ignore','pipe','pipe']});
     server.stdout.on('data',d=>{logs+=d;});server.stderr.on('data',d=>{logs+=d;});
@@ -141,6 +143,35 @@ test('HTTP sessions, project access, delegation, persistence and concurrent edit
     await request(resumed,'logout',{},200,true);
     check((await request(resumed,'me',{},200,true)).user===null,'logout revokes remember token and cookie session');
     await request(resumed,'tasks',{workspace_id:1},401,true);
+    const unknown=await request(anon,'password_reset_request',{email:'absent@example.test'});
+    const known=await request(anon,'password_reset_request',{email:'fixture1@example.test'});
+    check(unknown.message===known.message,'reset request does not reveal whether account exists');
+    check((await readFile(path.join(scratch,'mail-outbox.jsonl'),'utf8').catch(()=>''))==='','HTTP response returns before fake mail delivery');
+    execFileSync('php',[path.join(scratch,'api/password-reset-worker.php')],{stdio:'pipe'});
+    const outbox=JSON.parse((await readFile(path.join(scratch,'mail-outbox.jsonl'),'utf8')).trim());
+    check(outbox.to==='fixture1@example.test'&&outbox.message.includes('https://example.test/kaizen/#reset='),'only known fake account receives reset link in fragment');
+    const resetToken=outbox.message.match(/#reset=([a-f0-9]{64})/)?.[1];
+    check(!!resetToken,'fake reset link includes opaque token');
+    await request(anon,'password_reset_confirm',{token:resetToken,password:'new-fixture-password-1',confirmation:'mismatch'},422);
+    await request(anon,'password_reset_confirm',{token:'bad',password:'new-fixture-password-1',confirmation:'new-fixture-password-1'},422);
+    await request(anon,'password_reset_confirm',{token:resetToken,password:'new-fixture-password-1',confirmation:'new-fixture-password-1'});
+    await request(anon,'password_reset_confirm',{token:resetToken,password:'new-fixture-password-2',confirmation:'new-fixture-password-2'},422);
+    check((await request(owner,'me')).user===null,'reset invalidates earlier cookie session');
+    const oldDevice=client();oldDevice.token=owner.token;
+    check((await request(oldDevice,'me',{},200,true)).user===null,'reset revokes remembered device token');
+    await request(owner,'login',{email:'fixture1@example.test',password:'disposable-http-fixture'},401);
+    await request(owner,'login',{email:'fixture1@example.test',password:'new-fixture-password-1'});
+    const noCsrf=client();noCsrf.cookies=new Map(member.cookies);
+    await request(noCsrf,'password_change',{current_password:'disposable-http-fixture',new_password:'member-new-password-1',confirmation:'member-new-password-1'},403);
+    await request(member,'password_change',{current_password:'wrong',new_password:'member-new-password-1',confirmation:'member-new-password-1'},422);
+    await request(member,'password_change',{current_password:'disposable-http-fixture',new_password:'member-new-password-1',confirmation:'mismatch'},422);
+    await request(member,'password_change',{current_password:'disposable-http-fixture',new_password:'member-new-password-1',confirmation:'member-new-password-1',user_id:1});
+    check((await request(member,'me')).user===null,'password change invalidates earlier cookie session');
+    const memberDevice=client();memberDevice.token=member.token;
+    check((await request(memberDevice,'me',{},200,true)).user===null,'password change revokes remembered device token');
+    await request(member,'login',{email:'fixture2@example.test',password:'disposable-http-fixture'},401);
+    await request(member,'login',{email:'fixture2@example.test',password:'member-new-password-1'});
+    await request(owner,'login',{email:'fixture1@example.test',password:'new-fixture-password-1'});
     await request(owner,'logout');await request(owner,'tasks',{workspace_id:1},401);
     console.log(`${count} HTTP checks passed`);
   } finally {

@@ -20,7 +20,12 @@ jobs:
           php -l api/index.php
           php -l api/projects.php
           php -l api/project-policy.php
+          php -l api/password-reset.php
+          php -l api/password-reset-worker.php
           php -l tests/projects-mysql.php
+          php -l tests/password-reset-mysql.php
+          php -l tests/password-race-mysql.php
+          php -l tests/password-migration-mysql.php
           php -l tests/http-fixture.php
           php tests/project-policy.php
       - name: Start disposable test database
@@ -33,6 +38,24 @@ jobs:
           KAIZEN_TEST_DB_USER: root
           KAIZEN_TEST_DB_PASSWORD: root # Disposable runner default; no production credentials.
         run: php tests/projects-mysql.php
+      - name: Password recovery and change integration with fake mail
+        env:
+          KAIZEN_TEST_DSN: mysql:host=127.0.0.1;dbname=kaizen_test_projects
+          KAIZEN_TEST_DB_USER: root
+          KAIZEN_TEST_DB_PASSWORD: root # Disposable runner default; no production credentials.
+        run: php tests/password-reset-mysql.php
+      - name: Concurrent login and revocation integration
+        env:
+          KAIZEN_TEST_DSN: mysql:host=127.0.0.1;dbname=kaizen_test_projects
+          KAIZEN_TEST_DB_USER: root
+          KAIZEN_TEST_DB_PASSWORD: root # Disposable runner default; no production credentials.
+        run: php tests/password-race-mysql.php
+      - name: Additive migration from populated fixture
+        env:
+          KAIZEN_TEST_DSN: mysql:host=127.0.0.1;dbname=kaizen_test_projects
+          KAIZEN_TEST_DB_USER: root
+          KAIZEN_TEST_DB_PASSWORD: root # Disposable runner default; no production credentials.
+        run: php tests/password-migration-mysql.php
       - name: HTTP sessions and delegation integration
         env:
           KAIZEN_TEST_DSN: mysql:host=127.0.0.1;dbname=kaizen_test_http

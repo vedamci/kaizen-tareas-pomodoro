@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
 <title>Kaizen</title>
 <meta name="theme-color" content="#f2381b">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -301,6 +302,8 @@
   .header-panel .input { width:100%; min-width:0; }
   .nested-options > summary, .calendar-help > summary { cursor:pointer; min-height:44px; padding:12px 0; font-size:13px; }
   .nested-options[open] > summary { margin-bottom:8px; }
+  .nested-options form { display:grid; gap:8px; }
+  .nested-options form [role="alert"] { min-height:18px; color:var(--color-accent-700); }
   .nav-more > summary { cursor:pointer; padding:14px 18px; min-height:44px; font-size:13px; }
   .nav-more button { width:100%; min-height:44px; }
   .sidebar > button { min-height:44px; }
@@ -352,10 +355,13 @@
         <sc-if value="{{ showRegisterFields }}" hint-placeholder-val="{{ false }}">
           <div class="field" style="margin-bottom:12px"><label>Nombre</label><input class="input" value="{{ authName }}" onInput="{{ onAuthName }}" autocomplete="name"></div>
         </sc-if>
-        <div class="field" style="margin-bottom:12px"><label>Correo</label><input class="input" type="email" value="{{ authEmail }}" onInput="{{ onAuthEmail }}" autocomplete="email"></div>
-        <div class="field" style="margin-bottom:12px"><label>Contraseña</label><input class="input" type="password" value="{{ authPassword }}" onInput="{{ onAuthPassword }}" onKeyDown="{{ onAuthKey }}" autocomplete="{{ passwordAutocomplete }}"></div>
+        <sc-if value="{{ showAuthEmail }}"><div class="field" style="margin-bottom:12px"><label>Correo</label><input class="input" type="email" value="{{ authEmail }}" onInput="{{ onAuthEmail }}" onKeyDown="{{ onAuthKey }}" autocomplete="email"></div></sc-if>
+        <sc-if value="{{ showAuthPassword }}"><div class="field" style="margin-bottom:12px"><label>Contraseña</label><input class="input" type="password" value="{{ authPassword }}" onInput="{{ onAuthPassword }}" onKeyDown="{{ onAuthKey }}" autocomplete="{{ passwordAutocomplete }}"></div></sc-if>
+        <sc-if value="{{ showResetFields }}"><div class="field" style="margin-bottom:12px"><label for="reset-password">Nueva contraseña</label><input id="reset-password" class="input" type="password" autocomplete="new-password" value="{{ resetPassword }}" onInput="{{ onResetPassword }}" onKeyDown="{{ onAuthKey }}"></div><div class="field" style="margin-bottom:12px"><label for="reset-confirmation">Confirmar contraseña</label><input id="reset-confirmation" class="input" type="password" autocomplete="new-password" value="{{ resetConfirmation }}" onInput="{{ onResetConfirmation }}" onKeyDown="{{ onAuthKey }}"></div></sc-if>
         <div style="min-height:20px;color:var(--color-accent);font-size:12px;margin-bottom:8px">{{ authError }}</div>
-        <button class="btn btn-primary btn-block" onClick="{{ onSubmitAuth }}">{{ authSubmitLabel }}</button>
+        <div role="status" style="font-size:12px;margin-bottom:8px">{{ authSuccess }}</div>
+        <button class="btn btn-primary btn-block" disabled="{{ authBusy }}" onClick="{{ onSubmitAuth }}">{{ authSubmitLabel }}</button>
+        <sc-if value="{{ showForgotLink }}"><button class="btn btn-ghost btn-block" onClick="{{ onForgotPassword }}" style="margin-top:8px">Olvidé mi contraseña</button></sc-if>
         <button class="btn btn-ghost btn-block" onClick="{{ onToggleAuth }}" style="margin-top:8px">{{ authToggleLabel }}</button>
       </div>
     </div>
@@ -391,6 +397,7 @@
             <strong class="panel-label">Cuenta</strong><div class="account-name">{{ authUserLabel }}</div>
             <sc-if value="{{ canSwitchWorkspace }}"><label for="header-workspace">Espacio de trabajo</label><select id="header-workspace" class="input" value="{{ workspaceId }}" onChange="{{ onWorkspaceChange }}"><sc-for list="{{ workspaceOptions }}" as="w"><option value="{{ w.id }}">{{ w.name }}</option></sc-for></select></sc-if>
             <sc-if value="{{ isFixedWorkspace }}"><div class="panel-help">{{ activeWorkspaceName }}</div></sc-if>
+            <details class="nested-options"><summary>Cambiar contraseña</summary><form onSubmit="{{ onChangePassword }}" aria-label="Cambiar contraseña"><label for="change-current">Contraseña actual</label><input id="change-current" class="input" type="password" autocomplete="current-password" value="{{ changeCurrent }}" onInput="{{ onChangeCurrent }}"><label for="change-new">Nueva contraseña</label><input id="change-new" class="input" type="password" autocomplete="new-password" value="{{ changeNew }}" onInput="{{ onChangeNew }}"><label for="change-confirmation">Confirmar contraseña nueva</label><input id="change-confirmation" class="input" type="password" autocomplete="new-password" value="{{ changeConfirmation }}" onInput="{{ onChangeConfirmation }}"><div role="alert">{{ changeError }}</div><button class="btn btn-secondary" type="submit" disabled="{{ changeBusy }}">Guardar contraseña</button></form></details>
             <button class="btn btn-ghost" onClick="{{ onLogout }}">Cerrar sesión</button>
           </sc-if>
         </div>
@@ -954,7 +961,7 @@ class Component extends DCLogic {
     pushReady: false,
     activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, full: false,
     teamTasks:[], teamProjects:[], teamLoading:false, teamError:'',
-    auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '', delegatingId: null, delegationDraft: [], delegationBusy: false, delegationError: '',
+    auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '', authSuccess:'', authBusy:false, resetToken:'', resetPassword:'', resetConfirmation:'', changeCurrent:'', changeNew:'', changeConfirmation:'', changeError:'', changeBusy:false, delegatingId: null, delegationDraft: [], delegationBusy: false, delegationError: '',
     authName: '', authEmail: '', authPassword: '', adminSummary: [], adminMembers: [], workspaceMembers: [], adminOpen: false, statsDay: null,
     newWorkspaceName: '', inviteEmail: '', memberRole: 'member', inviteRole: 'member', inviteWorkspaceId: null, inviteUrl: '', inviteWorkspace: '', inviteToken: '', suggestionTitle: '', suggestionBody: '', suggestions: [], improvementChecklist: [], checklistDraft: '', mobileNavOpen: false, toast: '', notificationState: 'default', theme: 'classic'
   };
@@ -1340,9 +1347,15 @@ class Component extends DCLogic {
       }
     };
     window.addEventListener('pagehide', this.onPageHide);
-    const inviteToken = new URLSearchParams(location.search).get('invite') || '';
-    if (inviteToken) { this.setState({ inviteToken, authMode: 'register' }); this.api('invite_info', { token: inviteToken }).then(r => { if (r.ok) this.setState({ inviteWorkspace: r.workspace }); else this.setState({ authError: r.error || 'Liga de invitación no válida.' }); }).catch(() => {}); }
-    this.bootstrapAuth();
+    const resetMatch=location.hash.match(/^#reset=([a-f0-9]{64})$/);
+    if(resetMatch){
+      history.replaceState(null,'',location.pathname+location.search);
+      this.setState({authMode:'reset',resetToken:resetMatch[1],authError:''});
+    }else{
+      const inviteToken = new URLSearchParams(location.search).get('invite') || '';
+      if (inviteToken) { this.setState({ inviteToken, authMode: 'register' }); this.api('invite_info', { token: inviteToken }).then(r => { if (r.ok) this.setState({ inviteWorkspace: r.workspace }); else this.setState({ authError: r.error || 'Liga de invitación no válida.' }); }).catch(() => {}); }
+      this.bootstrapAuth();
+    }
   }
   componentWillUnmount() { clearInterval(this.timer); document.removeEventListener('visibilitychange', this.onVisibility); window.removeEventListener('keydown', this.onKey); window.removeEventListener('pagehide', this.onPageHide); }
   componentDidUpdate() {
@@ -1382,6 +1395,7 @@ class Component extends DCLogic {
     try { deviceToken = localStorage.getItem(this.KEY + ':device') || ''; } catch (e) {}
     const headers = { 'Content-Type': 'application/json' };
     if (deviceToken) headers['X-Remember-Token'] = deviceToken;
+    if (action === 'password_change' && this.csrfToken) headers['X-CSRF-Token'] = this.csrfToken;
     const res = await fetch('./api/index.php?action=' + encodeURIComponent(action), {
       method: 'POST', headers, credentials: 'same-origin', body: JSON.stringify(payload)
     });
@@ -1398,6 +1412,7 @@ class Component extends DCLogic {
     try {
       const r = await this.api('me');
       if (r.ok && r.user) {
+        this.csrfToken=r.csrf_token||'';
         const workspaceId = this.preferredWorkspaceId(r.workspaces || []);
         this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', dailyAssignId:'', improvementChecklist: [] });
         if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
@@ -1518,12 +1533,15 @@ class Component extends DCLogic {
     catch (e) { this.setState({ scheduleError: e.message }); }
   }
   async submitAuth() {
+    if(this.state.authMode==='forgot')return this.requestPasswordReset();
+    if(this.state.authMode==='reset')return this.confirmPasswordReset();
     this.discardSlotDraft();
     this.remoteSaved = {};
     const s = this.state;
     try {
       const r = await this.api(s.authMode === 'login' ? 'login' : 'register', { name: s.authName, email: s.authEmail, password: s.authPassword, invite_token: s.inviteToken });
       if (!r.ok) { this.setState({ authError: r.error || 'No se pudo completar el registro.' }); return; }
+      this.csrfToken=r.csrf_token||'';
       try { if (r.remember_token) localStorage.setItem(this.KEY + ':device', r.remember_token); } catch (e) {}
       const ws = r.workspaces || [];
       this.remoteReady = true;
@@ -1533,7 +1551,47 @@ class Component extends DCLogic {
       if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
-  async logout() { this.discardSlotDraft(); this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1; this.remoteSaved = {};  await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', dailyAssignId:'', improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
+  async requestPasswordReset() {
+    if(this.state.authBusy)return;
+    this.setState({authBusy:true,authError:'',authSuccess:''});
+    try{
+      const r=await this.api('password_reset_request',{email:this.state.authEmail});
+      this.setState({authError:r.ok?'':r.error||'No se pudo solicitar la recuperación.',authSuccess:r.ok?r.message||'Si existe una cuenta con ese correo, recibirás instrucciones.':''});
+    }catch(e){this.setState({authError:'No se pudo conectar con el servidor.'});}
+    finally{this.setState({authBusy:false});}
+  }
+  async confirmPasswordReset() {
+    if(this.state.authBusy)return;
+    const s=this.state;
+    if(s.resetPassword!==s.resetConfirmation||s.resetPassword.length<12){this.setState({authError:'Las contraseñas deben coincidir y tener al menos 12 caracteres.'});return;}
+    this.setState({authBusy:true,authError:''});
+    try{
+      const r=await this.api('password_reset_confirm',{token:s.resetToken,password:s.resetPassword,confirmation:s.resetConfirmation});
+      if(!r.ok){this.setState({authError:r.error||'No se pudo restablecer la contraseña.'});return;}
+      try{localStorage.removeItem(this.KEY+':device');}catch(e){}
+      this.csrfToken='';
+      this.setState({authMode:'login',resetToken:'',resetPassword:'',resetConfirmation:'',authPassword:'',authSuccess:r.message||'Contraseña actualizada. Inicia sesión de nuevo.'});
+    }catch(e){this.setState({authError:'No se pudo conectar con el servidor.'});}
+    finally{this.setState({authBusy:false});}
+  }
+  async changePassword(event) {
+    event?.preventDefault?.();
+    if(this.state.changeBusy||!this.state.auth)return;
+    const s=this.state;
+    if(s.changeNew!==s.changeConfirmation||s.changeNew.length<12){this.setState({changeError:'Las contraseñas nuevas deben coincidir y tener al menos 12 caracteres.'});return;}
+    this.setState({changeBusy:true,changeError:''});
+    try{
+      const r=await this.api('password_change',{current_password:s.changeCurrent,new_password:s.changeNew,confirmation:s.changeConfirmation});
+      if(!r.ok){
+        if(r.error==='No has iniciado sesión.'){await this.logout();this.setState({authError:'La sesión venció. Inicia sesión de nuevo.'});return;}
+        this.setState({changeError:r.error||'No se pudo cambiar la contraseña.'});return;
+      }
+      await this.logout();
+      this.setState({authSuccess:'Contraseña actualizada. Inicia sesión de nuevo.',changeCurrent:'',changeNew:'',changeConfirmation:''});
+    }catch(e){this.setState({changeError:'No se pudo conectar con el servidor.'});}
+    finally{this.setState({changeBusy:false});}
+  }
+  async logout() { this.discardSlotDraft(); this.csrfToken=''; this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1; this.remoteSaved = {}; try { await this.api('logout'); } finally { try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', dailyAssignId:'', improvementChecklist: [], authPassword: '', changeCurrent:'',changeNew:'',changeConfirmation:'', selId: null, delegatingId: null }); } }
   async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', dailyAssignId:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
   async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return; const r=await this.api('workspace_members',{workspace_id:workspaceId}); if(r.ok)this.setState({workspaceMembers:r.members||[]}); }
   async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], workspaceMembers: m.members || [], adminOpen: true }); } }
@@ -2295,17 +2353,21 @@ class Component extends DCLogic {
       cannotMoveProject: sel?._can_move===false,
 
       showAuth: !s.auth, hasAuth: !!s.auth, inviteWorkspace: s.inviteWorkspace,
-      authMode: s.authMode, authName: s.authName, authEmail: s.authEmail, authPassword: s.authPassword, authError: s.authError,
-      authTitle: s.authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta',
-      authSubmitLabel: s.authMode === 'login' ? 'Entrar' : 'Registrarme',
-      authToggleLabel: s.authMode === 'login' ? 'Crear una cuenta nueva' : 'Ya tengo una cuenta',
-      showRegisterFields: s.authMode === 'register', passwordAutocomplete: s.authMode === 'login' ? 'current-password' : 'new-password',
+      authMode: s.authMode, authName: s.authName, authEmail: s.authEmail, authPassword: s.authPassword, authError: s.authError, authSuccess:s.authSuccess, authBusy:s.authBusy,
+      authTitle: s.authMode==='forgot'?'Recuperar contraseña':s.authMode==='reset'?'Crear contraseña nueva':s.authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta',
+      authSubmitLabel: s.authMode==='forgot'?'Enviar instrucciones':s.authMode==='reset'?'Guardar contraseña':s.authMode === 'login' ? 'Entrar' : 'Registrarme',
+      authToggleLabel: s.authMode==='forgot'||s.authMode==='reset'?'Volver a iniciar sesión':s.authMode === 'login' ? 'Crear una cuenta nueva' : 'Ya tengo una cuenta',
+      showRegisterFields: s.authMode === 'register',showAuthEmail:s.authMode!=='reset',showAuthPassword:s.authMode==='login'||s.authMode==='register',showResetFields:s.authMode==='reset',showForgotLink:s.authMode==='login',resetPassword:s.resetPassword,resetConfirmation:s.resetConfirmation,passwordAutocomplete: s.authMode === 'login' ? 'current-password' : 'new-password',
       onAuthName: e => this.setState({ authName: e.target.value, authError: '' }),
       onAuthEmail: e => this.setState({ authEmail: e.target.value, authError: '' }),
       onAuthPassword: e => this.setState({ authPassword: e.target.value, authError: '' }),
+      onResetPassword:e=>this.setState({resetPassword:e.target.value,authError:''}),onResetConfirmation:e=>this.setState({resetConfirmation:e.target.value,authError:''}),
       onAuthKey: e => { if (e.key === 'Enter') this.submitAuth(); },
       onSubmitAuth: () => this.submitAuth(),
-      onToggleAuth: () => this.setState(s2 => ({ authMode: s2.authMode === 'login' ? 'register' : 'login', authError: '' })),
+      onToggleAuth: () => this.setState(s2 => ({ authMode: s2.authMode === 'login' ? 'register' : 'login', authError: '',authSuccess:'',resetToken:'',resetPassword:'',resetConfirmation:'' })),
+      onForgotPassword:()=>this.setState({authMode:'forgot',authPassword:'',authError:'',authSuccess:''}),
+      changeCurrent:s.changeCurrent,changeNew:s.changeNew,changeConfirmation:s.changeConfirmation,changeError:s.changeError,changeBusy:s.changeBusy,
+      onChangeCurrent:e=>this.setState({changeCurrent:e.target.value,changeError:''}),onChangeNew:e=>this.setState({changeNew:e.target.value,changeError:''}),onChangeConfirmation:e=>this.setState({changeConfirmation:e.target.value,changeError:''}),onChangePassword:e=>this.changePassword(e),
       onLogout: () => this.logout(),
       workspaceId: s.workspaceId,
       workspaceOptions: s.workspaces,
