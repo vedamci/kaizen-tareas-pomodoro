@@ -107,8 +107,9 @@ test('slot form confirms once, validates edits and can cross midnight',()=>{
     c.state.slotProject='allowed';c.state.slotEndDraft='2026-10-05T23:00';c.createSlotTask(event);assert.equal(c.state.tasks.length,0);assert.match(c.state.slotError,/posterior/);
     c.state.slotEndDraft='2026-10-06T00:30';c.createSlotTask(event);c.createSlotTask(event);
     assert.equal(c.state.tasks.length,1);const task=c.state.tasks[0];
-    assert.equal(task.title,'Night task');assert.equal(task.project,'allowed');assert.equal(task.due,'2026-10-05');
+    assert.equal(task.title,'Night task');assert.equal(task.project,'allowed');assert.equal(task.due,'');assert.equal(task.list,'inbox');
     assert.equal(task.scheduledStart,undefined);assert.equal(task.scheduledEnd,undefined);assert.equal(task.workBlocks[0].start,'2026-10-05T23:30:00.000Z');assert.equal(task.workBlocks[0].end,'2026-10-06T00:30:00.000Z');
+    assert.equal(c.slotCreateBusy,true);
     assert.equal(c.state.slotCreateOpen,false);assert.equal(c.renderVals().hourlyBlocks.length,1);
   } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
 });

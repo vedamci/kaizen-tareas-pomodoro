@@ -26,7 +26,10 @@ pero no ocupan la cuadrícula horaria hasta que se les añada un bloque. Si tamb
 tienen fecha límite, el día las cuenta una sola vez. `workBlocks` guarda cero o
 más intervalos UTC con identificador y zona horaria dentro de la misma tarea;
 `scheduledStart` y `scheduledEnd` siguen siendo exclusivos del Cronograma. Los
-datos anteriores no se migran a bloques ni reciben horas inventadas. Al editar o
+datos anteriores no se migran a bloques ni reciben horas inventadas. Las tareas
+creadas desde una hora libre con la versión anterior conservan su rango en
+Cronograma y aparecen abajo como tareas sin bloque hasta que alguien les asigne
+un intervalo de trabajo. Al editar o
 quitar un bloque se conservan rango, fecha límite y tiempo Pomodoro. No se generan
 tareas recurrentes automáticamente ni se importan eventos de Google Calendar. El día se calcula en la zona
 local del dispositivo y la fecha
@@ -84,7 +87,7 @@ datos ficticios y nunca debe conectarse a la API publicada.
 Verificación adicional por CLI: ocho pruebas de calendario y componente
 cubren rangos y límites, cambio de mes/año, DST, tareas cortas junto a tareas
 largas, contador, filtros, navegación, localizar tareas y conservación de datos.
-La suite JavaScript suma ahora 56 pruebas. La captura directa en el calendario
+La suite JavaScript suma ahora 59 pruebas. La captura directa en el calendario
 se verificó con datos ficticios en Chrome a 1280, 375 y 320 px, incluido el
 acceso por teclado, cancelar y guardar.
 
