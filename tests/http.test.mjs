@@ -101,13 +101,15 @@ test('HTTP sessions, project access, delegation, persistence and concurrent edit
     await share(owner,'project-task',[2]);
     let task=await get(member,'project-task');task.notes='Member edit';await sync(member,[task]);
     task=await get(member,'project-task');task.project='';await sync(member,[task],403);
-    task=await get(owner,'project-task');Object.assign(task,{seconds:1500,pomos:1,scheduledStart:'2026-10-05T15:00:00.000Z',scheduledEnd:'2026-10-05T17:00:00.000Z',scheduleTimeZone:'America/Mexico_City'});await sync(owner,[task]);
+    task=await get(owner,'project-task');Object.assign(task,{seconds:1500,pomos:1,scheduledStart:'2026-10-05T15:00:00.000Z',scheduledEnd:'2026-10-05T17:00:00.000Z',scheduleTimeZone:'America/Mexico_City',workBlocks:[{id:'block-1',start:'2026-10-05T15:30:00.000Z',end:'2026-10-05T16:00:00.000Z',timeZone:'America/Mexico_City'}]});await sync(owner,[task]);
+    check((await get(member,'project-task')).workBlocks[0].id==='block-1','hourly block persists across sessions without replacing timeline dates');
     const snapshot=await get(member,'project-task');task=await get(owner,'project-task');task.project=b.id;await sync(owner,[task]);
     await request(member,'task_members',{workspace_id:1,task_id:'project-task'},403);
     await share(member,'project-task',[],403);
     await sync(member,[snapshot],403);
     const moved=await get(other,'project-task');check(moved.seconds===1500&&moved.pomos===1&&moved.notes==='Member edit','move preserves Pomodoro and collaborator notes');
     check(moved.scheduledStart==='2026-10-05T15:00:00.000Z','UTC schedule persists across sessions and projects');
+    check(moved.workBlocks[0].start==='2026-10-05T15:30:00.000Z','hourly block persists after project move');
     task=await get(owner,'project-task');task.project='';await sync(owner,[task]);
     check(!(await list(other)).tasks.some(t=>t.id==='project-task'),'removal restores personal visibility for former project member');
     check((await get(member,'project-task'))._shared_user_ids.includes(2),'removal preserves independent delegation');

@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="./kaizen-icon-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
 <script src="./support.js?v=b3aae4f45716"></script>
-<script src="./planning.js?v=hourly-slot-1"></script>
+<script src="./planning.js?v=daily-work-blocks-1"></script>
 </head>
 <body>
 <x-dc>
@@ -624,9 +624,9 @@
         <sc-if value="{{ isDailyCalendar }}" hint-placeholder-val="{{ false }}">
           <div class="daily-hero"><div><small>{{ dailyHeroLabel }}</small><h3 aria-live="polite">{{ dailyDayLabel }}</h3><p>{{ dailyCount }} tareas · {{ dailyPending }} pendientes</p></div><div class="daily-actions"><button class="btn btn-secondary" aria-label="Día anterior" onClick="{{ onDailyPreviousDay }}">‹</button><button class="btn btn-secondary" onClick="{{ onDailyToday }}">Hoy</button><button class="btn btn-secondary" aria-label="Día siguiente" onClick="{{ onDailyNextDay }}">›</button></div></div>
           <section class="hourly-agenda" aria-label="Horas ocupadas del día seleccionado">
-            <h3>Horas ocupadas</h3><p>{{ hourlyCount }} tareas con inicio y fin · {{ scheduleZoneLabel }}. Toca una hora libre para preparar una tarea, o selecciona un bloque ocupado para abrirlo. La tarea nueva se guarda solo al confirmar el formulario.</p>
-            <div class="hourly-scroll" role="region" aria-label="Agenda por horas; desplázate vertical y horizontalmente para recorrer el día" tabIndex="0"><div class="hourly-sheet" style="{{ hourlySheetStyle }}"><div class="hourly-axis" aria-hidden="true"><sc-for list="{{ hourlyTicks }}" as="tick"><div class="hourly-tick" style="{{ tick.style }}">{{ tick.label }}</div></sc-for></div><div class="hourly-events"><sc-for list="{{ hourlySlots }}" as="slot"><button class="hourly-slot" style="{{ slot.style }}" onClick="{{ slot.onOpen }}" title="{{ slot.label }}" aria-label="{{ slot.label }}"></button></sc-for><sc-for list="{{ hourlyBlocks }}" as="event"><button class="hourly-block" data-task-id="{{ event.id }}" data-done="{{ event.done }}" style="{{ event.style }}" onClick="{{ event.onOpen }}" title="{{ event.label }}" aria-label="{{ event.label }}"><strong>{{ event.title }}</strong><small>{{ event.timeLabel }}</small><small>{{ event.peopleLabel }}</small></button></sc-for><sc-if value="{{ hourlyHasNow }}"><div class="hourly-now" style="{{ hourlyNowStyle }}" aria-hidden="true"></div></sc-if>
-            <sc-if value="{{ slotCreateOpen }}"><form class="slot-create" style="{{ slotCreateStyle }}" onSubmit="{{ onSlotCreate }}" aria-label="Crear tarea en el calendario"><h4>Crear tarea en esta hora</h4><p>{{ slotTimeLabel }} · {{ slotZoneLabel }}. Inicio y fin editables; confirma para guardar.</p><div class="slot-create-fields"><label for="slot-task-title">Tarea<input id="slot-task-title" class="input" required value="{{ slotTitle }}" onInput="{{ onSlotTitle }}" placeholder="Nombre de la tarea"></label><label for="slot-task-project">Proyecto<select id="slot-task-project" class="input" value="{{ slotProject }}" onChange="{{ onSlotProject }}"><option value="">Sin proyecto</option><sc-for list="{{ projectOptions }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for></select></label><label for="slot-task-start">Inicio<input id="slot-task-start" class="input" type="datetime-local" required value="{{ slotStartDraft }}" onInput="{{ onSlotStart }}"></label><label for="slot-task-end">Fin<input id="slot-task-end" class="input" type="datetime-local" required value="{{ slotEndDraft }}" onInput="{{ onSlotEnd }}"></label></div><div role="alert">{{ slotError }}</div><div class="slot-create-actions"><button class="btn btn-primary" type="submit">Crear tarea</button><button class="btn btn-secondary" type="button" onClick="{{ onSlotCancel }}">Cancelar</button></div></form></sc-if>
+            <h3>Horas ocupadas</h3><p>{{ hourlyCount }} bloques de trabajo · {{ scheduleZoneLabel }}. Toca una hora libre para agendar una tarea nueva o existente. Los bloques son independientes de las fechas del cronograma.</p>
+            <div class="hourly-scroll" role="region" aria-label="Agenda por horas; desplázate vertical y horizontalmente para recorrer el día" tabIndex="0"><div class="hourly-sheet" style="{{ hourlySheetStyle }}"><div class="hourly-axis" aria-hidden="true"><sc-for list="{{ hourlyTicks }}" as="tick"><div class="hourly-tick" style="{{ tick.style }}">{{ tick.label }}</div></sc-for></div><div class="hourly-events"><sc-for list="{{ hourlySlots }}" as="slot"><button class="hourly-slot" style="{{ slot.style }}" onClick="{{ slot.onOpen }}" title="{{ slot.label }}" aria-label="{{ slot.label }}"></button></sc-for><sc-for list="{{ hourlyBlocks }}" as="event"><button class="hourly-block" data-task-id="{{ event.id }}" data-block-id="{{ event.blockId }}" data-done="{{ event.done }}" style="{{ event.style }}" onClick="{{ event.onOpen }}" title="{{ event.label }}" aria-label="{{ event.label }}"><strong>{{ event.title }}</strong><small>{{ event.timeLabel }}</small><small>{{ event.peopleLabel }}</small></button></sc-for><sc-if value="{{ hourlyHasNow }}"><div class="hourly-now" style="{{ hourlyNowStyle }}" aria-hidden="true"></div></sc-if>
+            <sc-if value="{{ slotCreateOpen }}"><form class="slot-create" style="{{ slotCreateStyle }}" onSubmit="{{ onSlotCreate }}" aria-label="Agendar bloque horario"><h4>Agendar bloque de trabajo</h4><p>{{ slotTimeLabel }} · {{ slotZoneLabel }}. Edita la hora sin modificar el cronograma.</p><sc-if value="{{ slotCanChooseTask }}"><label for="slot-task-existing">Tarea existente<select id="slot-task-existing" class="input" value="{{ slotTaskId }}" onChange="{{ onSlotTask }}"><option value="">Crear tarea nueva</option><sc-for list="{{ slotTaskOptions }}" as="t"><option value="{{ t.id }}">{{ t.title }}</option></sc-for></select></label></sc-if><sc-if value="{{ slotIsNew }}"><div class="slot-create-fields"><label for="slot-task-title">Nombre de la tarea nueva<input id="slot-task-title" class="input" required value="{{ slotTitle }}" onInput="{{ onSlotTitle }}" placeholder="Nombre de la tarea"></label><label for="slot-task-project">Proyecto<select id="slot-task-project" class="input" value="{{ slotProject }}" onChange="{{ onSlotProject }}"><option value="">Sin proyecto</option><sc-for list="{{ projectOptions }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for></select></label></div></sc-if><div class="slot-create-fields"><label for="slot-task-start">Inicio<input id="slot-task-start" class="input" type="datetime-local" required value="{{ slotStartDraft }}" onInput="{{ onSlotStart }}"></label><label for="slot-task-end">Fin<input id="slot-task-end" class="input" type="datetime-local" required value="{{ slotEndDraft }}" onInput="{{ onSlotEnd }}"></label></div><div role="alert">{{ slotError }}</div><div class="slot-create-actions"><button class="btn btn-primary" type="submit">Guardar bloque</button><sc-if value="{{ slotIsEditing }}"><button class="btn btn-secondary" type="button" onClick="{{ onSlotRemove }}">Quitar bloque</button><button class="btn btn-secondary" type="button" onClick="{{ onSlotOpenTask }}">Abrir tarea</button></sc-if><button class="btn btn-secondary" type="button" onClick="{{ onSlotCancel }}">Cancelar</button></div></form></sc-if>
 </div></div></div>
 
             <div class="hourly-entries" aria-label="Detalle de tareas con horario"><sc-for list="{{ hourlyBlocks }}" as="event"><button onClick="{{ event.onOpen }}" aria-label="{{ event.label }}"><strong>{{ event.title }}</strong><small>{{ event.timeLabel }}</small><small>{{ event.peopleLabel }}</small></button></sc-for></div>
@@ -947,7 +947,7 @@ class Component extends DCLogic {
     tasks: [], projects: [], log: {}, view: 'today', selId: null,
     newTitle: '', newProject: '', subDraft: '', projFilter: null, newTaskProject: '', timelineProject: '', timelineMode: 'week', timelineAnchor: null,
     dailyDate: '', dailyBrowseMonth: '', dailyTitle: '', dailyProject: '', dailyAssignId: '',
-    slotCreateOpen:false, slotDay:'', slotTitle:'', slotProject:'', slotStartDraft:'', slotEndDraft:'', slotStartInstant:'', slotEndInstant:'', slotOwnerId:null, slotWorkspaceId:null, slotTimeLabel:'', slotError:'',
+    slotCreateOpen:false, slotDay:'', slotTitle:'', slotProject:'', slotTaskId:'', slotBlockId:'', slotStartDraft:'', slotEndDraft:'', slotStartInstant:'', slotEndInstant:'', slotOwnerId:null, slotWorkspaceId:null, slotTimeLabel:'', slotError:'',
     projectEditId: null, projectMemberDraft: [], projectBusy: false, scheduleEditId: null, scheduleStartDraft: '', scheduleEndDraft: '', scheduleError: '', syncError: '',
     pomo: { mode: 'focus', remaining: 1500, running: false, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null },
     timerSpeed: 1,
@@ -1777,7 +1777,7 @@ class Component extends DCLogic {
     this.slotCreateScroller=this.slotCreateTrigger?.closest?.('.hourly-scroll')||null;
     this.slotCreateScrollTop=this.slotCreateScroller?.scrollTop??null;
     const fmt=value=>new Date(value).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZoneName:'shortOffset'});
-    this.setState({slotCreateOpen:true,slotDay:dayKey,slotTitle:'',slotProject:'',slotStartDraft:KaizenPlanning.localInput(start),slotEndDraft:KaizenPlanning.localInput(end),slotStartInstant:new Date(start).toISOString(),slotEndInstant:new Date(end).toISOString(),slotOwnerId:this.state.auth?.id??null,slotWorkspaceId:this.state.workspaceId??null,slotTimeLabel:fmt(start)+'–'+fmt(end),slotError:''});
+    this.setState({slotCreateOpen:true,slotDay:dayKey,slotTitle:'',slotProject:'',slotTaskId:'',slotBlockId:'',slotStartDraft:KaizenPlanning.localInput(start),slotEndDraft:KaizenPlanning.localInput(end),slotStartInstant:new Date(start).toISOString(),slotEndInstant:new Date(end).toISOString(),slotOwnerId:this.state.auth?.id??null,slotWorkspaceId:this.state.workspaceId??null,slotTimeLabel:fmt(start)+'–'+fmt(end),slotError:''});
     if(typeof document!=='undefined')setTimeout(()=>{
       document.querySelector('#slot-task-title')?.focus();
       const scroller=this.slotCreateScroller;
@@ -1793,17 +1793,37 @@ class Component extends DCLogic {
     this.slotCreateScroller=null;
     this.slotCreateScrollTop=null;
     this.slotCreateBusy=false;
-    this.setState({slotCreateOpen:false,slotDay:'',slotTitle:'',slotProject:'',slotStartDraft:'',slotEndDraft:'',slotStartInstant:'',slotEndInstant:'',slotOwnerId:null,slotWorkspaceId:null,slotTimeLabel:'',slotError:''});
+    this.setState({slotCreateOpen:false,slotDay:'',slotTitle:'',slotProject:'',slotTaskId:'',slotBlockId:'',slotStartDraft:'',slotEndDraft:'',slotStartInstant:'',slotEndInstant:'',slotOwnerId:null,slotWorkspaceId:null,slotTimeLabel:'',slotError:''});
   }
   cancelSlotCreate() {
     const trigger=this.slotCreateTrigger,label=this.slotCreateTriggerLabel;
     const scroller=this.slotCreateScroller,scrollTop=this.slotCreateScrollTop;
     this.discardSlotDraft();
     if(typeof document!=='undefined')setTimeout(()=>{
-      const current=trigger?.isConnected?trigger:[...document.querySelectorAll('.hourly-slot, .hourly-free button')].find(el=>el.getAttribute('aria-label')===label);
+      const current=trigger?.isConnected?trigger:[...document.querySelectorAll('.hourly-slot, .hourly-free button, .hourly-block, .hourly-entries button')].find(el=>el.getAttribute('aria-label')===label);
       current?.focus({preventScroll:true});
       if(scroller?.isConnected&&scrollTop!==null)scroller.scrollTop=scrollTop;
     },0);
+  }
+  openSlotEdit(taskId, blockId, event) {
+    const task=this.state.tasks.find(t=>t.id===taskId&&this.isPersonalTask(t));
+    const block=task?.workBlocks?.find(b=>b.id===blockId);
+    if(!block||this.state.view!=='calendar')return;
+    this.discardSlotDraft();
+    this.slotCreateBusy=false;
+    this.slotCreateTrigger=event?.currentTarget||null;
+    this.slotCreateTriggerLabel=this.slotCreateTrigger?.getAttribute?.('aria-label')||'';
+    this.slotCreateScroller=this.slotCreateTrigger?.closest?.('.hourly-scroll')||null;
+    this.slotCreateScrollTop=this.slotCreateScroller?.scrollTop??null;
+    this.setState({slotCreateOpen:true,slotDay:this.selectedDailyDate(),slotTitle:'',slotProject:'',slotTaskId:taskId,slotBlockId:blockId,slotStartDraft:KaizenPlanning.localInput(block.start),slotEndDraft:KaizenPlanning.localInput(block.end),slotStartInstant:block.start,slotEndInstant:block.end,slotOwnerId:this.state.auth?.id??null,slotWorkspaceId:this.state.workspaceId??null,slotTimeLabel:'Editar bloque de '+task.title,slotError:''});
+    if(typeof document!=='undefined')setTimeout(()=>document.querySelector('#slot-task-start')?.focus(),0);
+  }
+  removeSlotBlock() {
+    const s=this.state,task=s.tasks.find(t=>t.id===s.slotTaskId&&this.isPersonalTask(t));
+    if(!s.slotCreateOpen||!s.slotBlockId||!task||s.slotOwnerId!==(s.auth?.id??null)||s.slotWorkspaceId!==(s.workspaceId??null))return;
+    this.patch(task.id,{workBlocks:(task.workBlocks||[]).filter(b=>b.id!==s.slotBlockId)});
+    this.discardSlotDraft();
+    if(typeof document!=='undefined')setTimeout(()=>document.querySelector('.hourly-scroll')?.focus({preventScroll:true}),0);
   }
   createSlotTask(event) {
     event?.preventDefault?.();
@@ -1811,18 +1831,25 @@ class Component extends DCLogic {
     if(s.view!=='calendar'||!s.slotCreateOpen||this.slotCreateBusy||s.slotDay!==this.selectedDailyDate())return;
     if((s.slotOwnerId??null)!==(s.auth?.id??null)||(s.slotWorkspaceId??null)!==(s.workspaceId??null)){this.discardSlotDraft();return;}
     const title=s.slotTitle.trim(),project=s.slotProject;
-    if(!title){this.setState({slotError:'Escribe el nombre de la tarea.'});return;}
-    if(project&&!s.projects.some(p=>p.id===project&&p._can_assign!==false)){this.setState({slotError:'Selecciona un proyecto al que tengas acceso.'});return;}
+    const existing=s.slotTaskId?s.tasks.find(t=>t.id===s.slotTaskId&&this.isPersonalTask(t)&&t.list!=='trash'):null;
+    if(s.slotTaskId&&!existing){this.setState({slotError:'La tarea ya no está disponible.'});return;}
+    if(!existing&&!title){this.setState({slotError:'Escribe el nombre de la tarea.'});return;}
+    if(!existing&&project&&!s.projects.some(p=>p.id===project&&p._can_assign!==false)){this.setState({slotError:'Selecciona un proyecto al que tengas acceso.'});return;}
     let plan;
     try { plan=KaizenPlanning.schedule(s.slotStartDraft,s.slotEndDraft,{start:s.slotStartInstant,end:s.slotEndInstant}); }
     catch(e){this.setState({slotError:e.message});return;}
-    const due=this.dkey(Date.parse(plan.scheduledStart));
-    const task={id:this.uid(),title,list:due===this.dkey(Date.now())?'today':'future',project,due,quadrant:'q2',tags:[],estPomos:1,notes:'',subtasks:[],sharedWith:[],done:false,doneAt:null,seconds:0,pomos:0,createdAt:Date.now(),...plan};
+    const block={id:s.slotBlockId||this.uid(),start:plan.scheduledStart,end:plan.scheduledEnd,timeZone:plan.scheduleTimeZone};
+    const task=existing||{id:this.uid(),title,list:'inbox',project,due:'',quadrant:'q2',tags:[],estPomos:1,notes:'',subtasks:[],sharedWith:[],done:false,doneAt:null,seconds:0,pomos:0,createdAt:Date.now()};
+    const workBlocks=[...(existing?.workBlocks||[]).filter(b=>b.id!==block.id),block];
     this.slotCreateBusy=true;
     this.slotCreateTrigger=null;
-    this.setState(state=>({tasks:[task,...state.tasks],slotCreateOpen:false,slotDay:'',slotTitle:'',slotProject:'',slotStartDraft:'',slotEndDraft:'',slotStartInstant:'',slotEndInstant:'',slotOwnerId:null,slotWorkspaceId:null,slotTimeLabel:'',slotError:'',toast:'Tarea creada en el horario seleccionado; se sincronizará con el equipo.'}));
+    if(existing)this.patch(existing.id,{workBlocks});
+    else this.setState(state=>({tasks:[{...task,workBlocks},...state.tasks]}));
+    this.discardSlotDraft();
+    this.slotCreateBusy=true;
+    this.setState({toast:existing?'Bloque horario guardado; el cronograma no cambió.':'Tarea creada con bloque horario; se sincronizará con el equipo.'});
     if(typeof document!=='undefined')setTimeout(()=>{
-      (document.querySelector('.hourly-block[data-task-id="'+task.id+'"]')||document.querySelector('.hourly-scroll'))?.focus({preventScroll:true});
+      (document.querySelector('.hourly-block[data-task-id="'+task.id+'"][data-block-id="'+block.id+'"]')||document.querySelector('.hourly-scroll'))?.focus({preventScroll:true});
     },0);
   }
   addDailyTask() {
@@ -2194,17 +2221,17 @@ class Component extends DCLogic {
     const dailyLabel=date=>new Date(date+'T12:00:00').toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     const hourlyTime=value=>new Date(value).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hourCycle:'h23',...(hourly.minutes!==1440?{timeZoneName:'shortOffset'}:{})});
     const creatorLabel=t=>'Creada por '+this.memberName(t._owner_id||s.auth?.id);
-    const hourlyBlocks=hourly.blocks.map(({task:t,start,end,top,duration,lane,lanes,continuesBefore,continuesAfter})=>{
+    const hourlyBlocks=hourly.blocks.map(({task:t,block,start,end,top,duration,lane,lanes,continuesBefore,continuesAfter})=>{
       const timeLabel=(continuesBefore?'← ':'')+hourlyTime(start)+'–'+(end===hourly.end?'24:00':hourlyTime(end))+(continuesAfter?' → día siguiente':'');
       const peopleLabel=creatorLabel(t)+' · '+this.responsibleLabel(t);
-      return {id:t.id,title:t.title,done:!!t.done,timeLabel,peopleLabel,label:t.title+'. '+timeLabel+'. '+peopleLabel+'. '+(t.done?'Hecha. ':'Pendiente. ')+'Abrir detalle.',
-        style:{top:top+'px',height:duration+'px',left:(lane/lanes*100)+'%',width:'calc('+(100/lanes)+'% - 4px)',opacity:t.done?0.65:1},onOpen:()=>this.openTask(t.id)};
+      return {id:t.id,blockId:block.id,title:t.title,done:!!t.done,timeLabel,peopleLabel,label:t.title+'. '+timeLabel+'. '+peopleLabel+'. '+(t.done?'Hecha. ':'Pendiente. ')+'Editar bloque horario.',
+        style:{top:top+'px',height:duration+'px',left:(lane/lanes*100)+'%',width:'calc('+(100/lanes)+'% - 4px)',opacity:t.done?0.65:1},onOpen:e=>this.openSlotEdit(t.id,block.id,e)};
     });
     const hourlySlots=hourly.slots.map(slot=>({label:'Crear tarea de '+hourlyTime(slot.start)+' a '+(slot.end===hourly.end?'24:00':hourlyTime(slot.end)),style:{top:slot.top+'px',height:slot.duration+'px'},onOpen:e=>this.openSlotCreate(slot.start,slot.end,e)}));
     const hourlyFree=hourly.free.filter(slot=>slot.minutes>=30).map(slot=>({label:hourlyTime(slot.start)+'–'+(slot.end===hourly.end?'24:00':hourlyTime(slot.end))+' · '+Math.round(slot.minutes)+' min',actionLabel:'Crear tarea en espacio libre de '+hourlyTime(slot.start)+' a '+(slot.end===hourly.end?'24:00':hourlyTime(slot.end)),onOpen:e=>this.openSlotCreate(slot.start,Math.min(slot.start+30*60000,slot.end),e)}));
     const dailyRows=dailyAgenda.filter(t=>!hourly.blocks.some(block=>block.task.id===t.id)).map(t=>({
       title:t.title,due:t.due||'',done:!!t.done,projectName:this.projName(t.project)||'Sin proyecto',creatorLabel:creatorLabel(t),responsibleLabel:this.responsibleLabel(t),
-      sourceLabel:t.due===dailyDate?'Fecha límite':'Cronograma',
+      sourceLabel:t.due===dailyDate?'Fecha límite':t.scheduledStart&&t.scheduledEnd?'Cronograma':'Bloque en otro horario',
       titleStyle:{textDecoration:t.done?'line-through':'none',opacity:t.done?0.65:1},
       toggleLabel:t.done?'Reabrir '+t.title:'Marcar hecha '+t.title,
       hasSchedule:!!(t.scheduledStart&&t.scheduledEnd),
@@ -2246,8 +2273,8 @@ class Component extends DCLogic {
       isDailyCalendar:s.view==='calendar',dailyMonthLabel:daily.month[0].toUpperCase()+daily.month.slice(1),dailyDayLabel:dailyLabel(dailyDate),dailyHeroLabel:dailyDate===this.dkey(now)?'Hoy':'Día seleccionado',dailyCount:dailyAgenda.length,dailyPending:dailyAgenda.filter(t=>!t.done).length,dailyEmpty:dailyRows.length===0,dailyRows,
       hourlyCount:hourlyBlocks.length,hourlySheetStyle:{height:hourly.minutes+'px'},hourlyTicks:hourly.ticks.map(t=>({label:t.label,style:{top:t.minute+'px'}})),hourlyBlocks,hourlySlots,
       hourlyHasNow:hourly.nowMinute!==null,hourlyNowStyle:{top:(hourly.nowMinute??0)+'px'},hourlyFree,hourlyHasFree:hourlyFree.length>0,hourlyNoFree:hourlyFree.length===0,
-      slotCreateOpen:s.slotCreateOpen,slotTitle:s.slotTitle,slotProject:s.slotProject,slotStartDraft:s.slotStartDraft,slotEndDraft:s.slotEndDraft,slotError:s.slotError,slotTimeLabel:s.slotTimeLabel,slotZoneLabel:'Zona horaria: '+KaizenPlanning.zone(),slotCreateStyle:{top:((Date.parse(s.slotStartInstant)-hourly.start)/60000||0)+'px',...(Date.parse(s.slotStartInstant)-hourly.start>=(hourly.minutes-420)*60000?{transform:'translateY(calc(-100% + 30px))'}:{})},
-      onSlotTitle:e=>this.setState({slotTitle:e.target.value,slotError:''}),onSlotProject:e=>this.setState({slotProject:e.target.value,slotError:''}),onSlotStart:e=>this.setState({slotStartDraft:e.target.value,slotError:''}),onSlotEnd:e=>this.setState({slotEndDraft:e.target.value,slotError:''}),onSlotCreate:e=>this.createSlotTask(e),onSlotCancel:()=>this.cancelSlotCreate(),
+      slotCreateOpen:s.slotCreateOpen,slotTitle:s.slotTitle,slotProject:s.slotProject,slotTaskId:s.slotTaskId,slotBlockId:s.slotBlockId,slotIsNew:!s.slotTaskId,slotIsEditing:!!s.slotBlockId,slotCanChooseTask:!s.slotBlockId,slotTaskOptions:personalTasks.filter(t=>t.list!=='trash').map(t=>({id:t.id,title:t.title})),slotStartDraft:s.slotStartDraft,slotEndDraft:s.slotEndDraft,slotError:s.slotError,slotTimeLabel:s.slotTimeLabel,slotZoneLabel:'Zona horaria: '+KaizenPlanning.zone(),slotCreateStyle:{top:Math.max(0,Math.min(hourly.minutes-30,(Date.parse(s.slotStartInstant)-hourly.start)/60000||0))+'px',...(Date.parse(s.slotStartInstant)-hourly.start>=(hourly.minutes-420)*60000?{transform:'translateY(calc(-100% + 30px))'}:{})},
+      onSlotTask:e=>this.setState({slotTaskId:e.target.value,slotError:''}),onSlotTitle:e=>this.setState({slotTitle:e.target.value,slotError:''}),onSlotProject:e=>this.setState({slotProject:e.target.value,slotError:''}),onSlotStart:e=>this.setState({slotStartDraft:e.target.value,slotError:''}),onSlotEnd:e=>this.setState({slotEndDraft:e.target.value,slotError:''}),onSlotCreate:e=>this.createSlotTask(e),onSlotCancel:()=>this.cancelSlotCreate(),onSlotRemove:()=>this.removeSlotBlock(),onSlotOpenTask:()=>{const id=s.slotTaskId;this.discardSlotDraft();this.openTask(id);},
       dailyDays:daily.days.map(day=>({day:day.day,selected:day.key===dailyDate,other:!day.inMonth,countLabel:day.count?(day.count===1?'1 tarea':day.count+' tareas'):'Sin tareas',label:dailyLabel(day.key)+', '+day.count+' tareas, '+day.pending+' pendientes',onClick:()=>this.selectDailyDate(day.key)})),
       dailyTitle:s.dailyTitle,dailyProject:s.dailyProject,onDailyTitle:e=>this.setState({dailyTitle:e.target.value}),onDailyTitleKey:e=>{if(e.key==='Enter')this.addDailyTask();},onDailyProject:e=>this.setState({dailyProject:e.target.value}),onDailyAdd:()=>this.addDailyTask(),
       hasDailyAssignOptions:dailyAssignOptions.length>0,dailyAssignOptions,dailyAssignId:s.dailyAssignId,dailyAssignDisabled:!dailyAssignOptions.some(t=>t.id===s.dailyAssignId),onDailyAssign:e=>this.setState({dailyAssignId:e.target.value}),onDailyAssignApply:()=>this.assignDailyTask(),

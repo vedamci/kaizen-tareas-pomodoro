@@ -10,13 +10,14 @@ function component() {
   const context = vm.createContext({ DCLogic:Logic, KaizenPlanning:planning, console, setTimeout, clearTimeout, Intl, Date, localStorage:{setItem(){}} });
   return new (vm.runInContext(source+'; Component',context))();
 }
+const block=(id,start,end)=>({id, start, end});
 test('hourly agenda clips overnight tasks and leaves due-only tasks without hours',()=>{
   const previous=process.env.TZ;process.env.TZ='UTC';
   try {
     const tasks=[
-      {id:'overnight',title:'Overnight',scheduledStart:'2026-10-04T23:30:00Z',scheduledEnd:'2026-10-05T01:30:00Z'},
-      {id:'morning',title:'Morning',scheduledStart:'2026-10-05T01:00:00Z',scheduledEnd:'2026-10-05T02:00:00Z'},
-      {id:'later',title:'Later',scheduledStart:'2026-10-05T02:00:00Z',scheduledEnd:'2026-10-05T02:30:00Z'},
+      {id:'overnight',title:'Overnight',workBlocks:[block('b1','2026-10-04T23:30:00Z','2026-10-05T01:30:00Z')]},
+      {id:'morning',title:'Morning',workBlocks:[block('b2','2026-10-05T01:00:00Z','2026-10-05T02:00:00Z')]},
+      {id:'later',title:'Later',workBlocks:[block('b3','2026-10-05T02:00:00Z','2026-10-05T02:30:00Z')]},
       {id:'due',title:'Due only',due:'2026-10-05'},
       {id:'trash',title:'Deleted',list:'trash',scheduledStart:'2026-10-05T03:00:00Z',scheduledEnd:'2026-10-05T04:00:00Z'}
     ];
@@ -37,14 +38,14 @@ test('hourly agenda uses actual 23 and 25 hour days across DST',()=>{
     assert.equal(spring.minutes,1380);assert.equal(spring.ticks.length,23);
     assert.equal(autumn.minutes,1500);assert.equal(autumn.ticks.length,25);
     assert.equal(new Set(autumn.ticks.map(t=>t.label)).size,25);
-    const overnight=planning.hourlyDay([{id:'x',scheduledStart:'2026-11-01T03:30:00Z',scheduledEnd:'2026-11-01T07:30:00Z'}],'2026-11-01');
+    const overnight=planning.hourlyDay([{id:'x',workBlocks:[block('x1','2026-11-01T03:30:00Z','2026-11-01T07:30:00Z')]}],'2026-11-01');
     assert.equal(overnight.blocks[0].top,0);assert.equal(overnight.blocks[0].duration,210);
   } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
 });
 test('free half-hour targets exclude occupied spans and reach midnight',()=>{
   const previous=process.env.TZ;process.env.TZ='UTC';
   try {
-    const tasks=[{id:'busy',title:'Busy',list:'inbox',scheduledStart:'2026-10-05T09:15:00Z',scheduledEnd:'2026-10-05T10:15:00Z'}];
+    const tasks=[{id:'busy',title:'Busy',list:'inbox',workBlocks:[block('b1','2026-10-05T09:15:00Z','2026-10-05T10:15:00Z')]}];
     const day=planning.hourlyDay(tasks,'2026-10-05');
     assert.equal(day.slots.length,45);
     assert.equal(day.slots.some(slot=>slot.start===Date.parse('2026-10-05T09:00:00Z')),false);
@@ -58,8 +59,8 @@ test('unaligned thirty-minute gaps remain clickable in the hourly grid',()=>{
   const previous=process.env.TZ;process.env.TZ='UTC';
   try {
     const day=planning.hourlyDay([
-      {id:'a',scheduledStart:'2026-10-05T08:00:00Z',scheduledEnd:'2026-10-05T08:45:00Z'},
-      {id:'b',scheduledStart:'2026-10-05T09:15:00Z',scheduledEnd:'2026-10-05T10:00:00Z'}
+      {id:'a',workBlocks:[block('a1','2026-10-05T08:00:00Z','2026-10-05T08:45:00Z')]},
+      {id:'b',workBlocks:[block('b1','2026-10-05T09:15:00Z','2026-10-05T10:00:00Z')]}
     ],'2026-10-05');
     assert.ok(day.slots.some(slot=>slot.start===Date.parse('2026-10-05T08:45:00Z')&&slot.end===Date.parse('2026-10-05T09:15:00Z')));
     assert.ok(day.slots.every(slot=>day.free.some(gap=>slot.start>=gap.start&&slot.end<=gap.end)));
@@ -106,8 +107,9 @@ test('slot form confirms once, validates edits and can cross midnight',()=>{
     c.state.slotProject='allowed';c.state.slotEndDraft='2026-10-05T23:00';c.createSlotTask(event);assert.equal(c.state.tasks.length,0);assert.match(c.state.slotError,/posterior/);
     c.state.slotEndDraft='2026-10-06T00:30';c.createSlotTask(event);c.createSlotTask(event);
     assert.equal(c.state.tasks.length,1);const task=c.state.tasks[0];
-    assert.equal(task.title,'Night task');assert.equal(task.project,'allowed');assert.equal(task.due,'2026-10-05');
-    assert.equal(task.scheduledStart,'2026-10-05T23:30:00.000Z');assert.equal(task.scheduledEnd,'2026-10-06T00:30:00.000Z');
+    assert.equal(task.title,'Night task');assert.equal(task.project,'allowed');assert.equal(task.due,'');assert.equal(task.list,'inbox');
+    assert.equal(task.scheduledStart,undefined);assert.equal(task.scheduledEnd,undefined);assert.equal(task.workBlocks[0].start,'2026-10-05T23:30:00.000Z');assert.equal(task.workBlocks[0].end,'2026-10-06T00:30:00.000Z');
+    assert.equal(c.slotCreateBusy,true);
     assert.equal(c.state.slotCreateOpen,false);assert.equal(c.renderVals().hourlyBlocks.length,1);
   } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
 });
@@ -116,9 +118,9 @@ test('occupied blocks open existing tasks; stale free targets cannot create a dr
   try {
     const c=component();c.state.view='calendar';c.state.dailyDate='2026-10-05';
     const slot=c.renderVals().hourlySlots.find(x=>x.label.startsWith('Crear tarea de 09:00'));
-    const existing={id:'busy',title:'Busy',list:'future',scheduledStart:'2026-10-05T09:00:00Z',scheduledEnd:'2026-10-05T09:30:00Z'};
+    const existing={id:'busy',title:'Busy',list:'future',workBlocks:[block('b1','2026-10-05T09:00:00Z','2026-10-05T09:30:00Z')]};
     c.state.tasks=[existing];slot.onOpen();assert.equal(c.state.slotCreateOpen,false);
-    const block=c.renderVals().hourlyBlocks[0];block.onOpen();assert.equal(c.state.selId,'busy');assert.equal(c.state.tasks.length,1);
+    const event=c.renderVals().hourlyBlocks[0];event.onOpen();assert.equal(c.state.slotTaskId,'busy');assert.equal(c.state.slotBlockId,'b1');assert.equal(c.state.tasks.length,1);
   } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
 });
 test('repeated DST hour keeps the selected instant and visible offset when saved',()=>{
@@ -127,8 +129,8 @@ test('repeated DST hour keeps the selected instant and visible offset when saved
     const c=component();c.state.view='calendar';c.state.dailyDate='2026-11-01';
     const slot=c.renderVals().hourlySlots.find(x=>x.label.startsWith('Crear tarea de 01:00 GMT-5'));
     assert.ok(slot);slot.onOpen();c.state.slotTitle='Second one';c.createSlotTask({preventDefault(){}});
-    assert.equal(c.state.tasks.length,1);assert.equal(c.state.tasks[0].scheduledStart,'2026-11-01T06:00:00.000Z');
-    assert.equal(c.state.tasks[0].scheduledEnd,'2026-11-01T06:30:00.000Z');
+    assert.equal(c.state.tasks.length,1);assert.equal(c.state.tasks[0].workBlocks[0].start,'2026-11-01T06:00:00.000Z');
+    assert.equal(c.state.tasks[0].workBlocks[0].end,'2026-11-01T06:30:00.000Z');
     assert.equal(planning.hourlyDay([], '2026-03-08').slots.length,46);
   } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
 });
@@ -136,7 +138,7 @@ test('repeated autumn hour labels distinguish both UTC offsets',()=>{
   const previous=process.env.TZ;process.env.TZ='America/New_York';
   try {
     const c=component();c.state.view='calendar';c.state.dailyDate='2026-11-01';
-    c.state.tasks=[{id:'fold',title:'Fold',list:'inbox',scheduledStart:'2026-11-01T05:30:00Z',scheduledEnd:'2026-11-01T06:15:00Z'}];
+    c.state.tasks=[{id:'fold',title:'Fold',list:'inbox',workBlocks:[block('b1','2026-11-01T05:30:00Z','2026-11-01T06:15:00Z')]}];
     const view=c.renderVals();
     assert.match(view.hourlyBlocks[0].timeLabel,/01:30 GMT-4.*01:15 GMT-5/);
     assert.match(view.hourlyFree.at(-1).label,/01:15 GMT-5.*24:00/);
@@ -152,8 +154,8 @@ test('daily hour blocks keep personal scope and show creator and confirmed assig
   const c=component();c.state.auth={id:1,role:'admin'};c.state.workspaceMembers=[{id:1,name:'Owner'},{id:2,name:'Recipient'}];
   c.state.dailyDate='2026-10-05';c.state.view='calendar';
   c.state.tasks=[
-    {id:'own',title:'Own',_owner_id:1,_shared_user_ids:[2],list:'inbox',scheduledStart:'2026-10-05T10:00:00Z',scheduledEnd:'2026-10-05T11:00:00Z'},
-    {id:'team',title:'Team',_owner_id:2,_shared_user_ids:[],list:'inbox',scheduledStart:'2026-10-05T12:00:00Z',scheduledEnd:'2026-10-05T13:00:00Z'},
+    {id:'own',title:'Own',_owner_id:1,_shared_user_ids:[2],list:'inbox',workBlocks:[block('b1','2026-10-05T10:00:00Z','2026-10-05T11:00:00Z')]},
+    {id:'team',title:'Team',_owner_id:2,_shared_user_ids:[],list:'inbox',workBlocks:[block('b2','2026-10-05T12:00:00Z','2026-10-05T13:00:00Z')]},
     {id:'due',title:'Due only',_owner_id:1,list:'future',due:'2026-10-05'}
   ];
   const before=JSON.stringify(c.state.tasks),view=c.renderVals();
@@ -161,6 +163,48 @@ test('daily hour blocks keep personal scope and show creator and confirmed assig
   assert.match(view.hourlyBlocks[0].peopleLabel,/Owner.*Responsable: Recipient/);
   assert.deepEqual([...view.dailyRows.map(t=>t.title)],['Due only']);
   assert.equal(view.dailyCount,2);assert.equal(JSON.stringify(c.state.tasks),before);
+});
+test('a multiday timeline task leaves the hourly grid free until a separate work block is added',()=>{
+  const task={id:'range',title:'Project range',list:'future',scheduledStart:'2026-10-04T08:00:00Z',scheduledEnd:'2026-10-08T18:00:00Z'};
+  const before=JSON.stringify(task);
+  const day=planning.hourlyDay([task],'2026-10-05');
+  assert.equal(day.blocks.length,0);assert.equal(day.free.length,1);assert.equal(day.free[0].minutes,1440);
+  assert.deepEqual(planning.dailyAgenda([task],'2026-10-05').map(t=>t.id),['range']);
+  assert.equal(JSON.stringify(task),before);
+});
+test('one task can receive multiple daily blocks and edits leave its timeline and other blocks intact',()=>{
+  const previous=process.env.TZ;process.env.TZ='UTC';
+  try {
+    const c=component();c.state.view='calendar';c.state.dailyDate='2026-10-05';
+    c.state.tasks=[{id:'range',title:'Project range',list:'future',scheduledStart:'2026-10-04T08:00:00Z',scheduledEnd:'2026-10-08T18:00:00Z',seconds:120}];
+    const original={start:c.state.tasks[0].scheduledStart,end:c.state.tasks[0].scheduledEnd};
+    let slot=c.renderVals().hourlySlots.find(x=>x.label.startsWith('Crear tarea de 09:00'));
+    slot.onOpen();c.renderVals().onSlotTask({target:{value:'range'}});c.createSlotTask({preventDefault(){}});
+    assert.equal(c.state.tasks.length,1);assert.equal(c.state.tasks[0].workBlocks.length,1);
+    assert.equal(c.state.tasks[0].scheduledStart,original.start);assert.equal(c.state.tasks[0].scheduledEnd,original.end);
+    slot=c.renderVals().hourlySlots.find(x=>x.label.startsWith('Crear tarea de 14:00'));
+    slot.onOpen();c.renderVals().onSlotTask({target:{value:'range'}});c.createSlotTask({preventDefault(){}});
+    assert.equal(c.state.tasks[0].workBlocks.length,2);
+    const first=c.state.tasks[0].workBlocks.find(b=>b.start==='2026-10-05T09:00:00.000Z');
+    c.openSlotEdit('range',first.id);c.state.slotEndDraft='2026-10-05T10:00';c.createSlotTask({preventDefault(){}});
+    assert.equal(c.state.tasks[0].workBlocks.length,2);
+    assert.equal(c.state.tasks[0].workBlocks.find(b=>b.id===first.id).end,'2026-10-05T10:00:00.000Z');
+    assert.equal(c.state.tasks[0].seconds,120);assert.equal(c.state.tasks[0].scheduledStart,original.start);assert.equal(c.state.tasks[0].scheduledEnd,original.end);
+    assert.equal(planning.hourlyDay(c.state.tasks,'2026-10-05').blocks.length,2);
+    c.openSlotEdit('range',first.id);c.removeSlotBlock();
+    assert.equal(c.state.tasks[0].workBlocks.length,1);assert.equal(c.state.tasks[0].scheduledEnd,original.end);
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
+});
+test('work block alone places a task on its day without changing its deadline',()=>{
+  const previous=process.env.TZ;process.env.TZ='UTC';
+  try {
+    const task={id:'x',title:'Work',due:'2026-10-09',workBlocks:[block('b1','2026-10-05T23:30:00Z','2026-10-06T00:30:00Z')]};
+    assert.deepEqual(planning.dailyAgenda([task],'2026-10-05').map(t=>t.id),['x']);
+    assert.deepEqual(planning.dailyAgenda([task],'2026-10-06').map(t=>t.id),['x']);
+    assert.equal(planning.hourlyDay([task],'2026-10-05').blocks[0].continuesAfter,true);
+    assert.equal(planning.hourlyDay([task],'2026-10-06').blocks[0].continuesBefore,true);
+    assert.equal(task.due,'2026-10-09');
+  } finally { if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous; }
 });
 test('component parses and renders project and timeline views',()=>{
   const c=component(); Object.assign(c.state,c.seed()); c.state.view='timeline'; const view=c.renderVals(); assert.equal(view.isTimeline,true);assert.equal(view.timelineRows.length,0);assert.equal(view.unscheduledCount,c.state.tasks.length); c.state.view='project';c.state.projFilter='p1';assert.ok(c.renderVals().listTasks.length>0);
