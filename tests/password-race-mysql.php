@@ -98,6 +98,7 @@ try {
         foreach([$firstDir,$secondDir] as $dir)foreach(glob($dir.'/*')?:[] as $file)unlink($file);
         rmdir($firstDir);rmdir($secondDir);rmdir($root);
     }
+    $pdo->exec('DELETE FROM password_reset_mail_queue'); // Isolate one fake delivery from earlier race fixtures.
     passwordResetRequest($pdo,'race9@example.test','127.0.0.11',$settings);
     $root=sys_get_temp_dir().'/kaizen-race-'.bin2hex(random_bytes(8));
     $firstDir=$root.'/first';$secondDir=$root.'/second';
