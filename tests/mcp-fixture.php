@@ -16,7 +16,8 @@ $config+=['mcp_enabled'=>true,'mcp_oauth_enabled'=>true,
     'mcp_allowed_user_ids'=>[1,2,4,5], 'mcp_max_scope'=>'kaizen:write',
     'mcp_allow_insecure_test'=>true,'mcp_allowed_origins'=>[]];
 file_put_contents($root.'/test-policy.json','{}');
-file_put_contents($root.'/api/config.php','<?php return array_replace('.var_export($config,true).',json_decode(file_get_contents(__DIR__."/../test-policy.json"),true)?:[]);');
+$mcpConfig=array_filter($config,static fn($key)=>str_starts_with($key,'mcp_'),ARRAY_FILTER_USE_KEY);
+file_put_contents($root.'/api/mcp-local.php','<?php return array_replace('.var_export($mcpConfig,true).',json_decode(file_get_contents(__DIR__."/../test-policy.json"),true)?:[]);');
 file_put_contents($root.'/client-metadata.json',json_encode([
     'client_id'=>$config['mcp_oauth_client_id'],'redirect_uris'=>[$config['mcp_oauth_redirect_uri']],
     'grant_types'=>['authorization_code','refresh_token'],'response_types'=>['code'],

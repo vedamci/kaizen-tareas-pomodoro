@@ -53,7 +53,7 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
   }
   try{
     await mkdir(path.join(scratch,'api'));
-    for(const name of ['mcp.php','mcp-core.php','mcp-oauth.php','oauth.php','index.php','projects.php','project-policy.php']) await copyFile(path.join(repo,'api',name),path.join(scratch,'api',name));
+    for(const name of ['mcp.php','mcp-config.php','mcp-core.php','mcp-oauth.php','oauth.php','index.php','projects.php','project-policy.php']) await copyFile(path.join(repo,'api',name),path.join(scratch,'api',name));
     execFileSync('php',[path.join(repo,'tests/mcp-fixture.php'),scratch],{stdio:'pipe'});
     server=spawn('php',['-S','127.0.0.1:4181','-t',scratch],{stdio:['ignore','pipe','pipe']});
     server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);

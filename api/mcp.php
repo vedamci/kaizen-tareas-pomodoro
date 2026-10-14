@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 // This endpoint is inert until an approved OAuth rollout. Existing browser and
 // device tokens are never accepted as MCP credentials.
-$config = require __DIR__ . '/config.php';
+$config = require __DIR__ . '/mcp-config.php';
 if (empty($config['mcp_enabled']) || empty($config['mcp_oauth_enabled'])) {
     http_response_code(404);
     exit;

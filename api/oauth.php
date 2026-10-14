@@ -4,7 +4,7 @@ declare(strict_types=1);
 // Disabled unless a separately approved deployment installs the OAuth tables,
 // discovery route and private configuration. No browser or device token is an
 // OAuth bearer token.
-$config=require __DIR__.'/config.php';
+$config=require __DIR__.'/mcp-config.php';
 if (empty($config['mcp_enabled']) || empty($config['mcp_oauth_enabled'])) {http_response_code(404);exit;}
 require_once __DIR__.'/mcp-oauth.php';
 header('Cache-Control: no-store');
