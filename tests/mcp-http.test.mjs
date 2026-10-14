@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,copyFile,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,copyFile,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -24,7 +24,7 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
   }
   const call=(token,name,args,status=200)=>rpc(token,'tools/call',{name,arguments:args},status);
   const data=r=>r.result.structuredContent;
-  async function authorize(account,scope){
+  async function authorize(account,scope,exchange=true){
     const login=await fetch('http://127.0.0.1:4181/api/index.php?action=login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:`fixture${account}@example.test`,password:'disposable-http-fixture'})});
     assert.equal(login.status,200,await login.clone().text());
     const cookie=login.headers.get('set-cookie').split(';')[0];
@@ -41,6 +41,7 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     assert.equal(redirected.searchParams.get('state'),'fixture-state');
     assert.equal(redirected.searchParams.get('iss'),'http://127.0.0.1:4181');
     const code=redirected.searchParams.get('code');assert.ok(code);
+    if (!exchange) return {code,verifier,cookie};
     const wrongVerifier=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:clientId,redirect_uri:redirectUri,resource:endpoint,code_verifier:'x'.repeat(43)})});
     assert.equal(wrongVerifier.status,400);
     const exchange=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:clientId,redirect_uri:redirectUri,resource:endpoint,code_verifier:verifier})});
@@ -128,6 +129,28 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     const revoke=await fetch(oauth+'?action=connections',{method:'POST',headers:{Cookie:ownerRead.cookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf:(await (await fetch(oauth+'?action=connections',{headers:{Cookie:ownerRead.cookie}})).text()).match(/name="csrf" value="([^"]+)"/)?.[1]})});
     assert.equal(revoke.status,200);
     await rpc(tokens.write,'tools/list',{},401);
+    const limitedRead=await authorize(1,'kaizen:read');
+    const limitedWrite=await authorize(1,'kaizen:read kaizen:write');
+    const pendingMember=await authorize(2,'kaizen:read',false);
+    await writeFile(path.join(scratch,'test-policy.json'),JSON.stringify({mcp_allowed_user_ids:[1],mcp_max_scope:'kaizen:read'}));
+    assert.deepEqual((await (await fetch(oauth+'?action=metadata')).json()).scopes_supported,['kaizen:read']);
+    assert.deepEqual((await (await fetch(oauth+'?action=resource-metadata')).json()).scopes_supported,['kaizen:read']);
+    await rpc(tokens.member,'tools/list',{},401);
+    await rpc(limitedWrite.access_token,'tools/list',{},401);
+    const limitedTools=(await rpc(limitedRead.access_token,'tools/list')).result.tools.map(t=>t.name);
+    assert.ok(limitedTools.includes('list_tasks')&&!limitedTools.includes('create_task'));
+    const blockedWrite=await call(limitedRead.access_token,'create_task',{workspace_id:1,client_id:'blocked',title:'No'});
+    assert.equal(blockedWrite.error.code,-32601);
+    const otherUser=await fetch(oauth+'?action=authorize&'+new URLSearchParams(badRequest),{headers:{Cookie:member.cookie}});
+    assert.equal(otherUser.status,403);
+    const writeScope=await fetch(oauth+'?action=authorize&'+new URLSearchParams({...badRequest,scope:'kaizen:read kaizen:write'}),{headers:{Cookie:limitedRead.cookie}});
+    assert.equal(writeScope.status,400);
+    const blockedRefresh=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:limitedWrite.refresh_token,client_id:clientId,resource:endpoint})});
+    assert.equal(blockedRefresh.status,400);
+    const removedCode=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code:pendingMember.code,client_id:clientId,redirect_uri:redirectUri,resource:endpoint,code_verifier:pendingMember.verifier})});
+    assert.equal(removedCode.status,400);
+    const removedRefresh=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:member.refresh_token,client_id:clientId,resource:endpoint})});
+    assert.equal(removedRefresh.status,400);
   }finally{
     if(server){server.kill();await new Promise(resolve=>server.once('exit',resolve));}
     await rm(scratch,{recursive:true,force:true});

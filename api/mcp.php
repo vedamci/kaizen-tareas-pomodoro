@@ -66,11 +66,12 @@ try {
     if (!is_array($params) || array_is_list($params) && $params!==[]) mcpError($id,-32602,'Invalid params');
     if ($method==='initialize') mcpResponse($id,['protocolVersion'=>KAIZEN_MCP_VERSION,'capabilities'=>['tools'=>(object)[]],'serverInfo'=>['name'=>'kaizen','version'=>'0.1.0']]);
     if ($method==='ping') mcpResponse($id,[]);
-    if ($method==='tools/list') mcpResponse($id,['tools'=>mcpTools(true)]);
+    $writeEnabled=$config['mcp_max_scope']==='kaizen:write';
+    if ($method==='tools/list') mcpResponse($id,['tools'=>mcpTools($writeEnabled)]);
     if ($method==='tools/call') {
         $name=$params['name']??null;$arguments=$params['arguments']??[];
         if (!is_string($name) || !is_array($arguments) || (array_is_list($arguments)&&$arguments!==[])) mcpError($id,-32602,'Invalid params');
-        if (!in_array($name,array_column(mcpTools(true),'name'),true)) mcpError($id,-32601,'Method not found');
+        if (!in_array($name,array_column(mcpTools($writeEnabled),'name'),true)) mcpError($id,-32601,'Method not found');
         $result=mcpExecute($pdo,$u,$scopes,$name,$arguments);
         mcpResponse($id,['content'=>[['type'=>'text','text'=>json_encode($result,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]],'structuredContent'=>$result]);
     }

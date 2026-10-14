@@ -13,8 +13,10 @@ $config+=['mcp_enabled'=>true,'mcp_oauth_enabled'=>true,
     'mcp_oauth_token_url'=>'http://127.0.0.1:4181/api/oauth.php?action=token',
     'mcp_resource_metadata_url'=>'http://127.0.0.1:4181/api/oauth.php?action=resource-metadata',
     'mcp_oauth_client_metadata_test_file'=>$root.'/client-metadata.json',
+    'mcp_allowed_user_ids'=>[1,2,4,5], 'mcp_max_scope'=>'kaizen:write',
     'mcp_allow_insecure_test'=>true,'mcp_allowed_origins'=>[]];
-file_put_contents($root.'/api/config.php','<?php return '.var_export($config,true).';');
+file_put_contents($root.'/test-policy.json','{}');
+file_put_contents($root.'/api/config.php','<?php return array_replace('.var_export($config,true).',json_decode(file_get_contents(__DIR__."/../test-policy.json"),true)?:[]);');
 file_put_contents($root.'/client-metadata.json',json_encode([
     'client_id'=>$config['mcp_oauth_client_id'],'redirect_uris'=>[$config['mcp_oauth_redirect_uri']],
     'grant_types'=>['authorization_code','refresh_token'],'response_types'=>['code'],

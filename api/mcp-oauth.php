@@ -13,6 +13,18 @@ function mcpOAuthConfig(array $config): void {
         if (!str_starts_with($config[$key],'https://')) throw new RuntimeException('MCP OAuth requires HTTPS');
     if (strlen($config['mcp_resource'])>255 || strlen($config['mcp_oauth_client_id'])>255 ||
         strlen($config['mcp_oauth_redirect_uri'])>512) throw new RuntimeException('MCP OAuth URL too long');
+    if (!in_array($config['mcp_max_scope']??null,['kaizen:read','kaizen:write'],true) ||
+        !is_array($config['mcp_allowed_user_ids']??null) || !$config['mcp_allowed_user_ids'])
+        throw new RuntimeException('MCP OAuth access policy incomplete');
+    foreach ($config['mcp_allowed_user_ids'] as $id)
+        if (!is_int($id) || $id<1) throw new RuntimeException('MCP OAuth user policy invalid');
+}
+function mcpOAuthAllowedUser(array $config,int $userId): bool {
+    return in_array($userId,$config['mcp_allowed_user_ids'],true);
+}
+function mcpOAuthScopeAllowed(array $config,string $scope): bool {
+    try {$requested=mcpOAuthScopes($scope);} catch (DomainException $e) {return false;}
+    return $config['mcp_max_scope']==='kaizen:write' || !in_array('kaizen:write',$requested,true);
 }
 function mcpOAuthToken(): string {return rtrim(strtr(base64_encode(random_bytes(32)),'+/','-_'),'=');}
 function mcpOAuthHash(string $value): string {return hash('sha256',$value);}
@@ -51,20 +63,22 @@ function mcpOAuthValidAuthorization(array $a, array $config): array {
     $state=$a['state']??'';
     if (!is_string($state) || strlen($state)>512 || preg_match('/[\x00-\x1F\x7F]/',$state)) throw new DomainException('invalid_request',400);
     mcpOAuthValidateClientMetadata($config);
+    $scope=implode(' ',mcpOAuthScopes($a['scope']??null));
+    if (!mcpOAuthScopeAllowed($config,$scope)) throw new DomainException('invalid_scope',400);
     return ['client_id'=>$a['client_id'],'redirect_uri'=>$a['redirect_uri'],'resource'=>$a['resource'],
-        'scope'=>implode(' ',mcpOAuthScopes($a['scope']??null)),'code_challenge'=>$challenge,'state'=>$state];
+        'scope'=>$scope,'code_challenge'=>$challenge,'state'=>$state];
 }
 function mcpOAuthGrantAndCode(PDO $pdo, int $userId, array $request): string {
     $pdo->beginTransaction();
     try {
         $q=$pdo->prepare('SELECT scopes,generation,revoked_at FROM mcp_oauth_grants WHERE user_id=? AND client_id=? AND resource=? FOR UPDATE');
         $q->execute([$userId,$request['client_id'],$request['resource']]);$prior=$q->fetch();
-        $scopes=explode(' ',$request['scope']);
         if ($prior && $prior['revoked_at']===null) {
-            $scopes=array_values(array_unique(array_merge($scopes,explode(' ',$prior['scopes']))));sort($scopes);
             $generation=$prior['generation'];
         } else $generation=bin2hex(random_bytes(16));
-        $scope=implode(' ',$scopes);
+        // A new consent replaces earlier permissions; it never silently keeps
+        // a prior write grant when the person authorizes read-only access.
+        $scope=$request['scope'];
         $pdo->prepare('INSERT INTO mcp_oauth_grants(user_id,client_id,resource,scopes,generation,revoked_at) VALUES(?,?,?,?,?,NULL) ON DUPLICATE KEY UPDATE scopes=VALUES(scopes),generation=VALUES(generation),revoked_at=NULL')
             ->execute([$userId,$request['client_id'],$request['resource'],$scope,$generation]);
         $code=mcpOAuthToken();
@@ -77,7 +91,8 @@ function mcpOAuthVerifyAccess(PDO $pdo, array $config, string $token): ?array {
     if (strlen($token)<32 || strlen($token)>200) return null;
     $q=$pdo->prepare('SELECT t.user_id,t.scopes,t.resource,t.issuer,t.expires_at,g.scopes AS grant_scopes FROM mcp_oauth_access_tokens t JOIN mcp_oauth_grants g ON g.user_id=t.user_id AND g.client_id=t.client_id AND g.resource=t.resource AND g.generation=t.generation WHERE t.token_hash=? AND t.revoked_at IS NULL AND t.expires_at>NOW() AND g.revoked_at IS NULL LIMIT 1');
     $q->execute([mcpOAuthHash($token)]);$row=$q->fetch();
-    if (!$row || $row['issuer']!==$config['mcp_issuer'] || $row['resource']!==$config['mcp_resource']) return null;
+    if (!$row || $row['issuer']!==$config['mcp_issuer'] || $row['resource']!==$config['mcp_resource'] ||
+        !mcpOAuthAllowedUser($config,(int)$row['user_id']) || !mcpOAuthScopeAllowed($config,$row['scopes'])) return null;
     $scopes=explode(' ',$row['scopes']);
     if (array_diff($scopes,explode(' ',$row['grant_scopes']))) return null;
     return ['user_id'=>(int)$row['user_id'],'scopes'=>$scopes,'audience'=>$row['resource']];
@@ -100,7 +115,8 @@ function mcpOAuthExchangeCode(PDO $pdo, array $config, array $body): array {
         $q=$pdo->prepare('SELECT c.*,g.scopes AS grant_scopes FROM mcp_oauth_codes c JOIN mcp_oauth_grants g ON g.user_id=c.user_id AND g.client_id=c.client_id AND g.resource=c.resource AND g.generation=c.generation AND g.revoked_at IS NULL WHERE c.code_hash=? AND c.expires_at>NOW() FOR UPDATE');
         $q->execute([mcpOAuthHash($code)]);$record=$q->fetch();
         $expected=rtrim(strtr(base64_encode(hash('sha256',$verifier,true)),'+/','-_'),'=');
-        if (!$record || !hash_equals($record['code_challenge'],$expected) || array_diff(explode(' ',$record['scopes']),explode(' ',$record['grant_scopes']))) throw new DomainException('invalid_grant',400);
+        if (!$record || !mcpOAuthAllowedUser($config,(int)$record['user_id']) || !mcpOAuthScopeAllowed($config,$record['scopes']) ||
+            !hash_equals($record['code_challenge'],$expected) || array_diff(explode(' ',$record['scopes']),explode(' ',$record['grant_scopes']))) throw new DomainException('invalid_grant',400);
         $pdo->prepare('DELETE FROM mcp_oauth_codes WHERE code_hash=?')->execute([mcpOAuthHash($code)]);
         $tokens=mcpOAuthIssueTokens($pdo,$config,$record);
         $pdo->commit();return $tokens;
@@ -119,7 +135,9 @@ function mcpOAuthRefresh(PDO $pdo, array $config, array $body): array {
             $pdo->prepare('UPDATE mcp_oauth_access_tokens SET revoked_at=NOW() WHERE family_id=?')->execute([$record['family_id']]);
             $pdo->commit();throw new DomainException('invalid_grant',400);
         }
-        if ($record['revoked_at']!==null || $record['grant_scopes']===null || $record['grant_revoked']!==null || $record['expires_at']<=$record['db_now'] || array_diff(explode(' ',$record['scopes']),explode(' ',$record['grant_scopes']))) throw new DomainException('invalid_grant',400);
+        if ($record['revoked_at']!==null || $record['grant_scopes']===null || $record['grant_revoked']!==null ||
+            !mcpOAuthAllowedUser($config,(int)$record['user_id']) || !mcpOAuthScopeAllowed($config,$record['scopes']) ||
+            $record['expires_at']<=$record['db_now'] || array_diff(explode(' ',$record['scopes']),explode(' ',$record['grant_scopes']))) throw new DomainException('invalid_grant',400);
         $pdo->prepare('UPDATE mcp_oauth_refresh_tokens SET used_at=NOW() WHERE token_hash=?')->execute([mcpOAuthHash($token)]);
         $tokens=mcpOAuthIssueTokens($pdo,$config,$record,$record['family_id']);
         $pdo->commit();return $tokens;

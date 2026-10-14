@@ -56,14 +56,14 @@ try {
             'response_types_supported'=>['code'],'grant_types_supported'=>['authorization_code','refresh_token'],
             'code_challenge_methods_supported'=>['S256'],
             'token_endpoint_auth_methods_supported'=>['none'],
-            'scopes_supported'=>['kaizen:read','kaizen:write'],
+            'scopes_supported'=>$config['mcp_max_scope']==='kaizen:write'?['kaizen:read','kaizen:write']:['kaizen:read'],
             'authorization_response_iss_parameter_supported'=>true,
             'client_id_metadata_document_supported'=>true]);
     }
     if ($action==='resource-metadata' && ($_SERVER['REQUEST_METHOD']??'')==='GET') {
         oauthJson(['resource'=>$config['mcp_resource'],
             'authorization_servers'=>[$config['mcp_issuer']],
-            'scopes_supported'=>['kaizen:read','kaizen:write'],
+            'scopes_supported'=>$config['mcp_max_scope']==='kaizen:write'?['kaizen:read','kaizen:write']:['kaizen:read'],
             'bearer_methods_supported'=>['header']]);
     }
     if ($action==='token') {
@@ -81,6 +81,7 @@ try {
         if (!in_array($_SERVER['REQUEST_METHOD']??'', ['GET','POST'],true)) {header('Allow: GET, POST');http_response_code(405);exit;}
         oauthSession($config);$pdo=mcpOAuthDb($config);$user=oauthUser($pdo);
         if (!$user) oauthHtml('<h1>Inicia sesión en Kaizen</h1><p>Abre <a href="/tareas-pomodoro/">Kaizen</a> en esta misma navegación, inicia sesión y vuelve a cargar esta página.</p>',401);
+        if (!mcpOAuthAllowedUser($config,(int)$user['id'])) oauthHtml('<h1>Conexión no disponible para esta cuenta</h1>',403);
         if (empty($_SESSION['mcp_oauth_csrf'])) $_SESSION['mcp_oauth_csrf']=mcpOAuthToken();
         if ($action==='connections') {
             if (($_SERVER['REQUEST_METHOD']??'')==='POST') {
