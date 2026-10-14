@@ -1,4 +1,5 @@
 api/config.php
+api/mcp-local.php
 .DS_Store
 *.log
 deploy-cpanel.sh
