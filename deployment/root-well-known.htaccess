@@ -1,0 +1,5 @@
+# Install these rules in public_html/.well-known/.htaccess only after approval.
+# They are not active when this repository is deployed under /tareas-pomodoro/.
+RewriteEngine On
+RewriteRule ^oauth-authorization-server$ /tareas-pomodoro/api/oauth.php?action=metadata [END]
+RewriteRule ^oauth-protected-resource/tareas-pomodoro/api/mcp\.php$ /tareas-pomodoro/api/oauth.php?action=resource-metadata [END]

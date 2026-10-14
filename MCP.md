@@ -1,48 +1,46 @@
-# Kaizen MCP (candidato desactivado)
+# Kaizen MCP: propuesta desactivada
 
-Esta rama propone un endpoint `api/mcp.php` para herramientas MCP sobre las entidades que Kaizen guarda hoy. **No está desplegado, activado ni conectado.** La configuración actual no contiene `mcp_enabled`, `mcp_auth_file` ni `mcp_resource`, de modo que el endpoint responde 404. Ninguna sesión web, cookie ni `X-Remember-Token` sirve como credencial MCP.
+Este PR añade un servidor MCP y un flujo OAuth para conectar una cuenta Kaizen con ChatGPT. **El código no está desplegado, activado ni conectado.** El endpoint devuelve 404 sin `mcp_enabled` y `mcp_oauth_enabled` en la configuración privada. No se crean clientes, permisos, tokens ni accesos reales al fusionar el código.
 
-## Arquitectura y compatibilidad
+## Arquitectura verificada
 
-- La app publicada usa PHP, MySQL y Apache/cPanel. El endpoint atiende cada petición con PHP y devuelve JSON; no necesita proceso residente, WebSocket ni SSE. No se ha comprobado en el cPanel de producción que Apache entregue `Authorization` a PHP o que permita la ruta definitiva.
-- Implementa el transporte Streamable HTTP de **MCP 2025-11-25**, con POST JSON-RPC, `initialize`, `ping`, `tools/list`, `tools/call`, 202 para notificaciones y 405 para GET. No ofrece flujos SSE ni sesiones de protocolo. Un cliente debe enviar `Accept: application/json, text/event-stream` y `MCP-Protocol-Version: 2025-11-25` después de inicializar.
-- El protocolo 2026-07-28 cambió el transporte (eliminó GET y sesiones y agregó metadatos en cabeceras). Este endpoint anuncia solo 2025-11-25, no 2026-07-28. Fuentes primarias: [transporte 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports), [transporte 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http), [autorización 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization).
-- El servidor está preparado para recibir exclusivamente `Authorization: Bearer` y comprobar identidad, vigencia, audiencia y scopes por petición. El **verificador OAuth y el servidor de autorización aún deben elegirse e implementarse**. Esta rama no publica metadatos OAuth ni emite tokens; por tanto todavía no es conectable mediante el flujo OAuth de un host MCP remoto. La especificación actual pide metadatos de recurso protegido y un servidor de autorización descubrible para ese flujo.
+Kaizen usa PHP y MySQL en un cPanel BanaHosting. La inspección de solo lectura del 14 de octubre de 2026 confirmó SSL activo, PHP 8.1 y raíz pública `public_html` para `vedamci.com.mx`; la app vive en `/tareas-pomodoro/`. Las peticiones MCP y OAuth son HTTP breves atendidas por PHP, sin proceso Node residente ni servicio externo de pago. Aún falta comprobar en un despliegue autorizado que Apache pase `Authorization` a PHP y sirva las rutas `.well-known`.
 
-## Herramientas
+El servidor implementa Streamable HTTP **MCP 2025-11-25**: POST JSON-RPC, `initialize`, `ping`, `tools/list`, `tools/call`, 202 para notificaciones y 405 para GET. No implementa SSE ni sesiones MCP. La versión MCP 2026-07-28 difiere y aún no se anuncia. Referencias: [transporte 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports), [autorización MCP 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization), [autenticación de conectores OpenAI](https://developers.openai.com/plugins/build/auth).
+
+## OAuth propuesto
+
+- OAuth 2.1 authorization code con PKCE S256, cliente público `none`, cliente ChatGPT identificado por su [documento público](https://chatgpt.com/oauth/client.json). La app verifica ese documento por HTTPS y acepta exclusivamente el ID de cliente y URI de retorno configurados. El cliente fijo evita registro dinámico abierto.
+- La autorización exige la sesión web existente de Kaizen y presenta un consentimiento explícito para `kaizen:read` o `kaizen:read kaizen:write`. La sesión web y `X-Remember-Token` nunca autentican llamadas MCP.
+- Códigos de un uso y 5 minutos. Tokens de acceso aleatorios de 1 hora; tokens de renovación de 30 días con rotación y detección de reutilización. Solo hashes de tokens se almacenan en MySQL. El usuario puede revocar la conexión en `api/oauth.php?action=connections`; revocación invalida acceso y renovación.
+- La audiencia está fijada al URL exacto del recurso MCP. Cada petición consulta identidad, vigencia, revocación y scopes actuales. Un usuario no puede hacerse pasar por otro con argumentos del cliente. Se reutilizan las comprobaciones de espacio, proyecto, tarea y administrador existentes.
+- El servidor publica metadatos OAuth y de recurso protegido cuando esté activado. Por la subruta del sitio, la ruta estándar `/.well-known/oauth-authorization-server` y la ruta de recurso requieren las reglas preparadas en `deployment/root-well-known.htaccess`, instaladas en `public_html/.well-known/.htaccess` solo en un despliegue aprobado.
+
+**Coste:** no requiere proveedor OAuth externo ni cuota adicional identificada; sí añade mantenimiento de seguridad, tablas y pruebas de compatibilidad a la app. Un proveedor de identidad externo reduciría ese mantenimiento, pero podría añadir cuotas y trabajo de mapeo de cuentas. Se recomienda la opción local por las cuentas PHP ya existentes y el alcance fijo de un solo cliente, con una revisión de seguridad antes de activarla.
+
+## Herramientas y alcance
 
 | Herramienta | Scope | Alcance |
 | --- | --- | --- |
-| `list_workspaces` | `kaizen:read` | Espacios autorizados del usuario actual. |
+| `list_workspaces` | `kaizen:read` | Espacios autorizados del usuario. |
 | `list_projects` | `kaizen:read` | Proyectos visibles en el espacio. |
-| `list_tasks` | `kaizen:read` | Personal, proyectos accesibles o equipo solo para admin. |
-| `get_task` | `kaizen:read` | Tarea autorizada con revisión. |
-| `day_agenda` | `kaizen:read` | Bloques `workBlocks` y tareas con fecha/rango del día UTC. |
-| `create_task` | `kaizen:write` | Tarea nueva con `client_id` estable para reintentos. |
-| `update_task` | `kaizen:write` | Edita título, notas, fecha límite o proyecto con revisión. |
-| `set_task_done` | `kaizen:write` | Actualiza estado con revisión; repetir el mismo estado devuelve éxito. |
-| `set_work_block` | `kaizen:write` | Inserta o reemplaza un bloque validado; conserva cronograma y Pomodoro. |
-| `remove_work_block` | `kaizen:write` | Quita un bloque; repetir la retirada devuelve éxito. |
-| `save_project` | `kaizen:write` | Crea o edita un proyecto y sus miembros bajo la política existente. |
+| `list_tasks` | `kaizen:read` | Tareas personales, proyectos accesibles o equipo solo para admin. |
+| `get_task` | `kaizen:read` | Tarea autorizada y su revisión. |
+| `day_agenda` | `kaizen:read` | Bloques `workBlocks` y fechas del día UTC. |
+| `create_task` | `kaizen:write` | Tarea con `client_id` estable para reintentos. |
+| `update_task` | `kaizen:write` | Edición con control de revisión. |
+| `set_task_done` | `kaizen:write` | Estado con revisión e idempotencia de repetición. |
+| `set_work_block` | `kaizen:write` | Bloque horario validado. |
+| `remove_work_block` | `kaizen:write` | Retirada idempotente de un bloque. |
+| `save_project` | `kaizen:write` | Proyecto y miembros bajo política existente. |
 
-`kaizen:write` implica acceso a las herramientas de lectura; `kaizen:read` solo ofrece lectura. La identidad procede del verificador y se consulta de nuevo en MySQL; un ID o rol enviado por el cliente nunca crea permisos. Las herramientas reutilizan `projectTaskAccess`, `projectTaskWrite`, `validateTaskRevision`, `validateTaskWorkBlocks`, `loadWorkspaceTasks` y la comprobación de membresía de espacio. No hay herramienta para borrar tareas, delegar, administrar cuentas ni ver datos privados de otros miembros. La vista `team` es de solo lectura y solo para admin. Los errores internos ocultan detalles y las respuestas no devuelven secretos.
+`kaizen:write` se concede junto con `kaizen:read`. No hay herramienta de borrado de tareas, administración de cuentas ni lectura de tareas privadas ajenas. **Rocas:** `main` no tiene entidad, campo ni endpoint específico; definirlas como categoría de tarea o nueva entidad requiere una decisión de producto posterior.
 
-**Rocas:** Kaizen no tiene tabla, campo ni endpoint específico para rocas en `main`; no se expone una herramienta ficticia. Si se desea que “roca” sea una categoría de tarea o una entidad nueva, debe definirse su semántica y permisos antes de agregarla.
+## Activación pendiente de aprobación específica
 
-## Decisión pendiente para conexión remota
+1. Revisar este PR independientemente del PR7 de contraseñas. No mezclar ramas. Aprobar explícitamente usuarios autorizados, scopes de lectura/escritura, identidad ChatGPT, URL canónica, consentimiento y despliegue. No enviar claves por chat.
+2. En un despliegue controlado, instalar `api/mcp-schema.sql` sobre la base Kaizen y las reglas `deployment/root-well-known.htaccess` en la raíz `public_html/.well-known/`, preservando cualquier configuración existente. Asegurar HTTPS y cabecera `Authorization` en PHP.
+3. Fuera del repositorio, configurar `mcp_enabled=true`, `mcp_oauth_enabled=true`, `mcp_resource=https://vedamci.com.mx/tareas-pomodoro/api/mcp.php`, `mcp_issuer=https://vedamci.com.mx`, `mcp_oauth_client_id=https://chatgpt.com/oauth/client.json`, `mcp_oauth_redirect_uri=https://chatgpt.com/connector_platform_oauth_redirect`, `mcp_oauth_authorization_url=https://vedamci.com.mx/tareas-pomodoro/api/oauth.php?action=authorize`, `mcp_oauth_token_url=https://vedamci.com.mx/tareas-pomodoro/api/oauth.php?action=token`, `mcp_resource_metadata_url=https://vedamci.com.mx/tareas-pomodoro/api/oauth.php?action=resource-metadata` y `mcp_allowed_origins` según el host probado. Nunca configurar `mcp_allow_insecure_test` en producción.
+4. Comprobar descubrimiento `.well-known`, consentimiento, PKCE, tokens, revocación, 401/403, aislamiento entre usuarios y herramientas en staging. Solo después registrar el URL MCP en ChatGPT, completar OAuth para una cuenta autorizada y verificar `tools/list` y lecturas. Decidir por separado si habilitar escritura real.
 
-**Recomendación:** un proveedor OAuth 2.1 externo con autorización explícita del usuario, acceso por usuario, audiencia fijada al URL MCP y scopes `kaizen:read` / `kaizen:write`. El backend PHP actuaría como *resource server* y validaría tokens mediante un verificador privado fuera del árbol web. Hace falta implementar descubrimiento OAuth (incluido Protected Resource Metadata), consentimiento, revocación y mapeo de identidad antes de conectar un host.
-
-Otra opción es alojar autorización OAuth dentro de Kaizen, pero añade almacenamiento y rotación de clientes, códigos, PKCE, tokens y revocación al cPanel. No se recomienda para la primera integración. Un token estático copiado a un host no proporciona por sí solo el flujo OAuth que espera un host remoto y no se propone como activación.
-
-Contrato previsto para el verificador **después de aprobación**: `mcp_auth_file` apunta a un archivo PHP privado que devuelve un callable. Este valida firma o introspección, emisor, audiencia, expiración y revocación; devuelve `['user_id'=>int,'scopes'=>string[],'audience'=>string,'expires_at'=>int]`, o `null`. El endpoint exige que `audience` coincida exactamente con `mcp_resource`. El archivo de pruebas `tests/mcp-fixture.php` crea únicamente un verificador ficticio en un directorio temporal; no es un mecanismo de producción.
-
-## Secuencia de activación, pendiente de aprobación específica
-
-1. Revisar y fusionar por separado este PR, sin incluir el PR7 de contraseñas.
-2. Elegir proveedor OAuth, URL canónica del recurso, política de consentimiento, acceso de lectura/escritura y usuarios autorizados. No enviar claves por chat.
-3. Implementar y probar descubrimiento OAuth, verificación de tokens y revocación en una entrega separada. Configurar `mcp_auth_file`, `mcp_resource`, `mcp_allowed_origins` y solo entonces `mcp_enabled=true` en configuración privada. No usar `mcp_allow_insecure_test` fuera de pruebas de loopback.
-4. En staging cPanel, comprobar HTTPS, cabecera `Authorization`, POST/GET, 401/403, aislamiento entre espacios, scopes, revisiones, reintentos y compatibilidad real del host MCP. Confirmar que ningún token aparece en URL o logs.
-5. Tras una aprobación específica para activar, desplegar API y registrar el URL HTTPS MCP en el host mediante su flujo OAuth. Verificar `tools/list` y una lectura sintética antes de habilitar escrituras reales.
-
-Las pruebas de CI usan MySQL y cuentas ficticias en una base descartable. No prueban la configuración real de Apache/cPanel ni conectan un host MCP externo.
+Las pruebas de CI usan base MySQL y cuentas sintéticas descartables; cubren emisión, scopes, rotación, reutilización y revocación de tokens, además de reglas de herramientas. No prueban cPanel ni una conexión ChatGPT real.

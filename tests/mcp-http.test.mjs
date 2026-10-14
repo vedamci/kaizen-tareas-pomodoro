@@ -5,10 +5,13 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync,spawn} from 'node:child_process';
+import {createHash,randomBytes} from 'node:crypto';
 
 const repo=fileURLToPath(new URL('../',import.meta.url));
 const endpoint='http://127.0.0.1:4181/api/mcp.php';
-const tokens={read:'fixture-owner-read-00000001',write:'fixture-owner-write-0000001',member:'fixture-member-read-0000001',memberWrite:'fixture-member-write-000001',admin:'fixture-admin-read-00000001',outsider:'fixture-outsider-read-00001'};
+const oauth='http://127.0.0.1:4181/api/oauth.php';
+const clientId='https://chatgpt.com/oauth/client.json';
+const redirectUri='https://chatgpt.com/connector_platform_oauth_redirect';
 
 test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},async()=>{
   const scratch=await mkdtemp(path.join(tmpdir(),'kaizen-mcp-'));
@@ -21,9 +24,33 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
   }
   const call=(token,name,args,status=200)=>rpc(token,'tools/call',{name,arguments:args},status);
   const data=r=>r.result.structuredContent;
+  async function authorize(account,scope){
+    const login=await fetch('http://127.0.0.1:4181/api/index.php?action=login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:`fixture${account}@example.test`,password:'disposable-http-fixture'})});
+    assert.equal(login.status,200,await login.clone().text());
+    const cookie=login.headers.get('set-cookie').split(';')[0];
+    const verifier=randomBytes(32).toString('base64url');
+    const challenge=createHash('sha256').update(verifier).digest('base64url');
+    const args={response_type:'code',client_id:clientId,redirect_uri:redirectUri,resource:endpoint,scope,code_challenge:challenge,code_challenge_method:'S256',state:'fixture-state'};
+    const url=oauth+'?action=authorize&'+new URLSearchParams(args);
+    const consent=await fetch(url,{headers:{Cookie:cookie}});
+    assert.equal(consent.status,200,await consent.clone().text());
+    const html=await consent.text();const csrf=html.match(/name="csrf" value="([^"]+)"/)?.[1];assert.ok(csrf);
+    const approval=await fetch(oauth+'?action=authorize',{method:'POST',redirect:'manual',headers:{Cookie:cookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({...args,csrf,decision:'approve'})});
+    assert.equal(approval.status,302,await approval.clone().text());
+    const redirected=new URL(approval.headers.get('location'));
+    assert.equal(redirected.searchParams.get('state'),'fixture-state');
+    assert.equal(redirected.searchParams.get('iss'),'http://127.0.0.1:4181');
+    const code=redirected.searchParams.get('code');assert.ok(code);
+    const exchange=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:clientId,redirect_uri:redirectUri,resource:endpoint,code_verifier:verifier})});
+    assert.equal(exchange.status,200,await exchange.clone().text());
+    const tokens=await exchange.json();
+    const replay=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:clientId,redirect_uri:redirectUri,resource:endpoint,code_verifier:verifier})});
+    assert.equal(replay.status,400);
+    return {...tokens,cookie};
+  }
   try{
     await mkdir(path.join(scratch,'api'));
-    for(const name of ['mcp.php','mcp-core.php','projects.php','project-policy.php']) await copyFile(path.join(repo,'api',name),path.join(scratch,'api',name));
+    for(const name of ['mcp.php','mcp-core.php','mcp-oauth.php','oauth.php','index.php','projects.php','project-policy.php']) await copyFile(path.join(repo,'api',name),path.join(scratch,'api',name));
     execFileSync('php',[path.join(repo,'tests/mcp-fixture.php'),scratch],{stdio:'pipe'});
     server=spawn('php',['-S','127.0.0.1:4181','-t',scratch],{stdio:['ignore','pipe','pipe']});
     server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);
@@ -31,6 +58,16 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     assert.ok(ready,'fixture HTTP server starts');
     await rpc(null,'initialize',{},401);
     await rpc('invalid-token-000000000001','initialize',{},401);
+    const metadata=await (await fetch(oauth+'?action=metadata')).json();
+    assert.equal(metadata.client_id_metadata_document_supported,true);
+    assert.deepEqual((await (await fetch(oauth+'?action=resource-metadata')).json()).authorization_servers,['http://127.0.0.1:4181']);
+    const ownerRead=await authorize(1,'kaizen:read');
+    const ownerWrite=await authorize(1,'kaizen:read kaizen:write');
+    const member=await authorize(2,'kaizen:read');
+    const memberWrite=await authorize(2,'kaizen:read kaizen:write');
+    const admin=await authorize(4,'kaizen:read');
+    const outsider=await authorize(5,'kaizen:read');
+    const tokens={read:ownerRead.access_token,write:ownerWrite.access_token,member:member.access_token,memberWrite:memberWrite.access_token,admin:admin.access_token,outsider:outsider.access_token};
     await rpc(tokens.read,'initialize',{},403,{Origin:'https://evil.example'});
     const init=await rpc(tokens.read,'initialize',{});
     assert.equal(init.result.protocolVersion,'2025-11-25');
@@ -67,6 +104,16 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     assert.deepEqual(project.member_ids,[1,2]);
     assert.equal(data(await call(tokens.member,'list_projects',{workspace_id:1})).projects[0].id,project.id);
     await call(tokens.memberWrite,'save_project',{workspace_id:1,project_id:project.id,name:'Hijack',member_ids:[2]},403);
+    const refresh=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:ownerRead.refresh_token,client_id:clientId,resource:endpoint})});
+    assert.equal(refresh.status,200,await refresh.clone().text());
+    const rotated=await refresh.json();
+    assert.ok((await rpc(rotated.access_token,'tools/list')).result.tools.length);
+    const replay=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:ownerRead.refresh_token,client_id:clientId,resource:endpoint})});
+    assert.equal(replay.status,400);
+    await rpc(rotated.access_token,'tools/list',{},401);
+    const revoke=await fetch(oauth+'?action=connections',{method:'POST',headers:{Cookie:ownerRead.cookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf:(await (await fetch(oauth+'?action=connections',{headers:{Cookie:ownerRead.cookie}})).text()).match(/name="csrf" value="([^"]+)"/)?.[1]})});
+    assert.equal(revoke.status,200);
+    await rpc(tokens.write,'tools/list',{},401);
   }finally{
     if(server){server.kill();await new Promise(resolve=>server.once('exit',resolve));}
     await rm(scratch,{recursive:true,force:true});

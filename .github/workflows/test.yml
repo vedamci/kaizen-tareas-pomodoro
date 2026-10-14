@@ -22,6 +22,8 @@ jobs:
           php -l api/project-policy.php
           php -l api/mcp.php
           php -l api/mcp-core.php
+          php -l api/mcp-oauth.php
+          php -l api/oauth.php
           php -l tests/mcp-fixture.php
           php -l tests/projects-mysql.php
           php -l tests/http-fixture.php
@@ -43,7 +45,7 @@ jobs:
           KAIZEN_TEST_DB_PASSWORD: root # Disposable runner default.
         run: node --test tests/http.test.mjs
 
-      - name: MCP HTTP authorization and transport
+      - name: MCP OAuth and HTTP authorization
         env:
           KAIZEN_TEST_DSN: mysql:host=127.0.0.1;dbname=kaizen_test_mcp
           KAIZEN_TEST_DB_USER: root
