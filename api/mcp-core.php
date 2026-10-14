@@ -18,8 +18,10 @@ function mcpTools(bool $write): array {
     ];
     if ($write) array_push($tools,
         ['name'=>'create_task', 'description'=>'Crear una tarea. client_id estable permite reintentos sin duplicarla.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'client_id'=>$id,'title'=>['type'=>'string','minLength'=>1,'maxLength'=>255],'project_id'=>$id],'required'=>['workspace_id','client_id','title']], 'annotations'=>['readOnlyHint'=>false]],
+        ['name'=>'update_task', 'description'=>'Editar título, notas, fecha límite o proyecto de una tarea existente. Requiere la revisión leída.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'task_id'=>$id,'revision'=>['type'=>'string','pattern'=>'^[a-f0-9]{64}$'],'changes'=>['type'=>'object','properties'=>['title'=>['type'=>'string'],'notes'=>['type'=>'string'],'due'=>['type'=>'string'],'project_id'=>['type'=>'string']],'minProperties'=>1]],'required'=>['workspace_id','task_id','revision','changes']], 'annotations'=>['readOnlyHint'=>false]],
         ['name'=>'set_task_done', 'description'=>'Marcar hecha o pendiente una tarea existente. Requiere la revisión leída; repetir el mismo estado es seguro.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'task_id'=>$id,'revision'=>['type'=>'string','pattern'=>'^[a-f0-9]{64}$'],'done'=>['type'=>'boolean']],'required'=>['workspace_id','task_id','revision','done']], 'annotations'=>['readOnlyHint'=>false,'idempotentHint'=>true]],
         ['name'=>'set_work_block', 'description'=>'Crear o actualizar un bloque horario de una tarea. Requiere revisión. Horas UTC ISO con milisegundos y zona IANA.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'task_id'=>$id,'revision'=>['type'=>'string','pattern'=>'^[a-f0-9]{64}$'],'block_id'=>$id,'start'=>['type'=>'string'],'end'=>['type'=>'string'],'time_zone'=>['type'=>'string']],'required'=>['workspace_id','task_id','revision','block_id','start','end','time_zone']], 'annotations'=>['readOnlyHint'=>false,'idempotentHint'=>true]],
+        ['name'=>'remove_work_block', 'description'=>'Quitar un bloque horario sin alterar el cronograma ni el tiempo Pomodoro. Repetir la retirada es seguro.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'task_id'=>$id,'revision'=>['type'=>'string','pattern'=>'^[a-f0-9]{64}$'],'block_id'=>$id],'required'=>['workspace_id','task_id','revision','block_id']], 'annotations'=>['readOnlyHint'=>false,'idempotentHint'=>true]],
         ['name'=>'save_project', 'description'=>'Crear o actualizar un proyecto compartido. Para crear, client_id estable evita duplicados; para actualizar, project_id y member_ids explícitos.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'client_id'=>$id,'project_id'=>$id,'name'=>['type'=>'string','minLength'=>1,'maxLength'=>120],'member_ids'=>['type'=>'array','items'=>$wid,'maxItems'=>500]],'required'=>['workspace_id','name','member_ids']], 'annotations'=>['readOnlyHint'=>false]]
     );
     return $tools;
@@ -85,7 +87,7 @@ function mcpCreateTask(PDO $pdo, int $wid, array $u, bool $admin, string $id, st
 function mcpExecute(PDO $pdo, array $u, array $scopes, string $name, array $a): array {
     $read = in_array('kaizen:read',$scopes,true);
     $write = in_array('kaizen:write',$scopes,true);
-    $writeTool=in_array($name,['create_task','set_task_done','set_work_block','save_project'],true);
+    $writeTool=in_array($name,['create_task','update_task','set_task_done','set_work_block','remove_work_block','save_project'],true);
     if ((!$read && !$write) || ($writeTool && !$write)) throw new DomainException('Permiso MCP insuficiente.',403);
     if ($name==='list_workspaces') {
         if (($u['role']??'')==='super_admin') return ['workspaces'=>$pdo->query('SELECT id,name,created_by FROM workspaces ORDER BY name')->fetchAll()];
@@ -130,15 +132,32 @@ function mcpExecute(PDO $pdo, array $u, array $scopes, string $name, array $a): 
         $id='m'.substr(hash('sha256',$wid.':'.$u['id'].':'.$client),0,31);
         return ['task'=>mcpCreateTask($pdo,$wid,$u,$admin,$id,$title,$project)];
     }
-    if ($name==='set_task_done' || $name==='set_work_block') {
+    if (in_array($name,['update_task','set_task_done','set_work_block','remove_work_block'],true)) {
         $id=mcpId($a['task_id']??null);$revision=$a['revision']??null;
         if (!is_string($revision)||!preg_match('/^[a-f0-9]{64}$/D',$revision)) throw new DomainException('Revisión inválida.',422);
         $task=mcpTaskForWrite($pdo,$wid,$id,$u,$admin);
-        if ($name==='set_task_done') {
+        if ($name==='update_task') {
+            $changes=$a['changes']??null;
+            if (!is_array($changes) || !$changes || array_is_list($changes)) throw new DomainException('Cambios inválidos.',422);
+            foreach ($changes as $key=>$value) {
+                if ($key==='title') $task['title']=mcpText($value,255);
+                elseif ($key==='notes') {
+                    if (!is_string($value) || mb_strlen($value)>10000) throw new DomainException('Notas inválidas.',422);
+                    $task['notes']=$value;
+                } elseif ($key==='due') {
+                    if (!is_string($value)) throw new DomainException('Fecha inválida.',422);
+                    if ($value!=='') mcpDate($value);
+                    $task['due']=$value;
+                } elseif ($key==='project_id') {
+                    if ($value!=='' && (!is_string($value) || !preg_match('/^[A-Za-z0-9_-]{1,32}$/D',$value))) throw new DomainException('Proyecto inválido.',422);
+                    $task['project']=$value;
+                } else throw new DomainException('Campo de tarea no permitido.',422);
+            }
+        } elseif ($name==='set_task_done') {
             if (!is_bool($a['done']??null)) throw new DomainException('Estado inválido.',422);
             if ((bool)($task['done']??false)===$a['done']) return ['task'=>loadWorkspaceTaskById($pdo,$wid,$id,$u,$admin,'projects')];
             $task['done']=$a['done'];$task['doneAt']=$a['done']?(int)(microtime(true)*1000):null;
-        } else {
+        } elseif ($name==='set_work_block') {
             $blockId=mcpId($a['block_id']??null);
             foreach (['start','end','time_zone'] as $field) if (!is_string($a[$field]??null)) throw new DomainException('Bloque inválido.',422);
             $block=['id'=>$blockId,'start'=>$a['start'],'end'=>$a['end'],'timeZone'=>$a['time_zone']];
@@ -146,6 +165,12 @@ function mcpExecute(PDO $pdo, array $u, array $scopes, string $name, array $a): 
             foreach ($blocks as $existing) if (($existing['id']??null)===$blockId && $existing===$block) return ['task'=>loadWorkspaceTaskById($pdo,$wid,$id,$u,$admin,'projects')];
             $blocks=array_values(array_filter($blocks,fn($b)=>($b['id']??null)!==$blockId));$blocks[]=$block;
             $task['workBlocks']=$blocks;
+        } else {
+            $blockId=mcpId($a['block_id']??null);
+            $blocks=is_array($task['workBlocks']??null)?$task['workBlocks']:[];
+            $remaining=array_values(array_filter($blocks,fn($b)=>($b['id']??null)!==$blockId));
+            if (count($remaining)===count($blocks)) return ['task'=>loadWorkspaceTaskById($pdo,$wid,$id,$u,$admin,'projects')];
+            $task['workBlocks']=$remaining;
         }
         $task['_revision']=$revision;
         $revisions=syncWorkspaceTasks($pdo,$wid,$u,$admin,[$task]);

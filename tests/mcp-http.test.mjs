@@ -53,6 +53,15 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     const block=data(await call(tokens.write,'set_work_block',{workspace_id:1,task_id:created.id,revision:updated._revision,block_id:'b1',start:'2026-10-14T15:00:00.000Z',end:'2026-10-14T16:00:00.000Z',time_zone:'America/Mexico_City'})).task;
     assert.equal(block.workBlocks.length,1);
     assert.equal(data(await call(tokens.read,'day_agenda',{workspace_id:1,date:'2026-10-14'})).blocks[0].task_id,created.id);
+    const edited=data(await call(tokens.write,'update_task',{workspace_id:1,task_id:created.id,revision:block._revision,changes:{title:'Edited',due:'2026-10-14'}})).task;
+    assert.equal(edited.title,'Edited');
+    const stale=await call(tokens.write,'update_task',{workspace_id:1,task_id:created.id,revision:block._revision,changes:{title:'Stale'}},409);
+    assert.equal(stale.result.isError,true);
+    const invalidEdit=await call(tokens.write,'update_task',{workspace_id:1,task_id:created.id,revision:edited._revision,changes:{_owner_id:2}},200);
+    assert.equal(invalidEdit.result.isError,true);
+    const removed=data(await call(tokens.write,'remove_work_block',{workspace_id:1,task_id:created.id,revision:edited._revision,block_id:'b1'})).task;
+    assert.equal(removed.workBlocks.length,0);
+    assert.equal(data(await call(tokens.write,'remove_work_block',{workspace_id:1,task_id:created.id,revision:edited._revision,block_id:'b1'})).task.workBlocks.length,0);
     assert.equal(data(await call(tokens.admin,'list_tasks',{workspace_id:1,scope:'team'})).tasks.length,1);
     const project=data(await call(tokens.write,'save_project',{workspace_id:1,client_id:'p1',name:'Proyecto',member_ids:[2]})).project;
     assert.deepEqual(project.member_ids,[1,2]);

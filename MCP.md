@@ -19,8 +19,10 @@ Esta rama propone un endpoint `api/mcp.php` para herramientas MCP sobre las enti
 | `get_task` | `kaizen:read` | Tarea autorizada con revisión. |
 | `day_agenda` | `kaizen:read` | Bloques `workBlocks` y tareas con fecha/rango del día UTC. |
 | `create_task` | `kaizen:write` | Tarea nueva con `client_id` estable para reintentos. |
+| `update_task` | `kaizen:write` | Edita título, notas, fecha límite o proyecto con revisión. |
 | `set_task_done` | `kaizen:write` | Actualiza estado con revisión; repetir el mismo estado devuelve éxito. |
 | `set_work_block` | `kaizen:write` | Inserta o reemplaza un bloque validado; conserva cronograma y Pomodoro. |
+| `remove_work_block` | `kaizen:write` | Quita un bloque; repetir la retirada devuelve éxito. |
 | `save_project` | `kaizen:write` | Crea o edita un proyecto y sus miembros bajo la política existente. |
 
 `kaizen:write` implica acceso a las herramientas de lectura; `kaizen:read` solo ofrece lectura. La identidad procede del verificador y se consulta de nuevo en MySQL; un ID o rol enviado por el cliente nunca crea permisos. Las herramientas reutilizan `projectTaskAccess`, `projectTaskWrite`, `validateTaskRevision`, `validateTaskWorkBlocks`, `loadWorkspaceTasks` y la comprobación de membresía de espacio. No hay herramienta para borrar tareas, delegar, administrar cuentas ni ver datos privados de otros miembros. La vista `team` es de solo lectura y solo para admin. Los errores internos ocultan detalles y las respuestas no devuelven secretos.
