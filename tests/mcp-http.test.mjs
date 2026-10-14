@@ -44,9 +44,9 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     if (!exchange) return {code,verifier,cookie};
     const wrongVerifier=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:clientId,redirect_uri:redirectUri,resource:endpoint,code_verifier:'x'.repeat(43)})});
     assert.equal(wrongVerifier.status,400);
-    const exchange=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:clientId,redirect_uri:redirectUri,resource:endpoint,code_verifier:verifier})});
-    assert.equal(exchange.status,200,await exchange.clone().text());
-    const tokens=await exchange.json();
+    const tokenResponse=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:clientId,redirect_uri:redirectUri,resource:endpoint,code_verifier:verifier})});
+    assert.equal(tokenResponse.status,200,await tokenResponse.clone().text());
+    const tokens=await tokenResponse.json();
     const replay=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:clientId,redirect_uri:redirectUri,resource:endpoint,code_verifier:verifier})});
     assert.equal(replay.status,400);
     return {...tokens,cookie};
