@@ -41,6 +41,8 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     assert.equal(redirected.searchParams.get('state'),'fixture-state');
     assert.equal(redirected.searchParams.get('iss'),'http://127.0.0.1:4181');
     const code=redirected.searchParams.get('code');assert.ok(code);
+    const wrongVerifier=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:clientId,redirect_uri:redirectUri,resource:endpoint,code_verifier:'x'.repeat(43)})});
+    assert.equal(wrongVerifier.status,400);
     const exchange=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:clientId,redirect_uri:redirectUri,resource:endpoint,code_verifier:verifier})});
     assert.equal(exchange.status,200,await exchange.clone().text());
     const tokens=await exchange.json();
@@ -60,6 +62,7 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     await rpc('invalid-token-000000000001','initialize',{},401);
     const metadata=await (await fetch(oauth+'?action=metadata')).json();
     assert.equal(metadata.client_id_metadata_document_supported,true);
+    assert.equal(metadata.authorization_response_iss_parameter_supported,true);
     assert.deepEqual((await (await fetch(oauth+'?action=resource-metadata')).json()).authorization_servers,['http://127.0.0.1:4181']);
     const ownerRead=await authorize(1,'kaizen:read');
     const ownerWrite=await authorize(1,'kaizen:read kaizen:write');
@@ -68,16 +71,27 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     const admin=await authorize(4,'kaizen:read');
     const outsider=await authorize(5,'kaizen:read');
     const tokens={read:ownerRead.access_token,write:ownerWrite.access_token,member:member.access_token,memberWrite:memberWrite.access_token,admin:admin.access_token,outsider:outsider.access_token};
+    const badRequest={response_type:'code',client_id:clientId,redirect_uri:redirectUri,resource:endpoint,scope:'kaizen:read',code_challenge:'x'.repeat(43),code_challenge_method:'S256',state:'fixture-state'};
+    for(const [key,value] of [['client_id','https://attacker.example/client.json'],['redirect_uri','https://attacker.example/callback'],['resource','https://attacker.example/mcp']]) {
+      const rejected=await fetch(oauth+'?action=authorize&'+new URLSearchParams({...badRequest,[key]:value}),{headers:{Cookie:ownerRead.cookie}});
+      assert.equal(rejected.status,400);
+    }
+    const csrfRejected=await fetch(oauth+'?action=authorize',{method:'POST',headers:{Cookie:ownerRead.cookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({...badRequest,csrf:'wrong',decision:'approve'})});
+    assert.equal(csrfRejected.status,403);
     await rpc(tokens.read,'initialize',{},403,{Origin:'https://evil.example'});
     const init=await rpc(tokens.read,'initialize',{});
     assert.equal(init.result.protocolVersion,'2025-11-25');
-    const readTools=(await rpc(tokens.read,'tools/list')).result.tools.map(t=>t.name);
-    assert.ok(readTools.includes('day_agenda')&&!readTools.includes('create_task'));
-    assert.ok((await rpc(tokens.write,'tools/list')).result.tools.some(t=>t.name==='create_task'));
+    const readTools=(await rpc(tokens.read,'tools/list')).result.tools;
+    assert.deepEqual(readTools.find(t=>t.name==='create_task').securitySchemes,[{type:'oauth2',scopes:['kaizen:read','kaizen:write']}]);
+    assert.deepEqual(readTools.find(t=>t.name==='day_agenda').securitySchemes,[{type:'oauth2',scopes:['kaizen:read']}]);
+    assert.deepEqual(data(await call(tokens.read,'get_profile',{})),{id:'kaizen-user-1',name:'Fixture 1',email:'fixture1@example.test'});
+    assert.equal(data(await call(tokens.member,'get_profile',{})).id,'kaizen-user-2');
     assert.equal(data(await call(tokens.read,'list_workspaces',{})).workspaces.length,1);
     await call(tokens.outsider,'list_tasks',{workspace_id:1},403);
     await call(tokens.member,'list_tasks',{workspace_id:1,scope:'team'},403);
-    await call(tokens.read,'create_task',{workspace_id:1,client_id:'c1',title:'No'},403);
+    const upgrade=await call(tokens.read,'create_task',{workspace_id:1,client_id:'c1',title:'No'});
+    assert.equal(upgrade.result.isError,true);
+    assert.match(upgrade.result._meta['mcp/www_authenticate'][0],/insufficient_scope/);
     const created=data(await call(tokens.write,'create_task',{workspace_id:1,client_id:'c1',title:'A'})).task;
     assert.equal(created.title,'A');
     assert.equal(data(await call(tokens.write,'create_task',{workspace_id:1,client_id:'c1',title:'A'})).task.id,created.id);

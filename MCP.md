@@ -22,6 +22,7 @@ El servidor implementa Streamable HTTP **MCP 2025-11-25**: POST JSON-RPC, `initi
 
 | Herramienta | Scope | Alcance |
 | --- | --- | --- |
+| `get_profile` | `kaizen:read` | Identidad estable de la cuenta conectada. |
 | `list_workspaces` | `kaizen:read` | Espacios autorizados del usuario. |
 | `list_projects` | `kaizen:read` | Proyectos visibles en el espacio. |
 | `list_tasks` | `kaizen:read` | Tareas personales, proyectos accesibles o equipo solo para admin. |
@@ -41,6 +42,6 @@ El servidor implementa Streamable HTTP **MCP 2025-11-25**: POST JSON-RPC, `initi
 1. Revisar este PR independientemente del PR7 de contraseñas. No mezclar ramas. Aprobar explícitamente usuarios autorizados, scopes de lectura/escritura, identidad ChatGPT, URL canónica, consentimiento y despliegue. No enviar claves por chat.
 2. En un despliegue controlado, instalar `api/mcp-schema.sql` sobre la base Kaizen y las reglas `deployment/root-well-known.htaccess` en la raíz `public_html/.well-known/`, preservando cualquier configuración existente. Asegurar HTTPS y cabecera `Authorization` en PHP.
 3. Fuera del repositorio, configurar `mcp_enabled=true`, `mcp_oauth_enabled=true`, `mcp_resource=https://vedamci.com.mx/tareas-pomodoro/api/mcp.php`, `mcp_issuer=https://vedamci.com.mx`, `mcp_oauth_client_id=https://chatgpt.com/oauth/client.json`, `mcp_oauth_redirect_uri=https://chatgpt.com/connector_platform_oauth_redirect`, `mcp_oauth_authorization_url=https://vedamci.com.mx/tareas-pomodoro/api/oauth.php?action=authorize`, `mcp_oauth_token_url=https://vedamci.com.mx/tareas-pomodoro/api/oauth.php?action=token`, `mcp_resource_metadata_url=https://vedamci.com.mx/tareas-pomodoro/api/oauth.php?action=resource-metadata` y `mcp_allowed_origins` según el host probado. Nunca configurar `mcp_allow_insecure_test` en producción.
-4. Comprobar descubrimiento `.well-known`, consentimiento, PKCE, tokens, revocación, 401/403, aislamiento entre usuarios y herramientas en staging. Solo después registrar el URL MCP en ChatGPT, completar OAuth para una cuenta autorizada y verificar `tools/list` y lecturas. Decidir por separado si habilitar escritura real.
+4. Comprobar descubrimiento `.well-known`, consentimiento, PKCE, tokens, revocación, 401/403, aislamiento entre usuarios y herramientas en staging. En la pantalla de gestión del host confirmar el `client_id` y URI de retorno exactos antes de registrar el URL MCP; Codex podría usar valores distintos de ChatGPT. Completar OAuth para una cuenta autorizada y verificar `tools/list` y lecturas. Decidir por separado si habilitar escritura real.
 
 Las pruebas de CI usan base MySQL y cuentas sintéticas descartables; cubren emisión, scopes, rotación, reutilización y revocación de tokens, además de reglas de herramientas. No prueban cPanel ni una conexión ChatGPT real.

@@ -10,6 +10,10 @@ function mcpTools(bool $write): array {
     $id = ['type'=>'string', 'pattern'=>'^[A-Za-z0-9_-]{1,32}$'];
     $date = ['type'=>'string', 'pattern'=>'^\\d{4}-\\d{2}-\\d{2}$'];
     $tools = [
+        ['name'=>'get_profile','description'=>'Identificar la cuenta Kaizen autenticada.',
+            'inputSchema'=>['type'=>'object','properties'=>new stdClass(),'additionalProperties'=>false],
+            'outputSchema'=>['type'=>'object','properties'=>['id'=>['type'=>'string'],'name'=>['type'=>'string'],'email'=>['type'=>'string']],'required'=>['id'],'additionalProperties'=>false],
+            'annotations'=>['readOnlyHint'=>true], '_meta'=>['openai/profile'=>true]],
         ['name'=>'list_workspaces', 'description'=>'Listar los espacios a los que pertenece la persona.', 'inputSchema'=>['type'=>'object','properties'=>new stdClass()]],
         ['name'=>'list_projects', 'description'=>'Listar los proyectos visibles de un espacio.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid],'required'=>['workspace_id']]],
         ['name'=>'list_tasks', 'description'=>'Listar tareas personales o de proyectos accesibles. La vista team requiere ser administrador.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'scope'=>['type'=>'string','enum'=>['personal','projects','team']]],'required'=>['workspace_id']]],
@@ -24,6 +28,12 @@ function mcpTools(bool $write): array {
         ['name'=>'remove_work_block', 'description'=>'Quitar un bloque horario sin alterar el cronograma ni el tiempo Pomodoro. Repetir la retirada es seguro.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'task_id'=>$id,'revision'=>['type'=>'string','pattern'=>'^[a-f0-9]{64}$'],'block_id'=>$id],'required'=>['workspace_id','task_id','revision','block_id']], 'annotations'=>['readOnlyHint'=>false,'idempotentHint'=>true]],
         ['name'=>'save_project', 'description'=>'Crear o actualizar un proyecto compartido. Para crear, client_id estable evita duplicados; para actualizar, project_id y member_ids explícitos.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'client_id'=>$id,'project_id'=>$id,'name'=>['type'=>'string','minLength'=>1,'maxLength'=>120],'member_ids'=>['type'=>'array','items'=>$wid,'maxItems'=>500]],'required'=>['workspace_id','name','member_ids']], 'annotations'=>['readOnlyHint'=>false]]
     );
+    foreach ($tools as &$tool) {
+        $scopes=($tool['annotations']['readOnlyHint']??true)===false
+            ? ['kaizen:read','kaizen:write'] : ['kaizen:read'];
+        $tool['securitySchemes']=[['type'=>'oauth2','scopes'=>$scopes]];
+    }
+    unset($tool);
     return $tools;
 }
 
@@ -89,6 +99,7 @@ function mcpExecute(PDO $pdo, array $u, array $scopes, string $name, array $a): 
     $write = in_array('kaizen:write',$scopes,true);
     $writeTool=in_array($name,['create_task','update_task','set_task_done','set_work_block','remove_work_block','save_project'],true);
     if ((!$read && !$write) || ($writeTool && !$write)) throw new DomainException('Permiso MCP insuficiente.',403);
+    if ($name==='get_profile') return ['id'=>'kaizen-user-'.(string)$u['id'],'name'=>(string)$u['name'],'email'=>(string)$u['email']];
     if ($name==='list_workspaces') {
         if (($u['role']??'')==='super_admin') return ['workspaces'=>$pdo->query('SELECT id,name,created_by FROM workspaces ORDER BY name')->fetchAll()];
         $q=$pdo->prepare('SELECT w.id,w.name,w.created_by,wm.role AS member_role FROM workspaces w JOIN workspace_members wm ON wm.workspace_id=w.id WHERE wm.user_id=? ORDER BY w.name');$q->execute([(int)$u['id']]);

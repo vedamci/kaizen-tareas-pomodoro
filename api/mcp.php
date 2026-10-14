@@ -66,7 +66,7 @@ try {
     if (!is_array($params) || array_is_list($params) && $params!==[]) mcpError($id,-32602,'Invalid params');
     if ($method==='initialize') mcpResponse($id,['protocolVersion'=>KAIZEN_MCP_VERSION,'capabilities'=>['tools'=>(object)[]],'serverInfo'=>['name'=>'kaizen','version'=>'0.1.0']]);
     if ($method==='ping') mcpResponse($id,[]);
-    if ($method==='tools/list') mcpResponse($id,['tools'=>mcpTools(in_array('kaizen:write',$scopes,true))]);
+    if ($method==='tools/list') mcpResponse($id,['tools'=>mcpTools(true)]);
     if ($method==='tools/call') {
         $name=$params['name']??null;$arguments=$params['arguments']??[];
         if (!is_string($name) || !is_array($arguments) || (array_is_list($arguments)&&$arguments!==[])) mcpError($id,-32602,'Invalid params');
@@ -77,6 +77,11 @@ try {
     mcpError($id,-32601,'Method not found');
 } catch (DomainException $e) {
     if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+    if ($e->getMessage()==='Permiso MCP insuficiente.') {
+        $challenge='Bearer resource_metadata="'.$config['mcp_resource_metadata_url'].'", error="insufficient_scope", error_description="This tool requires kaizen:write"';
+        mcpResponse($id??null,['content'=>[['type'=>'text','text'=>'Se requiere permiso de escritura.']],
+            '_meta'=>['mcp/www_authenticate'=>[$challenge]],'isError'=>true]);
+    }
     $status=in_array($e->getCode(),[403,404,409,422],true)?$e->getCode():422;
     mcpResponse($id??null,['content'=>[['type'=>'text','text'=>$e->getMessage()]],'isError'=>true],null,$status===422?200:$status);
 } catch (Throwable $e) {
