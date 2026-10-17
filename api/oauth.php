@@ -82,7 +82,7 @@ try {
             $parts=is_string($credentials)?explode(':',$credentials,2):[];
             $postedClient=$_POST['client_id']??null;
             if (count($parts)!==2 || $parts[1]!=='' || !is_string($postedClient) ||
-                !hash_equals($postedClient,$parts[0]) || !in_array($postedClient,mcpOAuthAllowedClients($config),true)) {
+                !hash_equals($postedClient,urldecode($parts[0])) || !in_array($postedClient,mcpOAuthAllowedClients($config),true)) {
                 error_log('Kaizen OAuth rejected client auth scheme: '.strtok((string)$clientAuth,' '));
                 oauthJson(['error'=>'invalid_client'],401);
             }
