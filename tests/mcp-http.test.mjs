@@ -71,7 +71,8 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     const memberWrite=await authorize(2,'kaizen:read kaizen:write');
     const admin=await authorize(4,'kaizen:read');
     const outsider=await authorize(5,'kaizen:read');
-    const tokens={read:ownerRead.access_token,write:ownerWrite.access_token,member:member.access_token,memberWrite:memberWrite.access_token,admin:admin.access_token,outsider:outsider.access_token};
+    const outsiderWrite=await authorize(5,'kaizen:read kaizen:write');
+    const tokens={read:ownerRead.access_token,write:ownerWrite.access_token,member:member.access_token,memberWrite:memberWrite.access_token,admin:admin.access_token,outsider:outsider.access_token,outsiderWrite:outsiderWrite.access_token};
     const badRequest={response_type:'code',client_id:clientId,redirect_uri:redirectUri,resource:endpoint,scope:'kaizen:read',code_challenge:'x'.repeat(43),code_challenge_method:'S256',state:'fixture-state'};
     for(const [key,value] of [['client_id','https://attacker.example/client.json'],['redirect_uri','https://attacker.example/callback'],['resource','https://attacker.example/mcp']]) {
       const rejected=await fetch(oauth+'?action=authorize&'+new URLSearchParams({...badRequest,[key]:value}),{headers:{Cookie:ownerRead.cookie}});
@@ -104,7 +105,7 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     assert.equal(assistantUpgrade.result.isError,true);
     assert.match(assistantUpgrade.result._meta['mcp/www_authenticate'][0],/insufficient_scope/);
     await call(tokens.memberWrite,'assistant_run_upsert',{...assistantPayload,external_id:'member-run'},403);
-    await call(tokens.outsider,'assistant_run_upsert',{...assistantPayload,external_id:'outsider-run'},403);
+    await call(tokens.outsiderWrite,'assistant_run_upsert',{...assistantPayload,external_id:'outsider-run'},403);
     const assistantSaved=data(await call(tokens.write,'assistant_run_upsert',assistantPayload));
     assert.equal(assistantSaved.duplicate,false);
     assert.equal(assistantSaved.run.kind,'assistant_run');
