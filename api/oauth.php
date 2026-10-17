@@ -76,17 +76,9 @@ try {
         if (($_SERVER['REQUEST_METHOD']??'')!=='POST') {header('Allow: POST');http_response_code(405);exit;}
         if (strtolower(trim(explode(';',$_SERVER['CONTENT_TYPE']??'')[0]))!=='application/x-www-form-urlencoded' || (int)($_SERVER['CONTENT_LENGTH']??0)>8192) oauthJson(['error'=>'invalid_request'],400);
         $clientAuth=$_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??null;
-        if ($clientAuth!==null) {
-            $validBasic=preg_match('/^Basic ([A-Za-z0-9+\/=]+)$/D',$clientAuth,$match)===1;
-            $credentials=$validBasic?base64_decode($match[1],true):false;
-            $parts=is_string($credentials)?explode(':',$credentials,2):[];
-            $postedClient=$_POST['client_id']??null;
-            if (count($parts)!==2 || $parts[1]!=='' || !is_string($postedClient) ||
-                !hash_equals($postedClient,urldecode($parts[0])) || !in_array($postedClient,mcpOAuthAllowedClients($config),true)) {
-                error_log('Kaizen OAuth rejected client auth scheme: '.strtok((string)$clientAuth,' '));
-                oauthJson(['error'=>'invalid_client'],401);
-            }
-        }
+        // Some Apache setups expose an empty Authorization value even when the
+        // public OAuth client sent no credentials.
+        if (is_string($clientAuth) && trim($clientAuth)!=='') oauthJson(['error'=>'invalid_client'],401);
         $pdo=mcpOAuthDb($config);
         $grant=$_POST['grant_type']??null;
         if ($grant==='authorization_code') $tokens=mcpOAuthExchangeCode($pdo,$config,$_POST);
