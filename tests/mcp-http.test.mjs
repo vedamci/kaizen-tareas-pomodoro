@@ -36,8 +36,12 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     const url=oauth+'?action=authorize&'+new URLSearchParams(args);
     const consent=await fetch(url,{headers:{Cookie:cookie}});
     assert.equal(consent.status,200,await consent.clone().text());
-    const html=await consent.text();const csrf=html.match(/name="csrf" value="([^"]+)"/)?.[1];assert.ok(csrf);
-    const approval=await fetch(oauth+'?action=authorize',{method:'POST',redirect:'manual',headers:{Cookie:cookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({...args,csrf,decision:'approve'})});
+    const html=await consent.text();
+    const formFields=Object.fromEntries([...html.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)].map(([,key,value])=>[key,value]));
+    assert.ok(formFields.csrf);
+    assert.equal(formFields.response_type,'code');
+    assert.equal(formFields.code_challenge_method,'S256');
+    const approval=await fetch(oauth+'?action=authorize',{method:'POST',redirect:'manual',headers:{Cookie:cookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({...formFields,decision:'approve'})});
     assert.equal(approval.status,302,await approval.clone().text());
     const redirected=new URL(approval.headers.get('location'));
     assert.equal(redirected.searchParams.get('state'),'fixture-state');
