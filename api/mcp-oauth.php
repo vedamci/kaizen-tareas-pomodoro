@@ -94,8 +94,9 @@ function mcpOAuthValidAuthorization(array $a, array $config): array {
     mcpOAuthValidateClientMetadata($config,$a['client_id'],$a['redirect_uri']);
     $scope=implode(' ',mcpOAuthScopes($a['scope']??null));
     if (!mcpOAuthScopeAllowed($config,$scope)) throw new DomainException('invalid_scope',400);
-    return ['client_id'=>$a['client_id'],'redirect_uri'=>$a['redirect_uri'],'resource'=>$a['resource'],
-        'scope'=>$scope,'code_challenge'=>$challenge,'state'=>$state];
+    return ['response_type'=>'code','client_id'=>$a['client_id'],'redirect_uri'=>$a['redirect_uri'],
+        'resource'=>$a['resource'],'scope'=>$scope,'code_challenge'=>$challenge,
+        'code_challenge_method'=>'S256','state'=>$state];
 }
 function mcpOAuthGrantAndCode(PDO $pdo, int $userId, array $request): string {
     $pdo->beginTransaction();
