@@ -303,7 +303,7 @@ test('person supervision uses one task identity for timeline and explicit hourly
   assert.equal(v.supervisionTimelineRows[0].anchor,v.supervisionBlockRows[0].anchor,'both views link to the same canonical task');
   assert.ok(v.supervisionTimelineRows[0].start&&v.supervisionTimelineRows[0].end,'timeline keeps both full schedule bounds');
   assert.notEqual(v.supervisionUnscheduledRows[0].anchor,v.supervisionUnscheduledRows[1].anchor,'distinct task IDs cannot collide after anchor encoding');
-  assert.equal(v.supervisionBlockRows[0].start,'10:00','hourly view comes from the explicit workBlock only');
+  assert.equal(v.supervisionBlockRows[0].start.match(/\d{2}:\d{2}/)?.[0],'10:00','hourly view comes from the explicit workBlock only, independent of locale suffix');
   assert.ok(v.supervisionTimeZone);assert.match(supervisionMarkup,/El rango completo del cronograma no se convierte en horas trabajadas/);
   assert.match(supervisionMarkup,/aria-live="polite"/);assert.match(supervisionMarkup,/datetime="\{\{ t\.startIso \}\}"/);
   await v.onSupervisionPerson({target:{value:''}});v=c.renderVals();
