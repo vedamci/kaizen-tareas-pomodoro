@@ -249,13 +249,13 @@ test('assistant section requires active workspace admin access, including direct
   c.state.assistantSelId = 'demo-run-1';
   c.componentDidUpdate();
   assert.equal(c.state.view, 'today', 'losing access exits the direct view');
-  assert.deepEqual(c.state.assistantRuns, [], 'losing access clears loaded demo records');
+  assert.equal(c.state.assistantRuns.length, 0, 'losing access clears loaded demo records');
   assert.equal(c.state.assistantSelId, null);
 
   c.state.view = 'assistant';
   await c.loadAssistantRuns('data');
   assert.equal(c.state.view, 'today', 'a member is redirected from a direct view');
-  assert.deepEqual(c.state.assistantRuns, []);
+  assert.equal(c.state.assistantRuns.length, 0);
   assert.equal(c.state.assistantStatus, 'idle');
   assert.equal(c.state.assistantSelId, null);
   assert.deepEqual(calls, { api:0, fetch:0 });

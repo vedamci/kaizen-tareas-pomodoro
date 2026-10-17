@@ -1891,9 +1891,9 @@ class Component extends DCLogic {
   seed() {
     const now = Date.now(), day = 86400000;
     const projects = [
-      { id: 'p1', name: 'VEDAMCI' },
-      { id: 'p2', name: 'Nutrición UnADM' },
-      { id: 'p3', name: 'Libro' }
+      { id: 'p1', name: 'Project Alpha' },
+      { id: 'p2', name: 'Project Beta' },
+      { id: 'p3', name: 'Project Gamma' }
     ];
     const t = (o) => Object.assign({
       id: this.uid(), title: '', list: 'inbox', project: '', due: '', quadrant: 'q2',
@@ -1901,20 +1901,20 @@ class Component extends DCLogic {
       seconds: 0, pomos: 0, createdAt: now
     }, o);
     const tasks = [
-      t({ title: 'Draft sprint update', list: 'Today', project: 'Website refresh', quadrant: 'q1', due: this.dkey(now), estPomos: 2, seconds: 2760, pomos: 2, tags: ['writing'] }),
-      t({ title: 'Review navigation draft', list: 'Today', project: 'Website refresh', quadrant: 'q1', seconds: 900, pomos: 0 }),
-      t({ title: 'Prepare kickoff agenda', list: 'This week', project: 'Team operations', quadrant: 'q2', due: this.dkey(now + day), estPomos: 3, seconds: 4380, pomos: 3 }),
-      t({ title: 'Collect design references', list: 'This week', project: 'Website refresh', quadrant: 'q2', estPomos: 4, seconds: 6300, pomos: 4 }),
-      t({ title: 'Outline user test plan', list: 'Later', project: 'Website refresh', quadrant: 'q3' }),
-      t({ title: 'Tidy project notes', list: 'Later', quadrant: 'q3' }),
-      t({ title: 'Plan weekly review', list: 'This week', project: 'Team operations', quadrant: 'q2', tags: ['planning'] }),
-      t({ title: 'Sketch dashboard layout', list: 'Later', project: 'Website refresh', quadrant: 'q3', estPomos: 5 }),
-      t({ title: 'Map onboarding flow', list: 'Later', project: 'Website refresh', quadrant: 'q3', estPomos: 6 }),
-      t({ title: 'Read project brief', list: 'This week', project: 'Team operations', quadrant: 'q2' }),
-      t({ title: 'Send meeting summary', list: 'Done', project: 'Team operations', quadrant: 'q4', done: true, doneAt: now - 2 * 3600000, seconds: 1500, pomos: 1 }),
-      t({ title: 'Organize reference files', list: 'Done', project: 'Website refresh', quadrant: 'q4', done: true, doneAt: now - day, seconds: 1200, pomos: 1 }),
-      t({ title: 'Set up weekly checklist', list: 'Done', project: 'Team operations', quadrant: 'q4', done: true, doneAt: now - 2 * day, seconds: 2400, pomos: 2 }),
-      t({ title: 'Review project milestones', list: 'Done', project: 'Website refresh', quadrant: 'q4', done: true, doneAt: now - 3 * day, seconds: 3000, pomos: 2 })
+      t({ title: 'Draft sprint update', list: 'today', project: 'p1', quadrant: 'q1', due: this.dkey(now), estPomos: 2, seconds: 2760, pomos: 2, tags: ['writing'] }),
+      t({ title: 'Review navigation draft', list: 'today', project: 'p1', quadrant: 'q1', seconds: 900, pomos: 0 }),
+      t({ title: 'Prepare kickoff agenda', list: 'future', project: 'p2', quadrant: 'q2', due: this.dkey(now + day), estPomos: 3, seconds: 4380, pomos: 3 }),
+      t({ title: 'Collect design references', list: 'future', project: 'p1', quadrant: 'q2', estPomos: 4, seconds: 6300, pomos: 4 }),
+      t({ title: 'Outline user test plan', list: 'future', project: 'p3', quadrant: 'q3' }),
+      t({ title: 'Tidy project notes', list: 'inbox', quadrant: 'q3' }),
+      t({ title: 'Plan weekly review', list: 'future', project: 'p2', quadrant: 'q2', tags: ['planning'] }),
+      t({ title: 'Sketch dashboard layout', list: 'future', project: 'p1', quadrant: 'q3', estPomos: 5 }),
+      t({ title: 'Map onboarding flow', list: 'future', project: 'p1', quadrant: 'q3', estPomos: 6 }),
+      t({ title: 'Read project brief', list: 'inbox', project: 'p2', quadrant: 'q2' }),
+      t({ title: 'Send meeting summary', list: 'today', project: 'p2', quadrant: 'q4', done: true, doneAt: now - 2 * 3600000, seconds: 1500, pomos: 1 }),
+      t({ title: 'Organize reference files', list: 'future', project: 'p1', quadrant: 'q4', done: true, doneAt: now - day, seconds: 1200, pomos: 1 }),
+      t({ title: 'Set up weekly checklist', list: 'inbox', project: 'p2', quadrant: 'q4', done: true, doneAt: now - 2 * day, seconds: 2400, pomos: 2 }),
+      t({ title: 'Review project milestones', list: 'future', project: 'p3', quadrant: 'q4', done: true, doneAt: now - 3 * day, seconds: 3000, pomos: 2 })
     ];
     const secsByDay = [5400, 7200, 3600, 8100, 2700, 6300, 4500];
     const hourShape = { 7: 0.1, 8: 0.16, 9: 0.22, 10: 0.24, 11: 0.1, 16: 0.08, 17: 0.06, 20: 0.04 };
