@@ -36,6 +36,7 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     const url=oauth+'?action=authorize&'+new URLSearchParams(args);
     const consent=await fetch(url,{headers:{Cookie:cookie}});
     assert.equal(consent.status,200,await consent.clone().text());
+    assert.ok(consent.headers.get('content-security-policy').includes("form-action 'self' "+new URL(redirect).origin+';'));
     const html=await consent.text();
     const formFields=Object.fromEntries([...html.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)].map(([,key,value])=>[key,value]));
     assert.ok(formFields.csrf);
