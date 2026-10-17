@@ -117,7 +117,7 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     const assistantDuplicate=data(await call(tokens.write,'assistant_run_upsert',assistantPayload));
     assert.equal(assistantDuplicate.duplicate,true);
     assert.equal(assistantDuplicate.run.id,assistantSaved.run.id);
-    const assistantConflict=await call(tokens.write,'assistant_run_upsert',{...assistantPayload,title:'Different synthetic title'});
+    const assistantConflict=await call(tokens.write,'assistant_run_upsert',{...assistantPayload,title:'Different synthetic title'},409);
     assert.equal(assistantConflict.result.isError,true);
     const created=data(await call(tokens.write,'create_task',{workspace_id:1,client_id:'c1',title:'A'})).task;
     assert.equal(created.title,'A');
