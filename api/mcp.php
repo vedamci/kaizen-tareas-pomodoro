@@ -59,7 +59,7 @@ try {
     $q=$pdo->prepare('SELECT id,name,email,role FROM users WHERE id=?');$q->execute([$claims['user_id']]);$u=$q->fetch();
     if (!$u) mcpChallenge($config,'invalid_token');
     $scopes=$claims['scopes'];
-    if (!in_array('kaizen:read',$scopes,true) && !in_array('kaizen:write',$scopes,true)) mcpHttpError(403);
+    if (!in_array('kaizen:read',$scopes,true)) mcpHttpError(403);
 
     if (!array_key_exists('id',$request)) {http_response_code(202);exit;}
     $method=$request['method'];$params=$request['params']??[];
@@ -67,11 +67,12 @@ try {
     if ($method==='initialize') mcpResponse($id,['protocolVersion'=>KAIZEN_MCP_VERSION,'capabilities'=>['tools'=>(object)[]],'serverInfo'=>['name'=>'kaizen','version'=>'0.1.0']]);
     if ($method==='ping') mcpResponse($id,[]);
     $writeEnabled=$config['mcp_max_scope']==='kaizen:write';
-    if ($method==='tools/list') mcpResponse($id,['tools'=>mcpTools($writeEnabled)]);
+    $assistantWriteEnabled=!empty($config['mcp_assistant_runs_write_enabled']);
+    if ($method==='tools/list') mcpResponse($id,['tools'=>mcpTools($writeEnabled,$assistantWriteEnabled)]);
     if ($method==='tools/call') {
         $name=$params['name']??null;$arguments=$params['arguments']??[];
         if (!is_string($name) || !is_array($arguments) || (array_is_list($arguments)&&$arguments!==[])) mcpError($id,-32602,'Invalid params');
-        if (!in_array($name,array_column(mcpTools($writeEnabled),'name'),true)) mcpError($id,-32601,'Method not found');
+        if (!in_array($name,array_column(mcpTools($writeEnabled,$assistantWriteEnabled),'name'),true)) mcpError($id,-32601,'Method not found');
         $result=mcpExecute($pdo,$u,$scopes,$name,$arguments);
         mcpResponse($id,['content'=>[['type'=>'text','text'=>json_encode($result,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]],'structuredContent'=>$result]);
     }
@@ -79,7 +80,9 @@ try {
 } catch (DomainException $e) {
     if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
     if ($e->getMessage()==='Permiso MCP insuficiente.') {
-        $challenge='Bearer resource_metadata="'.$config['mcp_resource_metadata_url'].'", error="insufficient_scope", error_description="This tool requires kaizen:write"';
+        $needed=($name??'')==='assistant_run_upsert' && !empty($config['mcp_assistant_runs_write_enabled'])
+            ? 'kaizen:assistant_runs:write' : 'kaizen:write';
+        $challenge='Bearer resource_metadata="'.$config['mcp_resource_metadata_url'].'", error="insufficient_scope", error_description="This tool requires '.$needed.'"';
         mcpResponse($id??null,['content'=>[['type'=>'text','text'=>'Se requiere permiso de escritura.']],
             '_meta'=>['mcp/www_authenticate'=>[$challenge]],'isError'=>true]);
     }

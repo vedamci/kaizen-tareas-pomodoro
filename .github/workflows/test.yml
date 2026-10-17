@@ -14,11 +14,12 @@ jobs:
         with:
           persist-credentials: false
       - name: JavaScript and component checks
-        run: node --test tests/planning.test.cjs
+        run: node --test tests/planning.test.cjs tests/assistant-runs.test.cjs
       - name: PHP syntax and project policy
         run: |
           php -l api/index.php
           php -l api/projects.php
+          php -l api/assistant-runs.php
           php -l api/project-policy.php
           php -l api/mcp.php
           php -l api/mcp-core.php

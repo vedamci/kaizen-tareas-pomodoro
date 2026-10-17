@@ -41,6 +41,40 @@ cuadrícula desplegable permite un desplazamiento horizontal propio para conserv
 de día de al menos 44 px; la agenda permanece primero. La vista previa local usa
 datos ficticios y nunca debe conectarse a la API publicada.
 
+## Tareas delegadas al asistente
+
+**Asistente** (en Más vistas) sigue las ejecuciones delegadas a Luna según
+[la especificación](docs/delegated-assistant-tasks-spec.md). Muestra resumen por
+estado, búsqueda, tarjetas con estado, antigüedad, último avance, bloqueo, próximo
+paso y entregables, y un detalle con la cronología de eventos de la más reciente
+a la más antigua. Los filtros no modifican ninguna ejecución.
+
+La rama implementa registros privados mediante `assistant_runs` y
+`assistant_run_upsert`. La carga en vivo requiere seleccionar **Servidor ·
+registros privados**; el estado inicial no consulta datos. Los fixtures de
+`assistant-runs-demo.js` requieren una selección explícita y muestran siempre
+**DEMO · datos ficticios**. Nunca se mezclan con registros reales. La lógica de
+presentación está en `assistant-runs.js`:
+
+Solo el administrador del espacio activo, su creador o un superadministrador puede
+ver la sección. La comprobación protege navegación, vista directa, modelo de
+renderizado y carga; al perder acceso, descarta la selección y los datos en
+memoria. Las rutas de sesión y herramientas MCP de rama vuelven a comprobar el
+administrador, creador o superadministrador en servidor. MCP publica la lectura
+con `kaizen:read` y el upsert solo cuando ya está permitido `kaizen:write`; no
+añade scopes ni crea credenciales. La integración no programa ejecuciones.
+
+- Una ejecución solo existe con `kind: "assistant_run"`, asistente y evento
+  `delegated`. `done`, propietario, `sharedWith`, `_delegated_at`, `scope: team`,
+  Pomodoros, `seconds`, `pomos` y `_revision` nunca crean ni miden una ejecución.
+- Antigüedad = ahora − `delegated_at`; tiempo de resolución = `completed_at` −
+  `delegated_at`, solo con estado y evento `completed`. Las canceladas no cuentan
+  como resueltas. Marcas ausentes, inválidas o contradictorias se leen **Sin dato**.
+- El tiempo activo es **Sin registro** salvo con pares explícitos
+  `work_started`/`work_paused`; se ignoran intervalos abiertos, invertidos,
+  duplicados o sin pareja, y el detalle avisa de ellos.
+- El selector «Probar estados de la demo» muestra carga, vacío y error.
+
 ## Uso
 
 - En **Proyectos**, crear un proyecto y elegir miembros del equipo existente.

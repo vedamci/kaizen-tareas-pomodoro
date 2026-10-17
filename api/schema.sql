@@ -112,3 +112,51 @@ CREATE TABLE push_jobs (
   INDEX idx_push_subscription (subscription_hash),
   INDEX idx_push_due (fire_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE assistant_runs (
+  workspace_id INT UNSIGNED NOT NULL,
+  id CHAR(32) NOT NULL,
+  source VARCHAR(40) NOT NULL,
+  external_id VARCHAR(120) NOT NULL,
+  title VARCHAR(180) NOT NULL,
+  status ENUM('queued','in_progress','blocked','completed','cancelled') NOT NULL,
+  delegated_at DATETIME(3) NULL,
+  completed_at DATETIME(3) NULL,
+  closed_at DATETIME(3) NULL,
+  progress TEXT NULL,
+  blocker TEXT NULL,
+  next_step TEXT NULL,
+  deliverables_json LONGTEXT NOT NULL,
+  verified_at DATETIME(3) NOT NULL,
+  updated_by INT UNSIGNED NOT NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (workspace_id,id),
+  UNIQUE KEY uq_assistant_run_source (workspace_id,source,external_id),
+  INDEX idx_assistant_run_workspace_status (workspace_id,status,verified_at),
+  CONSTRAINT fk_assistant_runs_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  CONSTRAINT fk_assistant_runs_user FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE assistant_run_updates (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  workspace_id INT UNSIGNED NOT NULL,
+  run_id CHAR(32) NOT NULL,
+  idempotency_key VARCHAR(100) NOT NULL,
+  payload_hash CHAR(64) NOT NULL,
+  source VARCHAR(40) NOT NULL,
+  status ENUM('queued','in_progress','blocked','completed','cancelled') NOT NULL,
+  progress TEXT NULL,
+  blocker TEXT NULL,
+  next_step TEXT NULL,
+  deliverables_json LONGTEXT NOT NULL,
+  delegated_at DATETIME(3) NULL,
+  completed_at DATETIME(3) NULL,
+  closed_at DATETIME(3) NULL,
+  verified_at DATETIME(3) NOT NULL,
+  recorded_by INT UNSIGNED NOT NULL,
+  UNIQUE KEY uq_assistant_run_idempotency (workspace_id,idempotency_key),
+  INDEX idx_assistant_updates_run (workspace_id,run_id,id),
+  CONSTRAINT fk_assistant_updates_run FOREIGN KEY (workspace_id,run_id) REFERENCES assistant_runs(workspace_id,id) ON DELETE CASCADE,
+  CONSTRAINT fk_assistant_updates_user FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
