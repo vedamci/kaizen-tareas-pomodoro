@@ -6,7 +6,7 @@ require_once __DIR__ . '/assistant-runs.php';
 
 const KAIZEN_MCP_VERSION = '2025-11-25';
 
-function mcpTools(bool $write): array {
+function mcpTools(bool $write, bool $assistantWrite = false): array {
     $wid = ['type'=>'integer', 'minimum'=>1];
     $id = ['type'=>'string', 'pattern'=>'^[A-Za-z0-9_-]{1,32}$'];
     $date = ['type'=>'string', 'pattern'=>'^\\d{4}-\\d{2}-\\d{2}$'];
@@ -30,8 +30,8 @@ function mcpTools(bool $write): array {
         ['name'=>'remove_work_block', 'description'=>'Quitar un bloque horario sin alterar el cronograma ni el tiempo Pomodoro. Repetir la retirada es seguro.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'task_id'=>$id,'revision'=>['type'=>'string','pattern'=>'^[a-f0-9]{64}$'],'block_id'=>$id],'required'=>['workspace_id','task_id','revision','block_id']], 'annotations'=>['readOnlyHint'=>false,'idempotentHint'=>true]],
         ['name'=>'save_project', 'description'=>'Crear o actualizar un proyecto compartido. Para crear, client_id estable evita duplicados; para actualizar, project_id y member_ids explícitos.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'client_id'=>$id,'project_id'=>$id,'name'=>['type'=>'string','minLength'=>1,'maxLength'=>120],'member_ids'=>['type'=>'array','items'=>$wid,'maxItems'=>500]],'required'=>['workspace_id','name','member_ids']], 'annotations'=>['readOnlyHint'=>false]]
     );
-    if ($write) $tools[] = ['name'=>'assistant_run_upsert',
-        'description'=>'Registrar o actualizar una ejecución con evidencia verificada. Requiere kaizen:write y administración del espacio; clave de idempotencia estable para reintentos.',
+    if ($write || $assistantWrite) $tools[] = ['name'=>'assistant_run_upsert',
+        'description'=>'Registrar o actualizar una ejecución con evidencia verificada. Requiere kaizen:assistant_runs:write (o kaizen:write) y administración del espacio; clave de idempotencia estable para reintentos.',
         'inputSchema'=>['type'=>'object','properties'=>[
             'workspace_id'=>$wid,
             'source'=>['type'=>'string','pattern'=>'^[a-zA-Z][a-zA-Z0-9_.-]{0,39}$'],
@@ -49,8 +49,10 @@ function mcpTools(bool $write): array {
         ],'required'=>['workspace_id','source','external_id','idempotency_key','title','status'],'additionalProperties'=>false],
         'annotations'=>['readOnlyHint'=>false,'idempotentHint'=>true]];
     foreach ($tools as &$tool) {
-        $scopes=($tool['annotations']['readOnlyHint']??true)===false
-            ? ['kaizen:read','kaizen:write'] : ['kaizen:read'];
+        $scopes=$tool['name']==='assistant_run_upsert'
+            ? ['kaizen:read',$assistantWrite?'kaizen:assistant_runs:write':'kaizen:write']
+            : ((($tool['annotations']['readOnlyHint']??true)===false)
+                ? ['kaizen:read','kaizen:write'] : ['kaizen:read']);
         $tool['securitySchemes']=[['type'=>'oauth2','scopes'=>$scopes]];
     }
     unset($tool);
@@ -117,8 +119,10 @@ function mcpCreateTask(PDO $pdo, int $wid, array $u, bool $admin, string $id, st
 function mcpExecute(PDO $pdo, array $u, array $scopes, string $name, array $a): array {
     $read = in_array('kaizen:read',$scopes,true);
     $write = in_array('kaizen:write',$scopes,true);
-    $writeTool=in_array($name,['create_task','update_task','set_task_done','set_work_block','remove_work_block','save_project','assistant_run_upsert'],true);
-    if ((!$read && !$write) || ($writeTool && !$write)) throw new DomainException('Permiso MCP insuficiente.',403);
+    $assistantWrite = in_array('kaizen:assistant_runs:write',$scopes,true);
+    $writeTool=in_array($name,['create_task','update_task','set_task_done','set_work_block','remove_work_block','save_project'],true);
+    if (!$read || ($writeTool && !$write) || ($name==='assistant_run_upsert' && !$write && !$assistantWrite))
+        throw new DomainException('Permiso MCP insuficiente.',403);
     if ($name==='get_profile') return ['id'=>'kaizen-user-'.(string)$u['id'],'name'=>(string)$u['name'],'email'=>(string)$u['email']];
     if ($name==='list_workspaces') {
         if (($u['role']??'')==='super_admin') return ['workspaces'=>$pdo->query('SELECT id,name,created_by FROM workspaces ORDER BY name')->fetchAll()];

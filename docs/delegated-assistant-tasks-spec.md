@@ -65,7 +65,7 @@ La rama añade las herramientas MCP `assistant_runs` y `assistant_run_upsert` ju
 - `assistant_run_upsert`: crea o actualiza un registro y agrega una actualización de auditoría; requiere `source`, `external_id`, `idempotency_key`, `title` y `status`, más campos opcionales de avance, bloqueo, próximo paso, entregables y fechas verificadas de delegación/cierre.
 - `supervision_people` y `supervision_tasks`: devuelven integrantes y tareas del integrante seleccionado, solo a administradores del espacio.
 
-En MCP, la lectura usa `kaizen:read`. El upsert aparece únicamente cuando la configuración ya permite `kaizen:write`, además de requerir autorización administrativa del workspace. No se cambia el scope permitido en producción ni se crean credenciales. La automatización horaria aún no está activada.
+En MCP, la lectura usa `kaizen:read`. El upsert acepta `kaizen:assistant_runs:write` o el permiso amplio preexistente `kaizen:write`, siempre con autorización administrativa del workspace. El permiso limitado no habilita mutaciones de tareas, bloques o proyectos. Los consentimientos OAuth existentes no se amplían por la actualización del código. La integración de Codex se describe en `integrations/codex/README.md` y requiere activar la conexión local y confiar en el hook.
 
 El servidor genera `verified_at`; ignora una fecha enviada por el cliente. Repetir una clave idempotente con el mismo contenido devuelve el registro existente; reutilizarla con contenido distinto se rechaza. Tanto las lecturas como las escrituras están separadas por workspace y no modifican la tabla de tareas. La llamada necesita la sesión autorizada existente; no hay una integración de servicio ni una programación desatendida configurada.
 
