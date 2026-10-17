@@ -20,12 +20,24 @@ terminar. Las preguntas y mensajes de estado no crean otro registro.
    auth = "oauth"
    scopes = ["kaizen:read", "kaizen:assistant_runs:write"]
    enabled_tools = ["list_workspaces", "assistant_runs", "assistant_run_upsert"]
+   default_tools_approval_mode = "prompt"
+
+   [mcp_servers.kaizen.tools.list_workspaces]
+   approval_mode = "approve"
+
+   [mcp_servers.kaizen.tools.assistant_runs]
+   approval_mode = "approve"
+
+   [mcp_servers.kaizen.tools.assistant_run_upsert]
+   approval_mode = "approve"
    ```
 
    Luego iniciar `codex mcp login kaizen` y autorizar **Codex** en Kaizen.
    Kaizen acepta el documento de identidad oficial
    `https://chatgpt.com/oauth/codex/client.json` y su callback local `/callback`
    con puerto variable. La conexión ChatGPT previa sigue funcionando.
+   La aprobación automática queda limitada a estas tres herramientas. Codex
+   sigue necesitando autorización para otras herramientas MCP.
 3. Instalar un hook de usuario en `~/.codex/hooks.json` para cubrir todos los
    chats locales de Codex. `RUTA_REPO` es la ruta absoluta de este checkout:
 
@@ -59,5 +71,6 @@ realmente ocurrió y no se marca completado por el mero fin de un turno.
 Tras el consentimiento OAuth y la confianza en el hook, enviar un encargo de
 prueba sin datos sensibles, comprobar que aparece en **Asistente · Servidor**,
 enviar una corrección en el mismo chat y verificar que actualiza el mismo
-registro. Revocar ambas conexiones desde la página de conexiones de Kaizen
+registro. Al completar un encargo, enviar `completed_at` con la hora verificada.
+Revocar ambas conexiones desde la página de conexiones de Kaizen
 si se desea detener el acceso.
