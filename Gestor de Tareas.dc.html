@@ -373,6 +373,22 @@
   .team-task { display:flex; flex-direction:column; gap:4px; padding:14px 0; border-bottom:1px solid var(--color-divider); overflow-wrap:anywhere; }
   .team-task small { font-size:12px; }
   .team-task .timeline-assignee { font-weight:600; }
+  .supervision-view { display:flex; flex-direction:column; gap:18px; max-width:1240px; font-size:13px; line-height:1.55; }
+  .supervision-toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:10px; padding:16px; background:var(--color-surface); border-left:4px solid var(--color-accent); }
+  .supervision-toolbar label { display:flex; flex-direction:column; gap:5px; min-width:min(100%,260px); font-weight:700; }
+  .supervision-toolbar .input { min-height:44px; }
+  .supervision-toolbar .btn { min-height:44px; }
+  .supervision-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+  .supervision-section { min-width:0; padding:16px; background:var(--color-bg); border:1px solid var(--color-divider); overflow-wrap:anywhere; }
+  .supervision-section h3 { margin:0 0 4px; font:800 18px var(--font-heading); }
+  .supervision-section > p { margin:0 0 12px; color:color-mix(in srgb,var(--color-text) 68%,transparent); }
+  .supervision-list { display:flex; flex-direction:column; gap:8px; margin:0; padding:0; list-style:none; }
+  .supervision-task { display:flex; flex-direction:column; gap:4px; min-width:0; padding:12px; border-left:3px solid var(--color-accent-700); background:var(--color-surface); }
+  .supervision-task a { display:inline-flex; align-items:center; min-height:44px; color:var(--color-accent-700); font-weight:800; overflow-wrap:anywhere; }
+  .supervision-task small { color:color-mix(in srgb,var(--color-text) 68%,transparent); }
+  .supervision-empty { padding:12px; border:1px dashed var(--color-divider); }
+  .supervision-view :focus-visible { outline:3px solid var(--color-accent); outline-offset:3px; border-radius:4px; }
+  @media (max-width:800px) { .supervision-columns { grid-template-columns:minmax(0,1fr); } .supervision-toolbar { align-items:stretch; } }
   .detail-panel { min-width:0; max-width:100%; overflow-wrap:anywhere; }
   .detail-panel .field, .detail-panel .card { min-width:0; max-width:100%; }
   .detail-panel .input { min-width:0; max-width:100%; }
@@ -853,12 +869,13 @@
 
         <sc-if value="{{ isAssistant }}" hint-placeholder-val="{{ false }}">
           <div class="assistant-view">
-            <div class="assistant-demo-banner" role="note"><strong class="assistant-demo-label">{{ assistantDemoLabel }}</strong><span>Ejecuciones ficticias para revisar el diseño. No se consulta la API ni se muestran tareas, notas ni personas reales.</span></div>
+            <div class="assistant-demo-banner" role="note"><strong class="assistant-demo-label">{{ assistantDemoLabel }}</strong><span>{{ assistantDataMessage }}</span></div>
             <section class="assistant-hero" aria-labelledby="assistant-hero-title">
               <div><small>Delegadas a Luna</small><h3 id="assistant-hero-title">Sigue lo que el asistente tiene entre manos</h3><p>Estado, último avance verificable, bloqueo, próximo paso y entregables. Estas ejecuciones no son tareas de Kaizen y no cambian al compartir o completar tareas.</p></div>
-              <details class="assistant-demo-states"><summary>Probar estados de la demo</summary><label for="assistant-demo-state">Origen simulado</label><select id="assistant-demo-state" class="input" value="{{ assistantDemoState }}" onChange="{{ onAssistantDemoState }}"><option value="data">Ejecuciones ficticias</option><option value="empty">Sin ejecuciones</option><option value="loading">Cargando</option><option value="error">Error de carga</option></select></details>
+              <details class="assistant-demo-states"><summary>Cambiar origen de datos</summary><label for="assistant-demo-state">Fuente visible</label><select id="assistant-demo-state" class="input" value="{{ assistantDemoState }}" onChange="{{ onAssistantDemoState }}"><option value="none">Servidor · sin cargar</option><option value="live">Servidor · registros privados</option><option value="data">Demo · datos ficticios</option><option value="empty">Demo · sin registros</option><option value="loading">Demo · cargando</option><option value="error">Demo · error de carga</option></select></details>
             </section>
 
+            <sc-if value="{{ assistantNotLoaded }}" hint-placeholder-val="{{ false }}"><p class="assistant-state" role="status" aria-live="polite">Selecciona una fuente para ver ejecuciones. Aún no se ha consultado el servidor.</p></sc-if>
             <sc-if value="{{ assistantLoading }}" hint-placeholder-val="{{ false }}"><p class="assistant-state" role="status" aria-live="polite">Cargando ejecuciones del asistente…</p></sc-if>
             <sc-if value="{{ assistantHasError }}" hint-placeholder-val="{{ false }}"><div class="assistant-state assistant-state--error" role="alert"><strong>No se pudieron cargar las ejecuciones.</strong><span>{{ assistantError }}</span><button class="btn btn-secondary" onClick="{{ onAssistantRetry }}">Reintentar</button></div></sc-if>
             <sc-if value="{{ assistantEmpty }}" hint-placeholder-val="{{ false }}"><div class="assistant-state"><strong>Aún no hay tareas delegadas al asistente.</strong><span>Cuando delegues una tarea a Luna y quede registrada, aparecerá aquí con su estado y sus avances.</span></div></sc-if>
@@ -935,6 +952,35 @@
             <sc-for list="{{ teamRows }}" as="t">
               <article class="team-task"><strong>{{ t.title }}</strong><span>{{ t.creatorLabel }}</span><span class="timeline-assignee">{{ t.responsibleLabel }}</span><small>{{ t.projectName }} · {{ t.status }} · Tiempo real {{ t.time }}</small><small>{{ t.planLabel }}</small></article>
             </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isSupervisionView }}" hint-placeholder-val="{{ false }}">
+          <div class="supervision-view">
+            <div class="supervision-toolbar">
+              <label for="supervision-person">Persona del espacio activo<select id="supervision-person" class="input" value="{{ supervisionPersonId }}" onChange="{{ onSupervisionPerson }}"><option value="">Selecciona una persona</option><sc-for list="{{ supervisionPeopleOptions }}" as="p"><option value="{{ p.id }}">{{ p.name }} · {{ p.role }}</option></sc-for></select></label>
+              <button class="btn btn-secondary" onClick="{{ onRefreshSupervision }}">Actualizar supervisión</button>
+              <span>Las fechas planificadas y los bloques horarios explícitos se muestran por separado. “Hoy” usa la zona local de quien consulta.</span>
+            </div>
+            <sc-if value="{{ supervisionLoading }}"><p role="status" aria-live="polite">Cargando datos autorizados…</p></sc-if>
+            <sc-if value="{{ supervisionError }}"><p role="alert">{{ supervisionError }}</p></sc-if>
+            <sc-if value="{{ supervisionNoPeople }}"><div class="supervision-empty" role="status">No hay personas disponibles en este espacio.</div></sc-if>
+            <sc-if value="{{ supervisionNeedsPerson }}"><div class="supervision-empty" role="status">Elige una persona para cargar su cronograma y los bloques horarios explícitos de hoy.</div></sc-if>
+            <sc-if value="{{ supervisionPersonSelected }}">
+              <div class="supervision-columns">
+                <section class="supervision-section" aria-labelledby="supervision-timeline-heading">
+                  <h3 id="supervision-timeline-heading">Cronograma por persona</h3><p>Rango de inicio y fin guardado en cada tarea. Una tarea aparece una sola vez por identificador.</p>
+                  <sc-if value="{{ supervisionNoTimeline }}"><div class="supervision-empty">No hay tareas con fechas de cronograma.</div></sc-if>
+                  <ul class="supervision-list"><sc-for list="{{ supervisionTimelineRows }}" as="t"><li class="supervision-task" id="{{ t.anchor }}"><strong>{{ t.title }}</strong><small>{{ t.project }} · {{ t.status }}</small><time datetime="{{ t.startIso }}">{{ t.start }}</time> → <time datetime="{{ t.endIso }}">{{ t.end }}</time></li></sc-for></ul>
+                  <sc-if value="{{ supervisionHasUnscheduled }}"><h4>Tareas sin rango de cronograma</h4><ul class="supervision-list"><sc-for list="{{ supervisionUnscheduledRows }}" as="t"><li class="supervision-task" id="{{ t.anchor }}"><strong>{{ t.title }}</strong><small>{{ t.project }} · {{ t.status }} · {{ t.dateNote }}</small></li></sc-for></ul></sc-if>
+                </section>
+                <section class="supervision-section" aria-labelledby="supervision-hourly-heading">
+                  <h3 id="supervision-hourly-heading">Bloques de hoy · {{ supervisionTodayLabel }} · {{ supervisionTimeZone }}</h3><p>Solo intervalos workBlocks persistidos para hoy. El rango completo del cronograma no se convierte en horas trabajadas.</p>
+                  <sc-if value="{{ supervisionNoBlocks }}"><div class="supervision-empty">No hay bloques horarios explícitos para hoy.</div></sc-if>
+                  <ul class="supervision-list"><sc-for list="{{ supervisionBlockRows }}" as="b"><li class="supervision-task"><a href="#{{ b.anchor }}">{{ b.title }}</a><small><time datetime="{{ b.startIso }}">{{ b.start }}</time>–<time datetime="{{ b.endIso }}">{{ b.end }}</time> · {{ b.project }}</small><small>Bloque horario explícito {{ b.continuation }}</small></li></sc-for></ul>
+                </section>
+              </div>
+            </sc-if>
           </div>
         </sc-if>
 
@@ -1123,7 +1169,8 @@ class Component extends DCLogic {
     pushReady: false,
     activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, full: false,
     teamTasks:[], teamProjects:[], teamLoading:false, teamError:'',
-    assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantFilter:'all', assistantQuery:'', assistantSelId:null, assistantDemoState:'data',
+    supervisionPeople:[], supervisionPersonId:'', supervisionTasks:[], supervisionLoading:false, supervisionError:'',
+    assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantFilter:'all', assistantQuery:'', assistantSelId:null, assistantDemoState:'none',
     auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '', delegatingId: null, delegationDraft: [], delegationBusy: false, delegationError: '',
     authName: '', authEmail: '', authPassword: '', adminSummary: [], adminMembers: [], workspaceMembers: [], adminOpen: false, statsDay: null,
     newWorkspaceName: '', inviteEmail: '', memberRole: 'member', inviteRole: 'member', inviteWorkspaceId: null, inviteUrl: '', inviteWorkspace: '', inviteToken: '', suggestionTitle: '', suggestionBody: '', suggestions: [], improvementChecklist: [], checklistDraft: '', mobileNavOpen: false, toast: '', notificationState: 'default', theme: 'classic'
@@ -1463,14 +1510,19 @@ class Component extends DCLogic {
   }
   dkey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + this.pad(d.getMonth() + 1) + '-' + this.pad(d.getDate()); }
 
-  // Assistant runs come only from the synthetic local fixture until a verified
-  // API contract exists. This never calls this.api, fetch or the MCP server.
+  // Nothing loads until a workspace admin explicitly picks a source ('none' by
+  // default). Live records come only from the authenticated workspace-admin API;
+  // synthetic records require an explicit demo selection and remain labeled.
   loadAssistantRuns(mode = this.state.assistantDemoState) {
     const request = this.assistantRequestId = (this.assistantRequestId || 0) + 1;
     if (!this.isWorkspaceAdmin()) {
-      const denied = { assistantStatus:'idle', assistantRuns:[], assistantError:'', assistantSelId:null };
+      const denied = { assistantStatus:'idle', assistantRuns:[], assistantError:'', assistantSelId:null, assistantDemoState:'none' };
       if (this.state.auth && this.state.view === 'assistant') denied.view = 'today';
       this.setState(denied);
+      return Promise.resolve();
+    }
+    if (!['live','data','empty','loading','error'].includes(mode)) {
+      this.setState({ assistantStatus:'idle', assistantRuns:[], assistantError:'', assistantSelId:null, assistantDemoState:'none' });
       return Promise.resolve();
     }
     const userId = Number(this.state.auth.id), workspaceId = Number(this.state.workspaceId);
@@ -1481,8 +1533,17 @@ class Component extends DCLogic {
     return Promise.resolve().then(() => {
       if (!stillAuthorized()) return;
       const demo = typeof KaizenAssistantDemo !== 'undefined' ? KaizenAssistantDemo : null;
-      if (mode === 'error' || !demo || demo.demo !== true) throw new Error('No se pudieron cargar las ejecuciones de demostración.');
-      this.setState({ assistantStatus:'ready', assistantRuns: mode === 'empty' ? [] : demo.demoRuns(Date.now()) });
+      if (mode === 'error') throw new Error('No se pudieron cargar los datos de demostración.');
+      if (mode === 'data' || mode === 'empty') {
+        if (!demo || demo.demo !== true) throw new Error('No se pudo cargar la demostración sintética.');
+        this.setState({ assistantStatus:'ready', assistantRuns: mode === 'empty' ? [] : demo.demoRuns(Date.now()) });
+        return;
+      }
+      return this.api('assistant_runs',{workspace_id:workspaceId}).then(result => {
+        if (!stillAuthorized()) return;
+        if (!result.ok) throw new Error(result.error || 'No se pudieron cargar las ejecuciones del espacio.');
+        this.setState({ assistantStatus:'ready', assistantRuns:Array.isArray(result.runs)?result.runs:[], assistantDemoState:'live' });
+      });
     }).catch(e => { if (stillAuthorized()) this.setState({ assistantStatus:'error', assistantRuns:[], assistantError:e.message || 'No se pudieron cargar las ejecuciones.' }); });
   }
   focusAssistant(selector) {
@@ -1504,8 +1565,10 @@ class Component extends DCLogic {
     const canSeeAssistant = this.isWorkspaceAdmin();
     const isAssistant = s.view === 'assistant' && canSeeAssistant;
     const demo = typeof KaizenAssistantDemo !== 'undefined' ? KaizenAssistantDemo : null;
-    const base = { isAssistant, assistantDemoLabel: demo?.label || 'DEMO · datos ficticios' };
-    if (!A) return { ...base, assistantOpenCount:0, assistantLoading:false, assistantHasError:isAssistant, assistantError:'No se pudo cargar el módulo de ejecuciones.', assistantReady:false, assistantCards:[], assistantStatusFilters:[], assistantHasDetail:false };
+    const isDemo = ['data','empty','loading','error'].includes(s.assistantDemoState);
+    const notLoaded = s.assistantDemoState === 'none' && s.assistantStatus === 'idle';
+    const base = { isAssistant, assistantDemoLabel:notLoaded?'SIN CARGAR':isDemo?(demo?.label || 'DEMO · datos ficticios'):'REGISTROS PRIVADOS', assistantDataMessage:notLoaded?'Elige servidor para consultar ejecuciones autorizadas o una demo con datos ficticios. No se carga información hasta que elijas.':isDemo?'Ejecuciones ficticias para revisar el diseño. No se consulta la API ni se muestran tareas, notas ni personas reales.':'Datos de seguimiento del espacio activo, guardados de forma privada y consultados con autorización de administrador. La respuesta no incluye notas ni historiales de las tareas de Kaizen.' };
+    if (!A) return { ...base, assistantOpenCount:0, assistantNotLoaded:false, assistantLoading:false, assistantHasError:isAssistant, assistantError:'No se pudo cargar el módulo de ejecuciones.', assistantReady:false, assistantCards:[], assistantStatusFilters:[], assistantHasDetail:false };
     const summaries = canSeeAssistant && s.assistantStatus === 'ready' ? A.summarizeAll(s.assistantRuns, now) : [];
     const { list, counts } = A.filter(summaries, { status:s.assistantFilter, query:s.assistantQuery });
     const when = time => ({ has:Number.isFinite(time), iso:A.iso(time), abs:A.absolute(time), rel:A.relative(time, now) });
@@ -1560,7 +1623,8 @@ class Component extends DCLogic {
     return {
       ...base, ...detail,
       assistantOpenCount:summaries.filter(r => r.open).length,
-      assistantLoading:s.assistantStatus === 'loading' || s.assistantStatus === 'idle',
+      assistantNotLoaded:isAssistant && notLoaded,
+      assistantLoading:s.assistantStatus === 'loading',
       assistantHasError:s.assistantStatus === 'error', assistantError:s.assistantError,
       assistantReady:ready, assistantCards:cards,
       assistantHasCards:ready && cards.length > 0,
@@ -1572,8 +1636,8 @@ class Component extends DCLogic {
       assistantStatusFilters:filters.map(([key, label]) => ({ key, label, count:counts[key] || 0, pressed:String(s.assistantFilter === key), onClick:() => this.setState({ assistantFilter:key }) })),
       onAssistantQuery:e => this.setState({ assistantQuery:e.target.value }),
       onAssistantClearFilters:() => this.setState({ assistantFilter:'all', assistantQuery:'' }),
-      onAssistantRetry:() => this.loadAssistantRuns('data'),
-      onAssistantDemoState:e => this.loadAssistantRuns(['data','empty','loading','error'].includes(e.target.value) ? e.target.value : 'data')
+      onAssistantRetry:() => this.loadAssistantRuns(s.assistantDemoState==='live'?'live':'data'),
+      onAssistantDemoState:e => this.loadAssistantRuns(['none','live','data','empty','loading','error'].includes(e.target.value) ? e.target.value : 'none')
     };
   }
 
@@ -1635,15 +1699,23 @@ class Component extends DCLogic {
     const canSeeAssistant = this.isWorkspaceAdmin();
     if (!canSeeAssistant) {
       const shouldLeaveView = !!s.auth && s.view === 'assistant';
-      const shouldClearData = s.assistantRuns.length > 0 || s.assistantStatus !== 'idle' || !!s.assistantSelId || !!s.assistantError;
+      const shouldClearData = s.assistantRuns.length > 0 || s.assistantStatus !== 'idle' || !!s.assistantSelId || !!s.assistantError || s.assistantDemoState !== 'none';
       if (shouldLeaveView || shouldClearData) {
         this.assistantRequestId = (this.assistantRequestId || 0) + 1;
-        this.setState({ ...(shouldLeaveView ? { view:'today' } : {}), assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null });
+        this.setState({ ...(shouldLeaveView ? { view:'today' } : {}), assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none' });
         return;
       }
-    } else if (s.view === 'assistant' && s.assistantStatus === 'idle') {
+    } else if (s.view === 'assistant' && s.assistantStatus === 'idle' && s.assistantDemoState !== 'none') {
       this.loadAssistantRuns();
     }
+    if(!this.isWorkspaceAdmin()){
+      const shouldLeave=!!s.auth&&s.view==='supervision';
+      const shouldClear=s.supervisionPeople.length>0||s.supervisionTasks.length>0||!!s.supervisionPersonId||s.supervisionLoading||!!s.supervisionError;
+      if(shouldLeave||shouldClear){this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.supervisionAutoKey=null;this.setState({...(shouldLeave?{view:'today'}:{}),supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:''});return;}
+    }else if(s.view==='supervision'){
+      // One automatic people load per identity/workspace; an empty list must not re-request on every update.
+      if(this.supervisionAutoKey!==Number(s.auth?.id)+':'+Number(s.workspaceId)&&!s.supervisionLoading&&!s.supervisionPeople.length&&!s.supervisionError)this.loadSupervisionPeople();
+    }else this.supervisionAutoKey=null;
     try {
       localStorage.setItem(this.KEY, JSON.stringify({
         tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, timelineMode:s.timelineMode, timelineAnchor:s.timelineAnchor, timelineProject:s.timelineProject, dailyDate:s.dailyDate, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist
@@ -1696,7 +1768,8 @@ class Component extends DCLogic {
       const r = await this.api('me');
       if (r.ok && r.user) {
         const workspaceId = this.preferredWorkspaceId(r.workspaces || []);
-        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', dailyAssignId:'', improvementChecklist: [] });
+        this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.supervisionAutoKey=null;
+        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', assistantRuns:[],assistantStatus:'idle',assistantError:'',assistantSelId:null,assistantDemoState:'none', supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'', improvementChecklist: [] });
         if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
       }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
@@ -1825,13 +1898,14 @@ class Component extends DCLogic {
       const ws = r.workspaces || [];
       this.remoteReady = true;
       const workspaceId = this.preferredWorkspaceId(ws);
-      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', improvementChecklist: [] });
+      this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.supervisionAutoKey=null;
+      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', assistantRuns:[],assistantStatus:'idle',assistantError:'',assistantSelId:null,assistantDemoState:'none', supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', improvementChecklist: [] });
       // Las cuentas nuevas empiezan vacías; los datos de demostración nunca se copian al espacio del usuario.
       if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
-  async logout() { this.discardSlotDraft(); this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1; this.remoteSaved = {};  await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, view:'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', dailyAssignId:'', improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
-  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', dailyAssignId:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
+  async logout() { this.discardSlotDraft(); this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; this.remoteSaved = {};  await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, view:'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'', improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
+  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
   async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return; const r=await this.api('workspace_members',{workspace_id:workspaceId}); if(r.ok)this.setState({workspaceMembers:r.members||[]}); }
   async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], workspaceMembers: m.members || [], adminOpen: true }); } }
   async clearWorkspaceTasks(workspaceId, workspaceName) { if (this.state.auth?.role !== 'super_admin') return; const r=await this.api('workspace_tasks_clear',{workspace_id:workspaceId}); if(r.ok){ if(Number(this.state.workspaceId)===Number(workspaceId)) this.setState({tasks:[],selId:null}); this.setState({authError:'Se borraron ' + (r.deleted||0) + ' tareas de «' + workspaceName + '».'}); await this.loadAdminSummary(); } else this.setState({authError:r.error||'No se pudieron borrar las tareas.'}); }
@@ -2057,6 +2131,39 @@ class Component extends DCLogic {
     } catch(e) {
       if(request===this.teamRequestId&&Number(this.state.auth?.id)===userId&&Number(this.state.workspaceId)===Number(workspaceId))this.setState({teamTasks:[],teamProjects:[],teamLoading:false,teamError:e.message||'No se pudo conectar con el servidor.'});
     }
+  }
+
+  async loadSupervisionPeople() {
+    const {auth,workspaceId}=this.state;
+    if(!this.isWorkspaceAdmin()){this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.setState({supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'Solo un administrador del espacio puede consultar la supervisión.',view:auth?'today':this.state.view});return;}
+    const request=this.supervisionRequestId=(this.supervisionRequestId||0)+1,userId=Number(auth.id),wid=Number(workspaceId);
+    this.supervisionAutoKey=userId+':'+wid;
+    const stillAuthorized=()=>request===this.supervisionRequestId&&this.state.view==='supervision'&&Number(this.state.auth?.id)===userId&&Number(this.state.workspaceId)===wid&&this.isWorkspaceAdmin();
+    this.setState({supervisionLoading:true,supervisionError:'',supervisionPeople:[],supervisionTasks:[]});
+    try {
+      const r=await this.api('supervision_people',{workspace_id:wid});
+      if(!stillAuthorized())return;
+      if(!r.ok)throw new Error(r.error||'No se pudo cargar la lista de personas.');
+      const people=Array.isArray(r.people)?r.people:[];
+      const selected=people.find(p=>Number(p.id)===Number(this.state.supervisionPersonId))||null;
+      this.setState({supervisionPeople:people,supervisionPersonId:selected?String(selected.id):'',supervisionLoading:false});
+      if(selected)await this.loadSupervisionTasks(selected.id);
+    } catch(e){if(stillAuthorized())this.setState({supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:e.message||'No se pudo cargar la supervisión.'});}
+  }
+  async loadSupervisionTasks(personId=this.state.supervisionPersonId) {
+    const {auth,workspaceId}=this.state;
+    if(!this.isWorkspaceAdmin()){this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.setState({supervisionTasks:[],supervisionPersonId:'',supervisionLoading:false,supervisionError:'Solo un administrador del espacio puede consultar la supervisión.'});return;}
+    if(personId===null||personId===undefined||String(personId).trim()===''){this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.setState({supervisionTasks:[],supervisionPersonId:'',supervisionLoading:false,supervisionError:''});return;}
+    const request=this.supervisionRequestId=(this.supervisionRequestId||0)+1,userId=Number(auth.id),wid=Number(workspaceId),selected=Number(personId);
+    const stillAuthorized=()=>request===this.supervisionRequestId&&this.state.view==='supervision'&&Number(this.state.auth?.id)===userId&&Number(this.state.workspaceId)===wid&&Number(this.state.supervisionPersonId)===selected&&this.isWorkspaceAdmin();
+    this.setState({supervisionPersonId:String(selected),supervisionLoading:true,supervisionError:'',supervisionTasks:[]});
+    try {
+      const r=await this.api('supervision_tasks',{workspace_id:wid,person_id:selected});
+      if(!stillAuthorized())return;
+      if(!r.ok)throw new Error(r.error||'No se pudieron cargar las tareas de esta persona.');
+      const seen=new Set(),tasks=(Array.isArray(r.tasks)?r.tasks:[]).filter(task=>{if(!task||typeof task!=='object'||task.id===null||task.id===undefined||String(task.id)==='')return false;const id=String(task.id);if(seen.has(id))return false;seen.add(id);return true;});
+      this.setState({supervisionTasks:tasks,supervisionLoading:false});
+    } catch(e){if(stillAuthorized())this.setState({supervisionTasks:[],supervisionLoading:false,supervisionError:e.message||'No se pudieron cargar las tareas de esta persona.'});}
   }
 
   memberName(id) { const member=this.state.workspaceMembers.find(x=>Number(x.id)===Number(id)); return member?.name || member?.email || 'un miembro'; }
@@ -2287,6 +2394,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const s = this.state, now = Date.now(), day = 86400000;
+    const supervisionAnchor = id => 'supervision-task-' + Array.from(String(id), ch => ch.codePointAt(0).toString(16)).join('-');
     // Project collaboration remains available in Proyectos/Cronograma.
     // Personal lists and counters include only creator/direct delegation;
     // administrative overview data never enters this task collection.
@@ -2310,7 +2418,8 @@ class Component extends DCLogic {
       stats: Object.keys(s.log).length,
       ideas: s.suggestions.length,
       admin: s.adminSummary.length,
-      team: this.isWorkspaceAdmin()?s.teamTasks.length:0
+      team: this.isWorkspaceAdmin()?s.teamTasks.length:0,
+      supervision: this.isWorkspaceAdmin()?s.supervisionTasks.length:0
     };
     const navDefs = [
       { id: 'today', label: 'Hoy' }, { id: 'inbox', label: 'Bandeja de entrada' },
@@ -2321,11 +2430,12 @@ class Component extends DCLogic {
     if (this.isWorkspaceAdmin()) navDefs.push({ id:'assistant', label:'Asistente' });
     const hasWorkspaceAdmin = s.auth && (s.auth.role === 'super_admin' || s.auth.role === 'admin' || s.workspaces.some(w => w.member_role === 'admin'));
     if (hasWorkspaceAdmin) navDefs.push({ id: 'admin', label: 'Supervisión' });
+    if (this.isWorkspaceAdmin()) navDefs.push({ id:'supervision', label:'Por persona' });
     if(this.isWorkspaceAdmin())navDefs.push({id:'team',label:'Tareas del equipo'});
     const navItems = navDefs.map(n => {
       const on = s.view === n.id || (n.id === 'projects' && s.view === 'project');
       return {
-        id:n.id, label: n.label, count: counts[n.id] || 0, onClick: () => { if(n.id==='assistant'&&!this.isWorkspaceAdmin())return;this.discardSlotDraft();this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, delegatingId: null, slotCreateOpen:false, slotError:'', mobileNavOpen: false, ...(n.id==='calendar'?{dailyDate:this.dkey(Date.now()),dailyBrowseMonth:'',dailyAssignId:''}:{}) }); if (n.id === 'admin') this.loadAdminSummary(); if(n.id==='team')this.loadTeamTasks(); if(n.id==='assistant'&&this.state.assistantStatus!=='ready')this.loadAssistantRuns(); },
+        id:n.id, label: n.label, count: counts[n.id] || 0, onClick: () => { if((n.id==='assistant'||n.id==='supervision')&&!this.isWorkspaceAdmin())return; if(n.id!=='supervision')this.supervisionRequestId=(this.supervisionRequestId||0)+1; this.discardSlotDraft();this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, delegatingId: null, slotCreateOpen:false, slotError:'', mobileNavOpen: false, ...(n.id==='supervision'?{}:{supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:''}), ...(n.id==='calendar'?{dailyDate:this.dkey(Date.now()),dailyBrowseMonth:'',dailyAssignId:''}:{}) }); if (n.id === 'admin') this.loadAdminSummary(); if(n.id==='team')this.loadTeamTasks(); if(n.id==='assistant'&&this.state.assistantStatus!=='ready')this.loadAssistantRuns(); if(n.id==='supervision')this.loadSupervisionPeople(); },
         style: {
           display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', cursor: 'pointer',
           padding: '9px 18px', border: 0, borderLeft: '3px solid ' + (on ? 'var(--color-accent)' : 'transparent'),
@@ -2363,6 +2473,7 @@ class Component extends DCLogic {
       stats: ['Estadísticas semanales', 'Últimos 7 días'],
       ideas: ['Mejoras', 'Ideas y sugerencias del espacio'],
       admin: ['Supervisión', 'Espacios de trabajo y tareas del equipo'],
+      supervision: ['Por persona', 'Cronograma y bloques explícitos de cada integrante'],
       team:['Tareas del equipo','Consulta administrativa · separada de tus tareas personales']
     };
     if (this.isWorkspaceAdmin()) titles.assistant = ['Tareas delegadas al asistente','Ejecuciones de Luna · separadas de tus tareas de Kaizen'];
@@ -2638,6 +2749,20 @@ class Component extends DCLogic {
       isTeamView:s.view==='team'&&this.isWorkspaceAdmin(),canSeeTeam:this.isWorkspaceAdmin(),teamLoading:s.teamLoading,teamError:s.teamError,teamEmpty:!s.teamLoading&&!s.teamTasks.length&&!s.teamError,
       onRefreshTeam:()=>this.loadTeamTasks(),onOpenTeam:()=>{this.setState({view:'team',selId:null,delegatingId:null});this.loadTeamTasks();},
       teamRows:this.isWorkspaceAdmin()?s.teamTasks.map(t=>({title:t.title,creatorLabel:'Creada por '+this.memberName(t._owner_id),responsibleLabel:this.responsibleLabel(t),projectName:s.teamProjects.find(p=>p.id===t.project)?.name||'Sin proyecto',status:t.list==='trash'?'Borrada':t.done?'Hecha':'Pendiente',time:this.fmtDur(t.seconds||0),planLabel:t.scheduledStart&&t.scheduledEnd?'Plan: '+fmtPlan(t.scheduledStart)+' → '+fmtPlan(t.scheduledEnd):'Sin planificación'})):[],
+      isSupervisionView:s.view==='supervision'&&this.isWorkspaceAdmin(),supervisionLoading:s.supervisionLoading,supervisionError:s.supervisionError,
+      supervisionPersonId:String(s.supervisionPersonId||''),supervisionPeopleOptions:this.isWorkspaceAdmin()?s.supervisionPeople.map(p=>({id:String(p.id),name:p.name,role:p.workspace_role==='admin'?'admin':'miembro'})):[],
+      supervisionTodayLabel:new Date(now).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}),
+      supervisionTimeZone:Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC',
+      supervisionNoPeople:!s.supervisionLoading&&!s.supervisionError&&!s.supervisionPeople.length,
+      supervisionNeedsPerson:!s.supervisionLoading&&!s.supervisionError&&s.supervisionPeople.length>0&&!s.supervisionPersonId,
+      supervisionPersonSelected:!!this.isWorkspaceAdmin()&&!!s.supervisionPersonId,
+      supervisionTimelineRows:(()=>{const values=this.isWorkspaceAdmin()?KaizenPlanning.timeline(s.supervisionTasks).scheduled:[];return values.map(t=>({anchor:supervisionAnchor(t.id),title:t.title,project:t.project_name||'Sin proyecto',status:t.done?'Hecha':'Pendiente',start:fmtPlan(t.scheduledStart),end:fmtPlan(t.scheduledEnd),startIso:new Date(t.scheduledStart).toISOString(),endIso:new Date(t.scheduledEnd).toISOString()}));})(),
+      supervisionUnscheduledRows:(()=>{const values=this.isWorkspaceAdmin()?KaizenPlanning.timeline(s.supervisionTasks).unscheduled:[];return values.map(t=>{const start=Date.parse(t.scheduledStart),end=Date.parse(t.scheduledEnd),valid=Number.isFinite(start)&&Number.isFinite(end)&&end>start;return {anchor:supervisionAnchor(t.id),title:t.title,project:t.project_name||'Sin proyecto',status:t.done?'Hecha':'Pendiente',dateNote:(t.scheduledStart||t.scheduledEnd)&&!valid?'Revisa el rango de fechas':t.due?'Fecha límite: '+t.due:'Sin fecha límite'};});})(),
+      supervisionBlockRows:(()=>{if(!this.isWorkspaceAdmin())return [];const seen=new Set(),blocks=KaizenPlanning.hourlyDay(s.supervisionTasks,this.dkey(now),now).blocks.filter(({task,block})=>{const signature=block.id?JSON.stringify([String(task.id),String(block.id)]):JSON.stringify([String(task.id),String(block.start),String(block.end)]);if(seen.has(signature))return false;seen.add(signature);return true;});return blocks.map(({task,block,start,end,continuesBefore,continuesAfter})=>({anchor:supervisionAnchor(task.id),title:task.title,project:task.project_name||'Sin proyecto',start:new Date(start).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),end:new Date(end).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),startIso:new Date(start).toISOString(),endIso:new Date(end).toISOString(),continuation:continuesBefore&&continuesAfter?'· Continúa desde ayer y después de hoy':continuesBefore?'· Continúa desde ayer':continuesAfter?'· Continúa después de hoy':''}));})(),
+      supervisionNoTimeline:!s.supervisionLoading&&!s.supervisionError&&!s.supervisionTasks.some(t=>t.scheduledStart&&t.scheduledEnd&&Date.parse(t.scheduledEnd)>Date.parse(t.scheduledStart)),
+      supervisionHasUnscheduled:!s.supervisionLoading&&!s.supervisionError&&KaizenPlanning.timeline(s.supervisionTasks).unscheduled.length>0,
+      supervisionNoBlocks:!s.supervisionLoading&&!s.supervisionError&&!KaizenPlanning.hourlyDay(s.supervisionTasks,this.dkey(now),now).blocks.length,
+      onSupervisionPerson:e=>this.loadSupervisionTasks(e.target.value),onRefreshSupervision:()=>this.loadSupervisionPeople(),
       isList, isMatrix: s.view === 'matrix', isProjects: s.view === 'projects', isProjectDetail: s.view === 'project', isIdeas: s.view === 'ideas', isStats: s.view === 'stats', isAdminView: s.view === 'admin',
       projectDetailName: this.projName(s.projFilter) || 'Proyecto',
       projectDetailStats: (() => { const a=s.tasks.filter(t=>t.project===s.projFilter && t.list !== 'trash'), d=a.filter(t=>t.done).length; return d + '/' + a.length + ' hechas · ' + this.fmtDur(a.reduce((sum,t)=>sum+t.seconds,0)); })(),

@@ -49,16 +49,20 @@ estado, búsqueda, tarjetas con estado, antigüedad, último avance, bloqueo, pr
 paso y entregables, y un detalle con la cronología de eventos de la más reciente
 a la más antigua. Los filtros no modifican ninguna ejecución.
 
-Mientras no exista un contrato de API verificado, la sección usa solo los datos
-ficticios de `assistant-runs-demo.js` y muestra siempre **DEMO · datos ficticios**.
-No llama a la API, al MCP ni a `fetch`. La lógica está en `assistant-runs.js`:
+La rama implementa registros privados mediante `assistant_runs` y
+`assistant_run_upsert`. La carga en vivo requiere seleccionar **Servidor ·
+registros privados**; el estado inicial no consulta datos. Los fixtures de
+`assistant-runs-demo.js` requieren una selección explícita y muestran siempre
+**DEMO · datos ficticios**. Nunca se mezclan con registros reales. La lógica de
+presentación está en `assistant-runs.js`:
 
 Solo el administrador del espacio activo, su creador o un superadministrador puede
 ver la sección. La comprobación protege navegación, vista directa, modelo de
-renderizado y carga de la demo; al perder acceso, descarta la selección y los
-datos en memoria. Hoy no existe un endpoint de ejecuciones y el panel no lo crea
-ni lo llama. Antes de conectarlo a ejecuciones reales, el servidor deberá exponer
-un endpoint con autorización de administrador.
+renderizado y carga; al perder acceso, descarta la selección y los datos en
+memoria. Las rutas de sesión y herramientas MCP de rama vuelven a comprobar el
+administrador, creador o superadministrador en servidor. MCP publica la lectura
+con `kaizen:read` y el upsert solo cuando ya está permitido `kaizen:write`; no
+añade scopes ni crea credenciales. La integración no programa ejecuciones.
 
 - Una ejecución solo existe con `kind: "assistant_run"`, asistente y evento
   `delegated`. `done`, propietario, `sharedWith`, `_delegated_at`, `scope: team`,

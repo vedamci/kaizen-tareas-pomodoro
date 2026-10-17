@@ -1,6 +1,6 @@
 # Seguimiento de tareas delegadas al asistente
 
-Estado de este documento: **especificación para implementación y revisión**. La entidad y su API son una propuesta coordinable; no existen todavía en el contrato MCP descrito aquí.
+Estado de este documento: **implementación en rama de revisión**. El tablero, persistencia privada, rutas de sesión y herramientas MCP están en `feature/delegated-assistant-tasks`; no se ha desplegado ni creado credenciales ni ampliado scopes de producción.
 
 ## Objetivo
 
@@ -19,12 +19,12 @@ El contrato MCP recibido expone `list_tasks(workspace_id, scope)` con `personal`
 
 - `_delegated_at` representa el compartir/asignar una tarea entre usuarios de Kaizen; **no** es una delegación a Luna.
 - Las tareas de Kaizen y las ejecuciones del asistente son conceptos distintos. No se debe inferir una ejecución a partir de `done`, del propietario, de compartir una tarea, de Pomodoros o de su presencia en `team`.
-- Hasta que la fuente y el contrato nuevos estén habilitados y comprobados, la vista previa usa fixtures locales ficticios con una etiqueta visible **DEMO · datos ficticios**. No debe hacer solicitudes a la API de producción ni importar notas internas.
-- La integración futura se limita a tareas y apuntes que el usuario haya autorizado expresamente, y a estados respaldados por eventos verificables. No cambiar OAuth, scopes, allowlists ni configuración privada como parte de este trabajo.
+- La vista consulta registros reales solo mediante las rutas autenticadas de Kaizen descritas abajo. Los fixtures requieren selección explícita y muestran **DEMO · datos ficticios**; nunca se mezclan con registros reales. El estado inicial no carga el servidor.
+- La integración se limita a registros de ejecución que el usuario haya autorizado expresamente, y a estados respaldados por eventos verificables. No crear credenciales ni ampliar scopes, allowlists o configuración privada.
 
 ## Modelo de ejecución propuesto
 
-Persistir las ejecuciones por separado de `tasks` —por ejemplo, una entidad `assistant_runs` y una colección/tabla `assistant_run_events`—, con acceso siempre limitado al `workspace_id` autorizado por la sesión. No aceptar el workspace ni los roles como fuente de autorización desde el payload del cliente.
+Persistir las ejecuciones por separado de `tasks`, en `assistant_runs` y `assistant_run_updates`. El workspace se toma de la petición, pero el servidor comprueba que la identidad autenticada tenga rol de administrador o sea creadora del espacio; el cliente no puede otorgarse acceso mediante campos de rol.
 
 ### Registro de ejecución
 
@@ -57,26 +57,30 @@ Cada actualización relevante añade un evento con ID, `run_id`, marca de tiempo
 
 Los eventos se muestran en orden cronológico inverso en el detalle. Una marca temporal de evento es evidencia de cuándo se registró ese evento, no de cuánto tiempo se trabajó. Para tiempo activo, emparejar intervalos explícitos `work_started`–`work_paused`; descartar intervalos abiertos/inválidos del total hasta cerrarlos y mostrar el estado de medición.
 
-### API por acordar antes de conectar
+### Rutas de sesión implementadas
 
-La API MCP actual de tareas no cubre estas ejecuciones. Acordar con el trabajo de MCP un contrato separado y limitado al workspace autorizado. Operaciones conceptuales:
+La rama añade las herramientas MCP `assistant_runs` y `assistant_run_upsert` junto a las acciones REST de sesión:
 
-- listar ejecuciones del asistente, con filtro de estado y paginación;
-- obtener ejecución y eventos;
-- crear una ejecución desde una delegación autorizada;
-- añadir eventos de avance;
-- cerrar como completada o cancelada.
+- `assistant_runs`: lista registros del espacio, solo para administradores del espacio.
+- `assistant_run_upsert`: crea o actualiza un registro y agrega una actualización de auditoría; requiere `source`, `external_id`, `idempotency_key`, `title` y `status`, más campos opcionales de avance, bloqueo, próximo paso, entregables y fechas verificadas de delegación/cierre.
+- `supervision_people` y `supervision_tasks`: devuelven integrantes y tareas del integrante seleccionado, solo a administradores del espacio.
 
-La lista debe devolver `delegated_at`, estado y `last_activity_at`; el detalle debe incluir eventos, bloqueos, próximo paso y entregables. Debe rechazar IDs o workspaces no autorizados sin alterar tareas existentes. Los nombres y la forma final de operaciones quedan pendientes de coordinación; este documento no afirma que ya estén implementadas.
+En MCP, la lectura usa `kaizen:read`. El upsert aparece únicamente cuando la configuración ya permite `kaizen:write`, además de requerir autorización administrativa del workspace. No se cambia el scope permitido en producción ni se crean credenciales. La automatización horaria aún no está activada.
+
+El servidor genera `verified_at`; ignora una fecha enviada por el cliente. Repetir una clave idempotente con el mismo contenido devuelve el registro existente; reutilizarla con contenido distinto se rechaza. Tanto las lecturas como las escrituras están separadas por workspace y no modifican la tabla de tareas. La llamada necesita la sesión autorizada existente; no hay una integración de servicio ni una programación desatendida configurada.
+
+La respuesta de supervisión contiene solo título, estado, proyecto, fecha límite, rango planificado y `workBlocks` explícitos. Omite notas y el JSON interno de la tarea. Una tarea se devuelve una sola vez con su mismo ID. El cronograma y los bloques horarios se presentan por separado; el rango planificado nunca se transforma en horas de trabajo.
 
 ## Experiencia visual
 
 - Integrarse en la navegación de Kaizen como una sección propia, sin reemplazar **Delegadas**, **Tareas del equipo**, Proyectos ni Cronograma.
+- La sección administrativa **Por persona** requiere elegir a un integrante antes de cargar sus tareas; no selecciona al primero de forma automática. Presenta sus rangos planificados y los bloques `workBlocks` explícitos de hoy en paneles separados. Los dos paneles hacen referencia al mismo ID de tarea y omiten IDs duplicados.
 - Usar la tipografía, el sistema de componentes y los colores de Kaizen. Dar a la sección una cabecera visual clara y jerarquía marcada, con resumen por estados y tarjetas escaneables.
 - Cada tarjeta presenta título, etiqueta de estado, edad desde delegación, último avance con hora registrada, bloqueo cuando exista, próximo paso y entregables disponibles.
 - Las vistas/filtros por estado y búsqueda no mutan la ejecución. La tarjeta completada muestra **Tiempo de resolución** calculado con marcas verificadas. La cancelada se presenta como cancelada, no como resuelta.
 - El detalle incluye la cronología de eventos y distingue visualmente el tiempo transcurrido del activo. Sin sesiones registradas, se lee **Tiempo activo: Sin registro**.
 - Mostrar fechas y horas con zona local del dispositivo, conservando y usando la marca UTC/origen del dato. Incluir una fecha absoluta accesible además del texto relativo (“hace …”).
+- Indicar que “hoy” corresponde al día y zona local de quien consulta. Marcar cuando un bloque explícito continúa desde el día anterior o después de hoy.
 - Diseñar estados vacíos, carga y error; no rellenarlos con ejemplos que parezcan registros reales.
 - Responsive desde 320 px; foco visible, controles de teclado, etiquetas legibles y botones con objetivos táctiles de al menos 44 px.
 
@@ -84,7 +88,7 @@ La lista debe devolver `delegated_at`, estado y `last_activity_at`; el detalle d
 
 ### Datos y métricas
 
-1. Con un fixture marcado como demo, la vista muestra de forma persistente **DEMO · datos ficticios** y no hace llamadas de lectura o escritura a la API real.
+1. La fuente real autenticada carga registros privados; al elegir un fixture, la vista muestra de forma persistente **DEMO · datos ficticios** y no mezcla registros sintéticos con reales.
 2. No aparecen tareas reales, notas privadas, miembros de otros espacios ni datos derivados de un `scope: team` sin autorización.
 3. Una ejecución solo aparece cuando existe un registro explícito de delegación al asistente; compartir una tarea con otro usuario Kaizen no la crea ni la cambia.
 4. Una ejecución abierta muestra antigüedad como `ahora - delegated_at`. Una completada muestra tiempo de resolución como `completed_at - delegated_at`. Ambas diferencias se calculan desde timestamps válidos y se identifican como **transcurridas**.
@@ -103,6 +107,8 @@ La lista debe devolver `delegated_at`, estado y `last_activity_at`; el detalle d
 14. Una lectura/escritura con sesión no autorizada se rechaza y no filtra títulos, briefs, eventos ni entregables entre workspaces.
 15. La suite visual/funcional verifica 1280 px y anchos móviles de 375 y 320 px, navegación por teclado, foco y estados vacíos/carga/error.
 16. Las pruebas de integración usan fixtures y una base aislada desechable; no cargan credenciales, OAuth ni cuentas de producción.
+17. La ruta de supervisión rechaza a miembros normales, usuarios ajenos y selecciones fuera del workspace; pruebas de dos integrantes verifican aislamiento.
+18. La misma tarea aparece con un único ID y conserva por separado el rango completo de cronograma y cada `workBlock` explícito.
 
 ## Fuera de alcance de este cambio
 

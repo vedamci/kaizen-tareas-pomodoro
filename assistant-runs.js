@@ -6,9 +6,9 @@
   const OPEN = ['queued', 'in_progress', 'blocked'];
   const STATUS_LABELS = { queued: 'En cola', in_progress: 'En curso', blocked: 'Bloqueada', completed: 'Completada', cancelled: 'Cancelada', unknown: 'Estado sin dato' };
   const EVENT_LABELS = {
-    delegated: 'Delegación registrada', status_changed: 'Cambio de estado', progress_note: 'Avance',
+    delegated: 'Delegación registrada', status_verified: 'Estado verificado', status_changed: 'Cambio de estado', progress_note: 'Avance',
     blocker_set: 'Bloqueo registrado', blocker_cleared: 'Bloqueo resuelto', next_step_set: 'Próximo paso',
-    deliverable_added: 'Entregable añadido', work_started: 'Inicio de trabajo', work_paused: 'Pausa de trabajo',
+    next_step_cleared: 'Próximo paso actualizado', deliverable_added: 'Entregable añadido', deliverable_removed: 'Entregable actualizado', work_started: 'Inicio de trabajo', work_paused: 'Pausa de trabajo',
     completed: 'Completada', cancelled: 'Cancelada'
   };
   const MISSING = 'Sin dato';
@@ -87,8 +87,12 @@
     const lastEvent = latest();
     const progress = latest(['progress_note']);
     const blockerEvent = latest(['blocker_set', 'blocker_cleared']);
-    const nextEvent = latest(['next_step_set']);
-    const deliverables = timed.filter(e => e.event.type === 'deliverable_added' && text(e.event.summary))
+    const nextEvent = latest(['next_step_set', 'next_step_cleared']);
+    const latestDeliverables = new Map();
+    timed.filter(e => (e.event.type === 'deliverable_added' || e.event.type === 'deliverable_removed') && text(e.event.summary))
+      .sort((a, b) => (a.time ?? -Infinity) - (b.time ?? -Infinity) || a.index - b.index)
+      .forEach(e => latestDeliverables.set(text(e.event.summary), e));
+    const deliverables = [...latestDeliverables.values()].filter(e => e.event.type === 'deliverable_added')
       .sort((a, b) => (b.time ?? -Infinity) - (a.time ?? -Infinity) || b.index - a.index)
       .map(e => ({ id: e.event.id, label: text(e.event.summary), at: e.time }));
     // Reverse chronological; events whose time is not verifiable go last.
@@ -101,7 +105,7 @@
       lastActivityAt: lastEvent ? lastEvent.time : null,
       progress: progress && text(progress.event.summary) ? { summary: text(progress.event.summary), at: progress.time } : null,
       blocker: OPEN.includes(status) && blockerEvent && blockerEvent.event.type === 'blocker_set' && text(blockerEvent.event.summary) ? { summary: text(blockerEvent.event.summary), at: blockerEvent.time } : null,
-      nextStep: OPEN.includes(status) && nextEvent && text(nextEvent.event.summary) ? { summary: text(nextEvent.event.summary), at: nextEvent.time } : null,
+      nextStep: OPEN.includes(status) && nextEvent && nextEvent.event.type === 'next_step_set' && text(nextEvent.event.summary) ? { summary: text(nextEvent.event.summary), at: nextEvent.time } : null,
       deliverables, active: activeTime(events), timeline
     };
   }

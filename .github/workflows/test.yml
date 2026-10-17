@@ -19,6 +19,7 @@ jobs:
         run: |
           php -l api/index.php
           php -l api/projects.php
+          php -l api/assistant-runs.php
           php -l api/project-policy.php
           php -l api/mcp.php
           php -l api/mcp-core.php

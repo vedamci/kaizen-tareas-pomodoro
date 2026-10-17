@@ -9,6 +9,7 @@ const planning = require('../planning.js');
 const html = fs.readFileSync(path.join(__dirname, '../Gestor de Tareas.dc.html'), 'utf8');
 const source = html.match(/<script type="text\/x-dc"[^>]*>([\s\S]*?)<\/script>/)[1];
 const markup = html.slice(html.indexOf('<sc-if value="{{ isAssistant }}"'), html.indexOf('<sc-if value="{{ isTeamView }}">'));
+const supervisionMarkup = html.slice(html.indexOf('<sc-if value="{{ isSupervisionView }}"'), html.indexOf('<sc-if value="{{ isAdminView }}"'));
 const css = html.slice(html.indexOf('.assistant-view {'), html.indexOf('.team-view {'));
 
 const NOW = Date.parse('2026-10-16T12:00:00Z');
@@ -21,7 +22,13 @@ function component(calls) {
   const fetch = () => { calls.fetch++; throw new Error('network disabled in tests'); };
   const context = vm.createContext({ DCLogic:Logic, KaizenPlanning:planning, KaizenAssistantRuns:runs, KaizenAssistantDemo:demo, console, setTimeout, clearTimeout, Intl, Date, Promise, fetch, localStorage:{setItem(){}} });
   const c = new (vm.runInContext(source + '; Component', context))();
-  c.api = async () => { calls.api++; return { ok:true }; };
+  c.api = async (action,payload) => {
+    calls.api++;
+    if(action==='assistant_runs')return {ok:true,runs:calls.assistantRuns||[]};
+    if(action==='supervision_people')return {ok:true,people:calls.supervisionPeople||[]};
+    if(action==='supervision_tasks')return {ok:true,tasks:(calls.supervisionTasks||{})[Number(payload.person_id)]||[]};
+    return { ok:true };
+  };
   return c;
 }
 
@@ -165,19 +172,26 @@ test('demo fixture is synthetic, flagged and covers missing data and imperfect i
   assert.ok(summaries.some(s => s.active.open) && summaries.some(s => s.active.ignored > 0));
 });
 
-test('component loads only local demo data, never calling the API, and filters never edit runs', async () => {
-  const calls = { api:0, fetch:0 }, c = component(calls);
+test('component loads private server records and keeps explicit demo fixtures labeled; filters never edit runs', async () => {
+  const calls = { api:0, fetch:0, assistantRuns:demo.demoRuns(NOW) }, c = component(calls);
   Object.assign(c.state, c.seed()); workspaceRole(c, 'admin');
   let v = c.renderVals();
   const nav = v.secondaryNavItems.find(n => n.id === 'assistant');
   assert.ok(nav, 'assistant section in navigation'); assert.equal(v.primaryNavItems.length, 6);
   const tasksBefore = JSON.stringify(c.state.tasks);
   nav.onClick(); assert.equal(c.state.view, 'assistant');
-  assert.equal(c.renderVals().assistantLoading, true);
-  await c.loadAssistantRuns();
   v = c.renderVals();
-  assert.equal(v.isAssistant, true); assert.equal(v.assistantReady, true); assert.equal(v.assistantDemoLabel, 'DEMO · datos ficticios');
+  assert.equal(v.assistantNotLoaded, true); assert.equal(v.assistantLoading, false);
+  assert.equal(v.assistantDemoLabel, 'SIN CARGAR');
+  assert.equal(calls.api, 0, 'opening the section does not automatically load live records');
+  await c.loadAssistantRuns('live');
+  v = c.renderVals();
+  assert.equal(v.isAssistant, true); assert.equal(v.assistantReady, true); assert.equal(v.assistantDemoLabel, 'REGISTROS PRIVADOS');
   assert.ok(v.assistantCards.length > 0);
+  assert.ok(calls.api >= 1, 'authorized live mode calls the admin API');
+  await c.loadAssistantRuns('data'); v=c.renderVals();
+  assert.equal(v.assistantDemoLabel,'DEMO · datos ficticios','synthetic records remain explicitly labeled');
+  assert.match(v.assistantDataMessage,/ficticias/i);
   assert.equal(c.renderVals().navItems.find(n => n.id === 'assistant').count, v.assistantCards.filter(card => ['queued','in_progress','blocked'].includes(card.status)).length);
   const runsBefore = JSON.stringify(c.state.assistantRuns);
   v.assistantStatusFilters.find(f => f.key === 'completed').onClick();
@@ -190,7 +204,7 @@ test('component loads only local demo data, never calling the API, and filters n
   assert.equal(v.assistantCards.length, c.state.assistantRuns.length);
   assert.equal(JSON.stringify(c.state.assistantRuns), runsBefore);
   assert.equal(JSON.stringify(c.state.tasks), tasksBefore, 'Kaizen tasks untouched');
-  assert.deepEqual(calls, { api:0, fetch:0 });
+  assert.equal(calls.fetch,0);
 });
 
 test('detail shows reverse timeline, distinguishes elapsed and active time and closes with Escape', async () => {
@@ -214,7 +228,7 @@ test('detail shows reverse timeline, distinguishes elapsed and active time and c
   assert.equal(missing.elapsedValue, 'Sin dato');
   c.handleEscape({ key:'Escape', target:{ closest:() => null }, preventDefault(){} });
   assert.equal(c.state.assistantSelId, null); assert.equal(c.renderVals().assistantHasDetail, false);
-  assert.deepEqual(calls, { api:0, fetch:0 });
+  assert.equal(calls.api,0); assert.equal(calls.fetch,0);
 });
 
 test('loading, empty and error states are distinct and retry restores demo data', async () => {
@@ -258,7 +272,7 @@ test('assistant section requires active workspace admin access, including direct
   assert.equal(c.state.assistantRuns.length, 0);
   assert.equal(c.state.assistantStatus, 'idle');
   assert.equal(c.state.assistantSelId, null);
-  assert.deepEqual(calls, { api:0, fetch:0 });
+  assert.deepEqual({api:calls.api,fetch:calls.fetch}, { api:0, fetch:0 });
 
   const admin = component({ api:0, fetch:0 });
   Object.assign(admin.state, admin.seed()); workspaceRole(admin, 'admin');
@@ -270,6 +284,33 @@ test('assistant section requires active workspace admin access, including direct
   assert.ok(admin.renderVals().assistantCards.length > 0, 'workspace admins can load the synthetic fixture');
 });
 
+test('person supervision uses one task identity for timeline and explicit hourly blocks', async () => {
+  const day=new Date(),key=`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+  const from=new Date(`${key}T09:00:00`),until=new Date(`${key}T17:00:00`),blockStart=new Date(`${key}T10:00:00`),blockEnd=new Date(`${key}T11:00:00`);
+  const block={id:'block-1',start:blockStart.toISOString(),end:blockEnd.toISOString(),timeZone:'UTC'};
+  const task={id:'assigned-1',title:'Synthetic scheduled task',list:'today',done:false,project_name:'Project Alpha',scheduledStart:from.toISOString(),scheduledEnd:until.toISOString(),workBlocks:[block,{...block}]};
+  const collisionA={id:'a/b',title:'Synthetic unscheduled A',done:false,project_name:'Project Alpha',scheduledStart:'',scheduledEnd:'',workBlocks:[]};
+  const collisionB={id:'a?b',title:'Synthetic unscheduled B',done:false,project_name:'Project Alpha',scheduledStart:'',scheduledEnd:'',workBlocks:[]};
+  const calls={api:0,fetch:0,supervisionPeople:[{id:1,name:'Synthetic Admin',workspace_role:'admin'},{id:2,name:'Synthetic Member',workspace_role:'member'}],supervisionTasks:{1:[],2:[task,{...task,title:'Synthetic duplicate'},collisionA,collisionB]}};
+  const c=component(calls);workspaceRole(c,'admin');c.state.view='supervision';
+  await c.loadSupervisionPeople();
+  let v=c.renderVals();
+  assert.equal(v.isSupervisionView,true);assert.equal(v.viewTitle,'Por persona');assert.equal(c.state.supervisionPersonId,'');
+  assert.equal(v.supervisionNeedsPerson,true,'loading people does not silently select a member');
+  await v.onSupervisionPerson({target:{value:'2'}});v=c.renderVals();
+  assert.equal(c.state.supervisionTasks.length,3,'duplicate task IDs are removed at the API boundary');
+  assert.equal(v.supervisionTimelineRows.length,1);assert.equal(v.supervisionUnscheduledRows.length,2);assert.equal(v.supervisionBlockRows.length,1,'duplicate workBlock IDs do not produce duplicate rows');
+  assert.equal(v.supervisionTimelineRows[0].anchor,v.supervisionBlockRows[0].anchor,'both views link to the same canonical task');
+  assert.ok(v.supervisionTimelineRows[0].start&&v.supervisionTimelineRows[0].end,'timeline keeps both full schedule bounds');
+  assert.notEqual(v.supervisionUnscheduledRows[0].anchor,v.supervisionUnscheduledRows[1].anchor,'distinct task IDs cannot collide after anchor encoding');
+  assert.equal(v.supervisionBlockRows[0].start,'10:00','hourly view comes from the explicit workBlock only');
+  assert.ok(v.supervisionTimeZone);assert.match(supervisionMarkup,/El rango completo del cronograma no se convierte en horas trabajadas/);
+  assert.match(supervisionMarkup,/aria-live="polite"/);assert.match(supervisionMarkup,/datetime="\{\{ t\.startIso \}\}"/);
+  await v.onSupervisionPerson({target:{value:''}});v=c.renderVals();
+  assert.equal(c.state.supervisionPersonId,'');assert.equal(v.supervisionNeedsPerson,true);assert.equal(v.supervisionError,'','clearing the person selection is not an error');
+  assert.equal(calls.api,2);
+});
+
 test('markup keeps the demo label persistent and controls accessible from 320 px', () => {
   assert.ok(markup.length > 0 && css.length > 0);
   const banner = markup.indexOf('assistant-demo-banner');
@@ -277,6 +318,8 @@ test('markup keeps the demo label persistent and controls accessible from 320 px
   assert.match(markup, /<label for="assistant-search">/); assert.match(markup, /id="assistant-search"/);
   assert.match(markup, /aria-pressed="\{\{ f\.pressed \}\}"/); assert.match(markup, /role="group" aria-label="Filtrar por estado"/);
   assert.match(markup, /role="status" aria-live="polite"/); assert.match(markup, /role="alert"/);
+  assert.match(markup, /option value="none">Servidor · sin cargar/);
+  assert.match(markup, /assistantNotLoaded/);
   assert.match(markup, /id="assistant-detail-heading" tabIndex="-1"/); assert.match(markup, /<ol class="assistant-timeline">/);
   assert.match(markup, /<time datetime="\{\{ card\.delegatedIso \}\}">/);
   for (const selector of ['.assistant-filter', '.assistant-open', '.assistant-search .input', '.assistant-state .btn', '.assistant-detail-top .btn', '.assistant-demo-states summary'])
@@ -285,5 +328,8 @@ test('markup keeps the demo label persistent and controls accessible from 320 px
   assert.match(css, /minmax\(min\(100%,300px\),1fr\)/, 'cards collapse to one column below 300 px');
   assert.match(css, /@media \(max-width:900px\)[\s\S]*\.assistant-filters \{ grid-template-columns:repeat\(2,minmax\(0,1fr\)\); \}/);
   assert.match(html, /<script src="\.\/assistant-runs\.js\?v=[^"]+"><\/script>/);
-  assert.doesNotMatch(source.slice(source.indexOf('loadAssistantRuns('), source.indexOf('handleEscape(e)')), /this\.api\(|fetch\(|mcp/i);
+  assert.match(source.slice(source.indexOf('loadAssistantRuns('), source.indexOf('focusAssistant(')), /this\.api\('assistant_runs'/);
+  assert.match(source.slice(source.indexOf('loadSupervisionTasks('),source.indexOf('memberName(')),/this\.api\('supervision_tasks'/);
+  assert.match(html,/\.supervision-toolbar \.btn \{ min-height:44px; \}/);
+  assert.match(supervisionMarkup,/<strong>\{\{ t\.title \}\}<\/strong>/,'timeline titles are plain text rather than self-links');
 });

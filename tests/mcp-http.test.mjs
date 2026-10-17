@@ -53,7 +53,7 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
   }
   try{
     await mkdir(path.join(scratch,'api'));
-    for(const name of ['mcp.php','mcp-config.php','mcp-core.php','mcp-oauth.php','oauth.php','index.php','projects.php','project-policy.php']) await copyFile(path.join(repo,'api',name),path.join(scratch,'api',name));
+    for(const name of ['mcp.php','mcp-config.php','mcp-core.php','mcp-oauth.php','oauth.php','index.php','projects.php','project-policy.php','assistant-runs.php']) await copyFile(path.join(repo,'api',name),path.join(scratch,'api',name));
     execFileSync('php',[path.join(repo,'tests/mcp-fixture.php'),scratch],{stdio:'pipe'});
     server=spawn('php',['-S','127.0.0.1:4181','-t',scratch],{stdio:['ignore','pipe','pipe']});
     server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);
@@ -85,14 +85,39 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     const readTools=(await rpc(tokens.read,'tools/list')).result.tools;
     assert.deepEqual(readTools.find(t=>t.name==='create_task').securitySchemes,[{type:'oauth2',scopes:['kaizen:read','kaizen:write']}]);
     assert.deepEqual(readTools.find(t=>t.name==='day_agenda').securitySchemes,[{type:'oauth2',scopes:['kaizen:read']}]);
+    assert.deepEqual(readTools.find(t=>t.name==='assistant_runs').securitySchemes,[{type:'oauth2',scopes:['kaizen:read']}]);
+    assert.deepEqual(readTools.find(t=>t.name==='assistant_run_upsert').securitySchemes,[{type:'oauth2',scopes:['kaizen:read','kaizen:write']}]);
     assert.deepEqual(data(await call(tokens.read,'get_profile',{})),{id:'kaizen-user-1',name:'Fixture 1',email:'fixture1@example.test'});
     assert.equal(data(await call(tokens.member,'get_profile',{})).id,'kaizen-user-2');
     assert.equal(data(await call(tokens.read,'list_workspaces',{})).workspaces.length,1);
+    assert.equal(data(await call(tokens.read,'assistant_runs',{workspace_id:1})).runs.length,0);
+    await call(tokens.member,'assistant_runs',{workspace_id:1},403);
+    await call(tokens.memberWrite,'assistant_runs',{workspace_id:1},403);
+    await call(tokens.outsider,'assistant_runs',{workspace_id:1},403);
     await call(tokens.outsider,'list_tasks',{workspace_id:1},403);
     await call(tokens.member,'list_tasks',{workspace_id:1,scope:'team'},403);
     const upgrade=await call(tokens.read,'create_task',{workspace_id:1,client_id:'c1',title:'No'});
     assert.equal(upgrade.result.isError,true);
     assert.match(upgrade.result._meta['mcp/www_authenticate'][0],/insufficient_scope/);
+    const assistantPayload={workspace_id:1,source:'mcp-test',external_id:'fixture-assistant-1',idempotency_key:'mcp-http-idempotency-0001',title:'Synthetic assistant run',status:'blocked',progress:'Synthetic verified progress',blocker:'Synthetic blocker',next_step:'Synthetic next step',deliverables:['Synthetic deliverable'],delegated_at:'2026-10-16T10:00:00.000Z'};
+    const assistantUpgrade=await call(tokens.read,'assistant_run_upsert',assistantPayload);
+    assert.equal(assistantUpgrade.result.isError,true);
+    assert.match(assistantUpgrade.result._meta['mcp/www_authenticate'][0],/insufficient_scope/);
+    await call(tokens.memberWrite,'assistant_run_upsert',{...assistantPayload,external_id:'member-run'},403);
+    await call(tokens.outsider,'assistant_run_upsert',{...assistantPayload,external_id:'outsider-run'},403);
+    const assistantSaved=data(await call(tokens.write,'assistant_run_upsert',assistantPayload));
+    assert.equal(assistantSaved.duplicate,false);
+    assert.equal(assistantSaved.run.kind,'assistant_run');
+    assert.ok(assistantSaved.run.events.some(e=>e.type==='progress_note'&&e.summary==='Synthetic verified progress'));
+    assert.ok(assistantSaved.run.events.some(e=>e.type==='blocker_set'&&e.summary==='Synthetic blocker'));
+    assert.equal('notes' in assistantSaved.run,false);
+    assert.equal('payload_json' in assistantSaved.run,false);
+    assert.equal('history' in assistantSaved.run,false);
+    const assistantDuplicate=data(await call(tokens.write,'assistant_run_upsert',assistantPayload));
+    assert.equal(assistantDuplicate.duplicate,true);
+    assert.equal(assistantDuplicate.run.id,assistantSaved.run.id);
+    const assistantConflict=await call(tokens.write,'assistant_run_upsert',{...assistantPayload,title:'Different synthetic title'});
+    assert.equal(assistantConflict.result.isError,true);
     const created=data(await call(tokens.write,'create_task',{workspace_id:1,client_id:'c1',title:'A'})).task;
     assert.equal(created.title,'A');
     assert.equal(data(await call(tokens.write,'create_task',{workspace_id:1,client_id:'c1',title:'A'})).task.id,created.id);
@@ -139,6 +164,7 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     await rpc(limitedWrite.access_token,'tools/list',{},401);
     const limitedTools=(await rpc(limitedRead.access_token,'tools/list')).result.tools.map(t=>t.name);
     assert.ok(limitedTools.includes('list_tasks')&&!limitedTools.includes('create_task'));
+    assert.ok(limitedTools.includes('assistant_runs')&&!limitedTools.includes('assistant_run_upsert'));
     const blockedWrite=await call(limitedRead.access_token,'create_task',{workspace_id:1,client_id:'blocked',title:'No'});
     assert.equal(blockedWrite.error.code,-32601);
     const otherUser=await fetch(oauth+'?action=authorize&'+new URLSearchParams(badRequest),{headers:{Cookie:member.cookie}});

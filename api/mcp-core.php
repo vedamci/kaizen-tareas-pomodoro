@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/projects.php';
+require_once __DIR__ . '/assistant-runs.php';
 
 const KAIZEN_MCP_VERSION = '2025-11-25';
 
@@ -19,6 +20,7 @@ function mcpTools(bool $write): array {
         ['name'=>'list_tasks', 'description'=>'Listar tareas personales o de proyectos accesibles. La vista team requiere ser administrador.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'scope'=>['type'=>'string','enum'=>['personal','projects','team']]],'required'=>['workspace_id']]],
         ['name'=>'get_task', 'description'=>'Consultar una tarea accesible por ID y revisión.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'task_id'=>$id,'scope'=>['type'=>'string','enum'=>['personal','projects','team']]],'required'=>['workspace_id','task_id']]],
         ['name'=>'day_agenda', 'description'=>'Consultar bloques horarios de trabajo y tareas fechadas de un día, en UTC. El cliente puede convertirlos a su zona horaria.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'date'=>$date],'required'=>['workspace_id','date']]],
+        ['name'=>'assistant_runs', 'description'=>'Consultar ejecuciones del asistente del espacio. Requiere ser administrador, creador o superadministrador; devuelve solo estados verificados, avance, bloqueos, próximos pasos, entregables y cronología, nunca notas de tareas de Kaizen.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid],'required'=>['workspace_id'],'additionalProperties'=>false], 'annotations'=>['readOnlyHint'=>true]],
     ];
     if ($write) array_push($tools,
         ['name'=>'create_task', 'description'=>'Crear una tarea. client_id estable permite reintentos sin duplicarla.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'client_id'=>$id,'title'=>['type'=>'string','minLength'=>1,'maxLength'=>255],'project_id'=>$id],'required'=>['workspace_id','client_id','title']], 'annotations'=>['readOnlyHint'=>false]],
@@ -28,6 +30,24 @@ function mcpTools(bool $write): array {
         ['name'=>'remove_work_block', 'description'=>'Quitar un bloque horario sin alterar el cronograma ni el tiempo Pomodoro. Repetir la retirada es seguro.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'task_id'=>$id,'revision'=>['type'=>'string','pattern'=>'^[a-f0-9]{64}$'],'block_id'=>$id],'required'=>['workspace_id','task_id','revision','block_id']], 'annotations'=>['readOnlyHint'=>false,'idempotentHint'=>true]],
         ['name'=>'save_project', 'description'=>'Crear o actualizar un proyecto compartido. Para crear, client_id estable evita duplicados; para actualizar, project_id y member_ids explícitos.', 'inputSchema'=>['type'=>'object','properties'=>['workspace_id'=>$wid,'client_id'=>$id,'project_id'=>$id,'name'=>['type'=>'string','minLength'=>1,'maxLength'=>120],'member_ids'=>['type'=>'array','items'=>$wid,'maxItems'=>500]],'required'=>['workspace_id','name','member_ids']], 'annotations'=>['readOnlyHint'=>false]]
     );
+    if ($write) $tools[] = ['name'=>'assistant_run_upsert',
+        'description'=>'Registrar o actualizar una ejecución con evidencia verificada. Requiere kaizen:write y administración del espacio; clave de idempotencia estable para reintentos.',
+        'inputSchema'=>['type'=>'object','properties'=>[
+            'workspace_id'=>$wid,
+            'source'=>['type'=>'string','pattern'=>'^[a-zA-Z][a-zA-Z0-9_.-]{0,39}$'],
+            'external_id'=>['type'=>'string','pattern'=>'^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,119}$'],
+            'idempotency_key'=>['type'=>'string','pattern'=>'^[a-zA-Z0-9][a-zA-Z0-9_.:-]{15,99}$'],
+            'title'=>['type'=>'string','minLength'=>1,'maxLength'=>180],
+            'status'=>['type'=>'string','enum'=>['queued','in_progress','blocked','completed','cancelled']],
+            'progress'=>['type'=>'string','maxLength'=>1200],
+            'blocker'=>['type'=>'string','maxLength'=>800],
+            'next_step'=>['type'=>'string','maxLength'=>800],
+            'deliverables'=>['type'=>'array','maxItems'=>12,'items'=>['type'=>'string','minLength'=>1,'maxLength'=>200]],
+            'delegated_at'=>['type'=>'string','format'=>'date-time'],
+            'completed_at'=>['type'=>'string','format'=>'date-time'],
+            'closed_at'=>['type'=>'string','format'=>'date-time']
+        ],'required'=>['workspace_id','source','external_id','idempotency_key','title','status'],'additionalProperties'=>false],
+        'annotations'=>['readOnlyHint'=>false,'idempotentHint'=>true]];
     foreach ($tools as &$tool) {
         $scopes=($tool['annotations']['readOnlyHint']??true)===false
             ? ['kaizen:read','kaizen:write'] : ['kaizen:read'];
@@ -97,7 +117,7 @@ function mcpCreateTask(PDO $pdo, int $wid, array $u, bool $admin, string $id, st
 function mcpExecute(PDO $pdo, array $u, array $scopes, string $name, array $a): array {
     $read = in_array('kaizen:read',$scopes,true);
     $write = in_array('kaizen:write',$scopes,true);
-    $writeTool=in_array($name,['create_task','update_task','set_task_done','set_work_block','remove_work_block','save_project'],true);
+    $writeTool=in_array($name,['create_task','update_task','set_task_done','set_work_block','remove_work_block','save_project','assistant_run_upsert'],true);
     if ((!$read && !$write) || ($writeTool && !$write)) throw new DomainException('Permiso MCP insuficiente.',403);
     if ($name==='get_profile') return ['id'=>'kaizen-user-'.(string)$u['id'],'name'=>(string)$u['name'],'email'=>(string)$u['email']];
     if ($name==='list_workspaces') {
@@ -108,6 +128,18 @@ function mcpExecute(PDO $pdo, array $u, array $scopes, string $name, array $a): 
     $wid=mcpInt($a['workspace_id']??null);
     $access=mcpAllowedWorkspace($pdo,$wid,$u);
     $admin=workspaceProjectAdmin($wid,$u,$access);
+    if ($name==='assistant_runs') {
+        assistantWorkspaceAdmin($pdo,$wid,$u);
+        ensureAssistantRunSchema($pdo);
+        return ['runs'=>assistantRunRecords($pdo,$wid,$u)];
+    }
+    if ($name==='assistant_run_upsert') {
+        assistantWorkspaceAdmin($pdo,$wid,$u);
+        $allowed=['workspace_id','source','external_id','idempotency_key','title','status','progress','blocker','next_step','deliverables','delegated_at','completed_at','closed_at'];
+        if (array_diff(array_keys($a),$allowed)) throw new DomainException('Campo de ejecución no permitido.',422);
+        ensureAssistantRunSchema($pdo);
+        return assistantRunUpsert($pdo,$wid,$u,$a);
+    }
     if ($name==='list_projects') {
         $all=loadWorkspaceTasks($pdo,$wid,$u,$admin,'projects');
         return ['projects'=>$all['projects']];
