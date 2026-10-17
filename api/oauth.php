@@ -18,9 +18,15 @@ function oauthJson(array $data,int $status=200): never {
     http_response_code($status);header('Content-Type: application/json; charset=utf-8');
     echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;
 }
-function oauthHtml(string $body,int $status=200): never {
+function oauthHtml(string $body,int $status=200,?string $redirectUri=null): never {
     http_response_code($status);header('Content-Type: text/html; charset=utf-8');
-    header("Content-Security-Policy: default-src 'none'; form-action 'self'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+    $formAction="'self'";
+    if ($redirectUri!==null) {
+        $parts=parse_url($redirectUri);
+        if (is_array($parts) && in_array($parts['scheme']??null,['http','https'],true) && isset($parts['host']))
+            $formAction.=' '.$parts['scheme'].'://'.$parts['host'].(isset($parts['port'])?':'.$parts['port']:'');
+    }
+    header("Content-Security-Policy: default-src 'none'; form-action ".$formAction."; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
     echo '<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Conectar Kaizen</title><style>body{font:16px system-ui;max-width:38rem;margin:4rem auto;padding:0 1rem;line-height:1.5}button{padding:.7rem 1rem;margin:.5rem}li{margin:.5rem 0}</style><main>'.$body.'</main></html>';exit;
 }
 function oauthEscape(string $value): string {return htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
@@ -112,7 +118,7 @@ try {
         if (str_contains($request['scope'],'kaizen:assistant_runs:write')) $items.='<li>Registrar y actualizar las tareas delegadas al asistente en espacios que administras.</li>';
         if (str_contains($request['scope'],'kaizen:write')) $items.='<li>Crear y modificar tareas, bloques de agenda y proyectos con tus permisos actuales.</li>';
         $client=$request['client_id']===KAIZEN_CODEX_CLIENT_ID?'Codex':'ChatGPT';
-        oauthHtml('<h1>Conectar Kaizen</h1><p>'.oauthEscape($user['name']).', '.oauthEscape($client).' solicita estos permisos para tu cuenta:</p><ul>'.$items.'</ul><p>Podrás revocarlos desde Kaizen. La conexión no amplía tus permisos de espacios.</p><form method="post">'.oauthFormFields($request).'<input type="hidden" name="csrf" value="'.oauthEscape($_SESSION['mcp_oauth_csrf']).'"><button name="decision" value="approve">Autorizar</button><button name="decision" value="deny">Cancelar</button></form>');
+        oauthHtml('<h1>Conectar Kaizen</h1><p>'.oauthEscape($user['name']).', '.oauthEscape($client).' solicita estos permisos para tu cuenta:</p><ul>'.$items.'</ul><p>Podrás revocarlos desde Kaizen. La conexión no amplía tus permisos de espacios.</p><form method="post">'.oauthFormFields($request).'<input type="hidden" name="csrf" value="'.oauthEscape($_SESSION['mcp_oauth_csrf']).'"><button name="decision" value="approve">Autorizar</button><button name="decision" value="deny">Cancelar</button></form>',200,$request['redirect_uri']);
     }
     http_response_code(404);
 } catch (DomainException $e) {
