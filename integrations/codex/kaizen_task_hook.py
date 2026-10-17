@@ -35,6 +35,7 @@ def main() -> int:
         "Questions, status requests, corrections, and casual conversation by themselves do not create tasks. "
         "Choose a workspace only from an authenticated Kaizen lookup or prior verified selection; never guess its ID. "
         "Before the final answer, update the record to completed only if the requested work is actually done; "
+        "when completed, include completed_at with the verified completion time. "
         "otherwise record the current in_progress or blocked state. "
         "Do not include the full user prompt or secrets in Kaizen. "
         "If the Kaizen connection or permission is missing, say that automatic registration did not happen."
