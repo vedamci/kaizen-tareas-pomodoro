@@ -51,7 +51,11 @@ test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},
     if (!exchange) return {code,verifier,cookie};
     const wrongVerifier=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:client,redirect_uri:redirect,resource:endpoint,code_verifier:'x'.repeat(43)})});
     assert.equal(wrongVerifier.status,400);
-    const tokenResponse=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:client,redirect_uri:redirect,resource:endpoint,code_verifier:verifier})});
+    if (client===codexClientId) {
+      const badClientAuth=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',Authorization:'Basic '+Buffer.from(client+':not-a-secret').toString('base64')},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:client,redirect_uri:redirect,resource:endpoint,code_verifier:verifier})});
+      assert.equal(badClientAuth.status,401);
+    }
+    const tokenResponse=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',...(client===codexClientId?{Authorization:'Basic '+Buffer.from(client+':').toString('base64')}: {})},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:client,redirect_uri:redirect,resource:endpoint,code_verifier:verifier})});
     assert.equal(tokenResponse.status,200,await tokenResponse.clone().text());
     const tokens=await tokenResponse.json();
     const replay=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:client,redirect_uri:redirect,resource:endpoint,code_verifier:verifier})});
