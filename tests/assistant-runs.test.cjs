@@ -17,10 +17,15 @@ const iso = minutesAgo => new Date(NOW - minutesAgo * 60000).toISOString();
 const ev = (id, type, at, summary = '') => ({ id, type, at, summary, actor: 'Luna (prueba)' });
 const run = (extra = {}, events = [ev('e0', 'delegated', iso(120))]) => ({ kind: 'assistant_run', id: 'r1', assistant: 'Luna (prueba)', title: 'Ejecución sintética', status: 'in_progress', delegated_at: iso(120), events, ...extra });
 
-function component(calls) {
+function component(calls, storage = new Map()) {
   class Logic { props = {focusMinutes:25,breakMinutes:5,showQuadrantColors:true}; setState(next) { Object.assign(this.state, typeof next === 'function' ? next(this.state) : next); } }
   const fetch = () => { calls.fetch++; throw new Error('network disabled in tests'); };
-  const context = vm.createContext({ DCLogic:Logic, KaizenPlanning:planning, KaizenAssistantRuns:runs, KaizenAssistantDemo:demo, console, setTimeout, clearTimeout, Intl, Date, Promise, fetch, localStorage:{setItem(){}} });
+  const localStorage = {
+    getItem(key) { return storage.has(key) ? storage.get(key) : null; },
+    setItem(key, value) { storage.set(key, String(value)); },
+    removeItem(key) { storage.delete(key); }
+  };
+  const context = vm.createContext({ DCLogic:Logic, KaizenPlanning:planning, KaizenAssistantRuns:runs, KaizenAssistantDemo:demo, console, setTimeout, clearTimeout, Intl, Date, Promise, fetch, localStorage });
   const c = new (vm.runInContext(source + '; Component', context))();
   c.api = async (action,payload) => {
     calls.api++;
@@ -205,6 +210,32 @@ test('component loads private server records and keeps explicit demo fixtures la
   assert.equal(JSON.stringify(c.state.assistantRuns), runsBefore);
   assert.equal(JSON.stringify(c.state.tasks), tasksBefore, 'Kaizen tasks untouched');
   assert.equal(calls.fetch,0);
+});
+
+test('private server source preference survives component reloads per user and workspace without caching run records', async () => {
+  const storage = new Map();
+  const firstCalls = { api:0, fetch:0, assistantRuns:[run()] };
+  const first = component(firstCalls, storage);
+  workspaceRole(first, 'admin', 11); first.KEY = 'kaizen';
+  assert.equal(first.preferredAssistantSource(), 'none');
+  first.rememberAssistantSource('live');
+  const key = 'kaizen:assistant-source:11:7';
+  assert.equal(storage.get(key), 'live');
+  assert.equal(storage.size, 1, 'only the selected source preference is stored');
+
+  const reloadedCalls = { api:0, fetch:0, assistantRuns:[run({ id:'server-run-after-reload' })] };
+  const reloaded = component(reloadedCalls, storage);
+  workspaceRole(reloaded, 'admin', 11); reloaded.KEY = 'kaizen'; reloaded.state.view = 'assistant';
+  assert.equal(reloaded.preferredAssistantSource(), 'live');
+  await reloaded.loadAssistantRuns();
+  assert.equal(reloadedCalls.api, 1, 'reload refetches private records from the server');
+  assert.equal(reloaded.state.assistantRuns[0].id, 'server-run-after-reload');
+
+  const otherUser = component({ api:0, fetch:0 }, storage);
+  workspaceRole(otherUser, 'admin', 12); otherUser.KEY = 'kaizen';
+  assert.equal(otherUser.preferredAssistantSource(), 'none', 'a different user does not inherit the preference');
+  first.rememberAssistantSource('data');
+  assert.equal(storage.has(key), false, 'choosing a demo removes the live preference');
 });
 
 test('detail shows reverse timeline, distinguishes elapsed and active time and closes with Escape', async () => {
