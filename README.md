@@ -51,8 +51,10 @@ a la más antigua. Los filtros no modifican ninguna ejecución.
 
 La rama implementa registros privados mediante `assistant_runs` y
 `assistant_run_upsert`. La carga en vivo requiere seleccionar **Servidor ·
-registros privados**; el estado inicial no consulta datos. Los fixtures de
-`assistant-runs-demo.js` requieren una selección explícita y muestran siempre
+registros privados** una vez por usuario y espacio; esa preferencia se conserva
+en el navegador y la vista vuelve a cargar los registros del servidor al
+recargar. Solo se guarda la preferencia, nunca el contenido privado. Los
+fixtures de `assistant-runs-demo.js` requieren una selección explícita y muestran siempre
 **DEMO · datos ficticios**. Nunca se mezclan con registros reales. La lógica de
 presentación está en `assistant-runs.js`:
 

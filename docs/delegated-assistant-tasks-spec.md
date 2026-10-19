@@ -19,7 +19,7 @@ El contrato MCP recibido expone `list_tasks(workspace_id, scope)` con `personal`
 
 - `_delegated_at` representa el compartir/asignar una tarea entre usuarios de Kaizen; **no** es una delegación a Luna.
 - Las tareas de Kaizen y las ejecuciones del asistente son conceptos distintos. No se debe inferir una ejecución a partir de `done`, del propietario, de compartir una tarea, de Pomodoros o de su presencia en `team`.
-- La vista consulta registros reales solo mediante las rutas autenticadas de Kaizen descritas abajo. Los fixtures requieren selección explícita y muestran **DEMO · datos ficticios**; nunca se mezclan con registros reales. El estado inicial no carga el servidor.
+- La vista consulta registros reales solo mediante las rutas autenticadas de Kaizen descritas abajo. Los fixtures requieren selección explícita y muestran **DEMO · datos ficticios**; nunca se mezclan con registros reales. La primera visita no carga el servidor; tras elegir **Servidor · registros privados**, se recuerda solo esa preferencia por usuario/espacio y se vuelve a consultar el servidor cuando se restaura la vista. El contenido privado nunca se guarda en `localStorage`.
 - La integración se limita a registros de ejecución que el usuario haya autorizado expresamente, y a estados respaldados por eventos verificables. No crear credenciales ni ampliar scopes, allowlists o configuración privada.
 
 ## Modelo de ejecución propuesto

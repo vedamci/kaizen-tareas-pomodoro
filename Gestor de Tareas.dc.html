@@ -1510,10 +1510,26 @@ class Component extends DCLogic {
   }
   dkey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + this.pad(d.getMonth() + 1) + '-' + this.pad(d.getDate()); }
 
-  // Nothing loads until a workspace admin explicitly picks a source ('none' by
-  // default). Live records come only from the authenticated workspace-admin API;
-  // synthetic records require an explicit demo selection and remain labeled.
-  loadAssistantRuns(mode = this.state.assistantDemoState) {
+  assistantSourcePreferenceKey() {
+    return this.KEY + ':assistant-source:' + Number(this.state.auth?.id || 0) + ':' + Number(this.state.workspaceId || 0);
+  }
+  preferredAssistantSource() {
+    if (!this.state.auth || !this.state.workspaceId) return 'none';
+    try { return localStorage.getItem(this.assistantSourcePreferenceKey()) === 'live' ? 'live' : 'none'; } catch (e) { return 'none'; }
+  }
+  rememberAssistantSource(mode) {
+    if (!this.state.auth || !this.state.workspaceId) return;
+    try {
+      const key = this.assistantSourcePreferenceKey();
+      if (mode === 'live') localStorage.setItem(key, 'live');
+      else localStorage.removeItem(key);
+    } catch (e) {}
+  }
+  // Private records stay on the server. Remember only that this authorized
+  // user/workspace selected the live source; never cache run contents locally.
+  // Demo fixtures remain explicit and are not restored after a page reload.
+  loadAssistantRuns(mode = null) {
+    if (mode == null) mode = this.state.assistantDemoState !== 'none' ? this.state.assistantDemoState : this.preferredAssistantSource();
     const request = this.assistantRequestId = (this.assistantRequestId || 0) + 1;
     if (!this.isWorkspaceAdmin()) {
       const denied = { assistantStatus:'idle', assistantRuns:[], assistantError:'', assistantSelId:null, assistantDemoState:'none' };
@@ -1637,7 +1653,7 @@ class Component extends DCLogic {
       onAssistantQuery:e => this.setState({ assistantQuery:e.target.value }),
       onAssistantClearFilters:() => this.setState({ assistantFilter:'all', assistantQuery:'' }),
       onAssistantRetry:() => this.loadAssistantRuns(s.assistantDemoState==='live'?'live':'data'),
-      onAssistantDemoState:e => this.loadAssistantRuns(['none','live','data','empty','loading','error'].includes(e.target.value) ? e.target.value : 'none')
+      onAssistantDemoState:e => { const mode=['none','live','data','empty','loading','error'].includes(e.target.value) ? e.target.value : 'none'; this.rememberAssistantSource(mode); this.loadAssistantRuns(mode); }
     };
   }
 
@@ -1705,7 +1721,7 @@ class Component extends DCLogic {
         this.setState({ ...(shouldLeaveView ? { view:'today' } : {}), assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none' });
         return;
       }
-    } else if (s.view === 'assistant' && s.assistantStatus === 'idle' && s.assistantDemoState !== 'none') {
+    } else if (s.view === 'assistant' && s.assistantStatus === 'idle' && (s.assistantDemoState !== 'none' || this.preferredAssistantSource() === 'live')) {
       this.loadAssistantRuns();
     }
     if(!this.isWorkspaceAdmin()){
