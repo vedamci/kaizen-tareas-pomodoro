@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/projects.php';
+require_once __DIR__ . '/assistant-runs.php';
 $config = require __DIR__ . '/config.php';
 session_name($config['session_name'] ?? 'tareas_session');
 // Mantener la sesión web en este dispositivo durante 30 días. Además, cada
@@ -40,6 +41,7 @@ function db(): PDO {
         try { $pdo->exec("ALTER TABLE push_jobs ADD COLUMN subscription_hash CHAR(64) NULL AFTER user_id"); } catch (Throwable $e) {}
         try { $pdo->exec("ALTER TABLE push_jobs ADD INDEX idx_push_subscription (subscription_hash)"); } catch (Throwable $e) {}
         $pdo->exec("CREATE TABLE IF NOT EXISTS device_sessions (token_hash CHAR(64) PRIMARY KEY, user_id INT UNSIGNED NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT fk_device_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, INDEX idx_device_sessions_expiry (expires_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        ensureAssistantRunSchema($pdo);
     }
     return $pdo;
 }
@@ -140,6 +142,22 @@ try {
     }
     if ($action === 'logout') { revokeDeviceToken(); $_SESSION=[]; session_destroy(); out(['ok'=>true]); }
     $u=requireUser();
+    if ($action === 'assistant_runs') {
+        $wid=(int)($data['workspace_id']??0); $runs=assistantRunRecords(db(),$wid,$u); out(['ok'=>true,'runs'=>$runs]);
+    }
+    if ($action === 'assistant_run_upsert') {
+        $wid=(int)($data['workspace_id']??0); $result=assistantRunUpsert(db(),$wid,$u,$data); out(['ok'=>true]+$result);
+    }
+    if ($action === 'assistant_run_mark_completed') {
+        $wid=(int)($data['workspace_id']??0); $result=assistantRunMarkCompleted(db(),$wid,$u,$data['run_id']??null); out(['ok'=>true]+$result);
+    }
+    if ($action === 'supervision_people') {
+        $wid=(int)($data['workspace_id']??0); out(['ok'=>true,'people'=>supervisionMembers(db(),$wid,$u)]);
+    }
+    if ($action === 'supervision_tasks') {
+        $wid=(int)($data['workspace_id']??0); $personId=(int)($data['person_id']??0);
+        out(['ok'=>true,'tasks'=>supervisionTasks(db(),$wid,$personId,$u)]);
+    }
     if ($action === 'push_subscribe') {
         $endpoint=trim((string)($data['endpoint']??''));$keys=is_array($data['keys']??null)?$data['keys']:[];$p256dh=trim((string)($keys['p256dh']??''));$auth=trim((string)($keys['auth']??''));$deviceLabel=substr(trim((string)($data['device_label']??'Navegador')),0,80) ?: 'Navegador';if($endpoint===''||$p256dh===''||$auth==='')out(['ok'=>false,'error'=>'Suscripción de push incompleta.'],422);$pdo=db();$subHash=hash('sha256',$endpoint);$q=$pdo->prepare('INSERT INTO push_subscriptions(user_id,endpoint_hash,endpoint,p256dh,auth,device_label) VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE user_id=VALUES(user_id),endpoint=VALUES(endpoint),p256dh=VALUES(p256dh),auth=VALUES(auth),device_label=VALUES(device_label)');$q->execute([(int)$u['id'],$subHash,$endpoint,$p256dh,$auth,$deviceLabel]);
         // Retira trabajos creados por versiones antiguas, que no distinguían

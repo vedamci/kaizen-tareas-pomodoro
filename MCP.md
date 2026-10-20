@@ -10,8 +10,8 @@ El servidor implementa Streamable HTTP **MCP 2025-11-25**: POST JSON-RPC, `initi
 
 ## OAuth implementado
 
-- OAuth 2.1 authorization code con PKCE S256, cliente público `none`, cliente ChatGPT identificado por su [documento público](https://chatgpt.com/oauth/client.json). La app verifica ese documento por HTTPS y acepta exclusivamente el ID de cliente y URI de retorno configurados. El cliente fijo evita registro dinámico abierto.
-- La autorización exige la sesión web existente de Kaizen, una identidad incluida en `mcp_allowed_user_ids` y un consentimiento explícito para `kaizen:read` o `kaizen:read kaizen:write`. `mcp_max_scope=kaizen:read` rechaza cualquier permiso o token de escritura y oculta esas herramientas. La sesión web y `X-Remember-Token` nunca autentican llamadas MCP.
+- OAuth 2.1 authorization code con PKCE S256, cliente público `none`. Se aceptan los documentos oficiales de [ChatGPT](https://chatgpt.com/oauth/client.json) y [Codex](https://chatgpt.com/oauth/codex/client.json), verificados por HTTPS. ChatGPT conserva el retorno configurado; Codex usa `/callback` en loopback con puerto variable. Otros IDs de cliente o retornos se rechazan.
+- La autorización exige la sesión web existente de Kaizen, una identidad incluida en `mcp_allowed_user_ids` y consentimiento explícito. `mcp_max_scope=kaizen:read` mantiene bloqueada la escritura general de tareas. El permiso separado `kaizen:assistant_runs:write` solo permite registrar ejecuciones del asistente para administradores; se puede desactivar con `mcp_assistant_runs_write_enabled=false` en la configuración privada. La sesión web y `X-Remember-Token` nunca autentican llamadas MCP.
 - Códigos de un uso y 5 minutos. Tokens de acceso aleatorios de 1 hora; tokens de renovación de 30 días con rotación y detección de reutilización. Solo hashes de tokens se almacenan en MySQL. El usuario puede revocar la conexión en `api/oauth.php?action=connections`; revocación invalida acceso y renovación.
 - La audiencia está fijada al URL exacto del recurso MCP. Cada petición consulta identidad, vigencia, revocación y scopes actuales. Un usuario no puede hacerse pasar por otro con argumentos del cliente. Se reutilizan las comprobaciones de espacio, proyecto, tarea y administrador existentes.
 - El servidor publica metadatos OAuth y de recurso protegido mediante las reglas de `deployment/root-well-known.htaccess` instaladas en la raíz pública.
@@ -34,12 +34,14 @@ El servidor implementa Streamable HTTP **MCP 2025-11-25**: POST JSON-RPC, `initi
 | `set_work_block` | `kaizen:write` | Bloque horario validado. |
 | `remove_work_block` | `kaizen:write` | Retirada idempotente de un bloque. |
 | `save_project` | `kaizen:write` | Proyecto y miembros bajo política existente. |
+| `assistant_runs` | `kaizen:read` | Ver registros del asistente como administrador. |
+| `assistant_run_upsert` | `kaizen:assistant_runs:write` o `kaizen:write` | Registrar y actualizar ejecuciones del asistente como administrador. |
 
-`kaizen:write` se concede junto con `kaizen:read`. No hay herramienta de borrado de tareas, administración de cuentas ni lectura de tareas privadas ajenas. **Rocas:** `main` no tiene entidad, campo ni endpoint específico; definirlas como categoría de tarea o nueva entidad requiere una decisión de producto posterior.
+Los dos permisos de escritura requieren `kaizen:read`. El consentimiento de `kaizen:assistant_runs:write` no permite crear o editar tareas, bloques ni proyectos normales. No hay herramienta de borrado de tareas, administración de cuentas ni lectura de tareas privadas ajenas. **Rocas:** `main` no tiene entidad, campo ni endpoint específico; definirlas como categoría de tarea o nueva entidad requiere una decisión de producto posterior.
 
-## Conexión pendiente
+## Conexión
 
-El URL del servidor es `https://vedamci.com.mx/tareas-pomodoro/api/mcp.php`. En ChatGPT, agregarlo como servidor MCP personalizado y completar el inicio de sesión y consentimiento de Kaizen. Comprobar que se solicite únicamente el permiso de lectura aprobado. Después, verificar `tools/list` y las lecturas desde el host. La conexión no se considera completada hasta esas pruebas. Las herramientas de escritura requieren una aprobación y configuración posteriores.
+El URL del servidor es `https://vedamci.com.mx/tareas-pomodoro/api/mcp.php`. Para el registro automático desde Codex, seguir [integrations/codex/README.md](integrations/codex/README.md). El consentimiento OAuth para el permiso limitado sigue siendo necesario; publicar código en GitHub por sí solo no instala el hook local ni concede permisos. Verificar `tools/list` y una escritura de prueba en un espacio administrado antes de considerar activa la integración.
 
 Si en el futuro se cambia `mcp_allowed_user_ids` o `mcp_max_scope`, revocar primero las concesiones y tokens afectados con `mcpOAuthRevokeGrant` y comprobarlo antes de volver a ampliar la política. Cambiar solo la configuración a un valor más estrecho bloquea el uso presente, pero ampliar después al valor anterior podría reactivar tokens todavía vigentes.
 

@@ -12,6 +12,8 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <script src="./support.js?v=b3aae4f45716"></script>
 <script src="./planning.js?v=daily-work-blocks-1"></script>
+<script src="./assistant-runs.js?v=assistant-runs-1"></script>
+<script src="./assistant-runs-demo.js?v=assistant-runs-1"></script>
 </head>
 <body>
 <x-dc>
@@ -274,10 +276,122 @@
     .active-timer-banner__actions { flex: 1 0 100%; }
     .active-timer-banner__actions .btn { width: 100%; }
   }
+  .assistant-view { display:flex; flex-direction:column; gap:18px; min-width:0; max-width:1240px; font-size:13px; line-height:1.5; }
+  .assistant-demo-banner { position:sticky; top:-22px; z-index:5; display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding:10px 14px; border:2px solid var(--color-accent-700); background:var(--color-bg); }
+  .assistant-demo-label { padding:3px 8px; background:var(--color-accent-700); color:var(--color-bg); font:800 12px var(--font-heading); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
+  .assistant-demo-banner span { flex:1 1 220px; min-width:0; font-size:12px; overflow-wrap:anywhere; }
+  .assistant-hero { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px 24px; padding:20px; background:var(--color-surface); border-left:4px solid var(--color-accent); }
+  .assistant-hero > div { flex:1 1 320px; min-width:0; }
+  .assistant-hero small { color:var(--color-accent-700); font-weight:800; letter-spacing:.08em; text-transform:uppercase; font-size:11px; }
+  .assistant-hero h3 { margin:4px 0 6px; font:800 clamp(20px,2.4vw,28px)/1.15 var(--font-heading); overflow-wrap:anywhere; }
+  .assistant-hero p { margin:0; max-width:68ch; }
+  .assistant-demo-states { flex:0 1 240px; min-width:0; }
+  .assistant-demo-states summary { cursor:pointer; min-height:44px; display:flex; align-items:center; font-weight:700; font-size:12px; }
+  .assistant-demo-states label { display:block; font-size:12px; font-weight:700; margin-bottom:4px; }
+  .assistant-demo-states .input { width:100%; min-height:44px; }
+  .assistant-state { display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:20px; border:2px dashed var(--color-divider); }
+  .assistant-state strong { font:800 16px var(--font-heading); }
+  .assistant-state--error { border-style:solid; border-color:var(--color-accent-700); }
+  .assistant-state .btn { min-height:44px; }
+  .assistant-controls { display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,320px); gap:12px 20px; align-items:end; border-top:2px solid var(--color-divider); border-bottom:2px solid var(--color-divider); padding:14px 0; }
+  .assistant-filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(104px,1fr)); gap:6px; min-width:0; }
+  .assistant-filter { display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:2px; min-height:56px; min-width:0; padding:8px 10px; border:1px solid var(--color-divider); border-left:4px solid var(--color-divider); background:var(--color-bg); color:var(--color-text); text-align:left; cursor:pointer; font:600 12px var(--font-body); }
+  .assistant-filter strong { font:800 22px/1 var(--font-heading); font-variant-numeric:tabular-nums; }
+  .assistant-filter:hover { background:var(--color-surface); }
+  .assistant-filter[aria-pressed="true"] { border-color:var(--color-accent-700); background:color-mix(in srgb,var(--color-accent) 10%,var(--color-bg)); color:var(--color-accent-700); }
+  .assistant-filter[data-status="blocked"] { border-left-color:var(--color-accent); }
+  .assistant-filter[data-status="in_progress"] { border-left-color:var(--color-accent-700); }
+  .assistant-search label { display:block; font-size:12px; font-weight:700; margin-bottom:4px; }
+  .assistant-search .input { width:100%; min-height:44px; min-width:0; }
+  .assistant-result { grid-column:1 / -1; margin:0; font-size:12px; color:color-mix(in srgb,var(--color-text) 72%,transparent); }
+  .assistant-action-message { margin:0; padding:10px 12px; border-left:4px solid var(--color-accent-700); background:var(--color-surface); overflow-wrap:anywhere; }
+  .assistant-action-message[role="alert"] { border-left-color:var(--color-accent); }
+  .assistant-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:20px; align-items:start; min-width:0; }
+  .assistant-layout[data-detail="true"] { grid-template-columns:minmax(0,1fr) minmax(320px,440px); }
+  .assistant-cards { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr)); gap:14px; min-width:0; }
+  .assistant-card { display:flex; flex-direction:column; gap:8px; min-width:0; padding:16px; background:var(--color-bg); border:1px solid var(--color-divider); border-top:4px solid var(--color-divider); overflow-wrap:anywhere; }
+  .assistant-card[data-status="in_progress"] { border-top-color:var(--color-accent-700); }
+  .assistant-card[data-status="blocked"] { border-top-color:var(--color-accent); }
+  .assistant-card[data-status="completed"] { border-top-color:var(--color-text); }
+  .assistant-card[data-status="cancelled"] { border-top-style:dashed; }
+  .assistant-card[data-selected="true"] { outline:2px solid var(--color-accent-700); outline-offset:-1px; background:color-mix(in srgb,var(--color-accent) 5%,var(--color-bg)); }
+  .assistant-card h4 { margin:0; font:800 17px/1.25 var(--font-heading); }
+  .assistant-card-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 10px; }
+  .assistant-status { display:inline-block; padding:3px 8px; border:1px solid currentColor; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+  .assistant-status[data-status="in_progress"] { color:var(--color-accent-700); }
+  .assistant-status[data-status="blocked"] { background:var(--color-accent-700); border-color:var(--color-accent-700); color:var(--color-bg); }
+  .assistant-status[data-status="completed"] { background:var(--color-text); border-color:var(--color-text); color:var(--color-bg); }
+  .assistant-status[data-status="cancelled"] { border-style:dashed; color:color-mix(in srgb,var(--color-text) 72%,transparent); }
+  .assistant-age, .assistant-abs, .assistant-when { font-size:12px; color:color-mix(in srgb,var(--color-text) 72%,transparent); }
+  .assistant-abs { margin:-4px 0 0; }
+  .assistant-when { display:block; margin-top:2px; }
+  .assistant-facts, .assistant-meta { margin:0; display:flex; flex-direction:column; gap:8px; }
+  .assistant-facts > div, .assistant-meta > div { min-width:0; padding-top:8px; border-top:1px solid var(--color-divider); }
+  .assistant-facts dt, .assistant-meta dt { font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:color-mix(in srgb,var(--color-text) 70%,transparent); }
+  .assistant-facts dd, .assistant-meta dd { margin:2px 0 0; }
+  .assistant-metric { font:800 20px var(--font-heading); font-variant-numeric:tabular-nums; }
+  .assistant-missing { color:color-mix(in srgb,var(--color-text) 65%,transparent); font-style:italic; }
+  .assistant-blocker { border-left:4px solid var(--color-accent); padding-left:10px; }
+  .assistant-blocker dd { font-weight:600; }
+  .assistant-deliverables { margin:0; padding-left:18px; }
+  .assistant-open { margin-top:auto; min-height:44px; width:100%; text-align:left; }
+  .assistant-manual-complete { min-height:44px; width:100%; }
+  .assistant-detail { position:sticky; top:16px; display:flex; flex-direction:column; gap:14px; min-width:0; padding:18px; background:var(--color-surface); border:2px solid var(--color-divider); overflow-wrap:anywhere; }
+  .assistant-detail-top { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; }
+  .assistant-detail-top .btn { min-height:44px; }
+  .assistant-detail h3 { margin:0; font:800 22px/1.2 var(--font-heading); }
+  .assistant-brief { margin:0; }
+  .assistant-times { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .assistant-time { display:flex; flex-direction:column; gap:3px; min-width:0; padding:12px; background:var(--color-bg); border-left:4px solid var(--color-text); }
+  .assistant-time--active { border-left-color:var(--color-accent-700); border-left-style:double; border-left-width:6px; }
+  .assistant-time small { font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+  .assistant-time strong { font:800 22px var(--font-heading); font-variant-numeric:tabular-nums; }
+  .assistant-time span { font-size:12px; }
+  .assistant-warning { color:var(--color-accent-700); font-weight:600; }
+  .assistant-timeline-title { margin:4px 0 0; font:800 16px var(--font-heading); }
+  .assistant-timeline-title small { display:block; font:400 12px var(--font-body); color:color-mix(in srgb,var(--color-text) 72%,transparent); }
+  .assistant-timeline { list-style:none; margin:0; padding:0 0 0 14px; border-left:2px solid var(--color-divider); display:flex; flex-direction:column; gap:12px; }
+  .assistant-timeline li { position:relative; display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .assistant-timeline li::before { content:""; position:absolute; left:-21px; top:4px; width:10px; height:10px; background:var(--color-bg); border:2px solid var(--color-text); }
+  .assistant-timeline li[data-type="blocker_set"]::before, .assistant-timeline li[data-type="cancelled"]::before { border-color:var(--color-accent); background:var(--color-accent); }
+  .assistant-timeline li[data-type="completed"]::before { background:var(--color-text); }
+  .assistant-timeline time { font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .assistant-timeline small, .assistant-timeline span { font-size:12px; color:color-mix(in srgb,var(--color-text) 70%,transparent); }
+  .assistant-timeline p { margin:2px 0; }
+  .assistant-view :focus-visible { outline:3px solid var(--color-accent-700); outline-offset:2px; }
+  .assistant-detail h3:focus-visible { outline-offset:4px; }
+  @media (max-width:1100px) {
+    .assistant-layout[data-detail="true"] { grid-template-columns:minmax(0,1fr); }
+    .assistant-detail { position:static; order:-1; }
+  }
+  @media (max-width:900px) {
+    .assistant-demo-banner { top:0; }
+    .assistant-hero { padding:14px; }
+    .assistant-controls { grid-template-columns:minmax(0,1fr); }
+    .assistant-filters { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .assistant-times { grid-template-columns:minmax(0,1fr); }
+    .assistant-detail { padding:14px; }
+  }
   .team-view { font-size:13px; line-height:1.6; }
   .team-task { display:flex; flex-direction:column; gap:4px; padding:14px 0; border-bottom:1px solid var(--color-divider); overflow-wrap:anywhere; }
   .team-task small { font-size:12px; }
   .team-task .timeline-assignee { font-weight:600; }
+  .supervision-view { display:flex; flex-direction:column; gap:18px; max-width:1240px; font-size:13px; line-height:1.55; }
+  .supervision-toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:10px; padding:16px; background:var(--color-surface); border-left:4px solid var(--color-accent); }
+  .supervision-toolbar label { display:flex; flex-direction:column; gap:5px; min-width:min(100%,260px); font-weight:700; }
+  .supervision-toolbar .input { min-height:44px; }
+  .supervision-toolbar .btn { min-height:44px; }
+  .supervision-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+  .supervision-section { min-width:0; padding:16px; background:var(--color-bg); border:1px solid var(--color-divider); overflow-wrap:anywhere; }
+  .supervision-section h3 { margin:0 0 4px; font:800 18px var(--font-heading); }
+  .supervision-section > p { margin:0 0 12px; color:color-mix(in srgb,var(--color-text) 68%,transparent); }
+  .supervision-list { display:flex; flex-direction:column; gap:8px; margin:0; padding:0; list-style:none; }
+  .supervision-task { display:flex; flex-direction:column; gap:4px; min-width:0; padding:12px; border-left:3px solid var(--color-accent-700); background:var(--color-surface); }
+  .supervision-task a { display:inline-flex; align-items:center; min-height:44px; color:var(--color-accent-700); font-weight:800; overflow-wrap:anywhere; }
+  .supervision-task small { color:color-mix(in srgb,var(--color-text) 68%,transparent); }
+  .supervision-empty { padding:12px; border:1px dashed var(--color-divider); }
+  .supervision-view :focus-visible { outline:3px solid var(--color-accent); outline-offset:3px; border-radius:4px; }
+  @media (max-width:800px) { .supervision-columns { grid-template-columns:minmax(0,1fr); } .supervision-toolbar { align-items:stretch; } }
   .detail-panel { min-width:0; max-width:100%; overflow-wrap:anywhere; }
   .detail-panel .field, .detail-panel .card { min-width:0; max-width:100%; }
   .detail-panel .input { min-width:0; max-width:100%; }
@@ -756,6 +870,83 @@
           </div>
         </sc-if>
 
+        <sc-if value="{{ isAssistant }}" hint-placeholder-val="{{ false }}">
+          <div class="assistant-view">
+            <div class="assistant-demo-banner" role="note"><strong class="assistant-demo-label">{{ assistantDemoLabel }}</strong><span>{{ assistantDataMessage }}</span></div>
+            <section class="assistant-hero" aria-labelledby="assistant-hero-title">
+              <div><small>Delegadas a Luna</small><h3 id="assistant-hero-title">Sigue lo que el asistente tiene entre manos</h3><p>Estado, último avance verificable, bloqueo, próximo paso y entregables. Son registros separados de las tareas normales de Kaizen; aquí puedes marcar manualmente una ejecución como completada.</p></div>
+              <details class="assistant-demo-states"><summary>Cambiar origen de datos</summary><label for="assistant-demo-state">Fuente visible</label><select id="assistant-demo-state" class="input" value="{{ assistantDemoState }}" onChange="{{ onAssistantDemoState }}"><option value="none">Servidor · sin cargar</option><option value="live">Servidor · registros privados</option><option value="data">Demo · datos ficticios</option><option value="empty">Demo · sin registros</option><option value="loading">Demo · cargando</option><option value="error">Demo · error de carga</option></select></details>
+            </section>
+            <sc-if value="{{ assistantActionMessage }}" hint-placeholder-val="{{ false }}"><p class="assistant-action-message" role="{{ assistantActionRole }}" aria-live="polite">{{ assistantActionMessage }}</p></sc-if>
+
+            <sc-if value="{{ assistantNotLoaded }}" hint-placeholder-val="{{ false }}"><p class="assistant-state" role="status" aria-live="polite">Selecciona una fuente para ver ejecuciones. Aún no se ha consultado el servidor.</p></sc-if>
+            <sc-if value="{{ assistantLoading }}" hint-placeholder-val="{{ false }}"><p class="assistant-state" role="status" aria-live="polite">Cargando ejecuciones del asistente…</p></sc-if>
+            <sc-if value="{{ assistantHasError }}" hint-placeholder-val="{{ false }}"><div class="assistant-state assistant-state--error" role="alert"><strong>No se pudieron cargar las ejecuciones.</strong><span>{{ assistantError }}</span><button class="btn btn-secondary" onClick="{{ onAssistantRetry }}">Reintentar</button></div></sc-if>
+            <sc-if value="{{ assistantEmpty }}" hint-placeholder-val="{{ false }}"><div class="assistant-state"><strong>Aún no hay tareas delegadas al asistente.</strong><span>Cuando delegues una tarea a Luna y quede registrada, aparecerá aquí con su estado y sus avances.</span></div></sc-if>
+
+            <sc-if value="{{ assistantReady }}" hint-placeholder-val="{{ true }}">
+              <div class="assistant-controls">
+                <div class="assistant-filters" role="group" aria-label="Filtrar por estado">
+                  <sc-for list="{{ assistantStatusFilters }}" as="f" hint-placeholder-count="6"><button type="button" class="assistant-filter" data-status="{{ f.key }}" aria-pressed="{{ f.pressed }}" onClick="{{ f.onClick }}"><span>{{ f.label }}</span><strong>{{ f.count }}</strong></button></sc-for>
+                </div>
+                <div class="assistant-search"><label for="assistant-search">Buscar en ejecuciones</label><input id="assistant-search" class="input" type="search" placeholder="Título, avance, bloqueo o entregable" value="{{ assistantQuery }}" onInput="{{ onAssistantQuery }}"></div>
+                <p class="assistant-result" role="status" aria-live="polite">{{ assistantResultLabel }}</p>
+              </div>
+            </sc-if>
+            <sc-if value="{{ assistantNoMatches }}" hint-placeholder-val="{{ false }}"><div class="assistant-state"><strong>Ninguna ejecución coincide.</strong><span>Cambia el estado o la búsqueda; los filtros no modifican ninguna ejecución.</span><button class="btn btn-secondary" onClick="{{ onAssistantClearFilters }}">Quitar filtros</button></div></sc-if>
+
+            <div class="assistant-layout" data-detail="{{ assistantLayoutDetail }}">
+              <sc-if value="{{ assistantHasCards }}" hint-placeholder-val="{{ true }}">
+                <ul class="assistant-cards" aria-label="Ejecuciones del asistente">
+                  <sc-for list="{{ assistantCards }}" as="card" hint-placeholder-count="4">
+                    <li class="assistant-card" data-status="{{ card.status }}" data-selected="{{ card.selected }}">
+                      <div class="assistant-card-head"><span class="assistant-status" data-status="{{ card.status }}">{{ card.statusLabel }}</span><sc-if value="{{ card.delegatedHas }}"><span class="assistant-age">Delegada <time datetime="{{ card.delegatedIso }}">{{ card.delegatedRel }}</time></span></sc-if><sc-if value="{{ card.delegatedMissing }}"><span class="assistant-age">Delegación: Sin dato</span></sc-if></div>
+                      <h4>{{ card.title }}</h4>
+                      <sc-if value="{{ card.delegatedHas }}"><p class="assistant-abs">{{ card.delegatedAbs }}</p></sc-if>
+                      <dl class="assistant-facts">
+                        <div><dt>{{ card.elapsedLabel }}</dt><dd class="assistant-metric">{{ card.elapsedValue }}</dd></div>
+                        <div><dt>Último avance</dt><sc-if value="{{ card.hasProgress }}"><dd>{{ card.progressText }} <time class="assistant-when" datetime="{{ card.progressIso }}">{{ card.progressAbs }}</time></dd></sc-if><sc-if value="{{ card.noProgress }}"><dd class="assistant-missing">Sin avances registrados</dd></sc-if></div>
+                        <sc-if value="{{ card.hasBlocker }}"><div class="assistant-blocker"><dt>Bloqueo</dt><dd>{{ card.blockerText }}</dd></div></sc-if>
+                        <sc-if value="{{ card.hasNextStep }}"><div><dt>Próximo paso</dt><dd>{{ card.nextStepText }}</dd></div></sc-if>
+                        <sc-if value="{{ card.hasDeliverables }}"><div><dt>Entregables</dt><dd><ul class="assistant-deliverables"><sc-for list="{{ card.deliverables }}" as="d"><li>{{ d.label }}</li></sc-for></ul></dd></div></sc-if>
+                      </dl>
+                      <button type="button" class="btn btn-secondary assistant-open" data-run-open="{{ card.id }}" aria-label="{{ card.openLabel }}" onClick="{{ card.onOpen }}">Ver detalle y cronología</button>
+                      <sc-if value="{{ card.canManualComplete }}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-secondary assistant-manual-complete" aria-label="{{ card.completeLabel }}" disabled="{{ assistantActionBusy }}" onClick="{{ card.onManualComplete }}">Marcar como completada manualmente</button></sc-if>
+                    </li>
+                  </sc-for>
+                </ul>
+              </sc-if>
+
+              <sc-if value="{{ assistantHasDetail }}" hint-placeholder-val="{{ false }}">
+                <section class="assistant-detail" aria-labelledby="assistant-detail-heading">
+                  <div class="assistant-detail-top"><span class="assistant-status" data-status="{{ detailStatus }}">{{ detailStatusLabel }}</span><sc-if value="{{ detailCanManualComplete }}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-secondary" disabled="{{ assistantActionBusy }}" onClick="{{ onAssistantManualComplete }}">Marcar completada</button></sc-if><button type="button" class="btn btn-secondary" onClick="{{ onCloseAssistantDetail }}">Cerrar detalle</button></div>
+                  <h3 id="assistant-detail-heading" tabIndex="-1">{{ detailTitle }}</h3>
+                  <p class="assistant-brief">{{ detailBrief }}</p>
+                  <div class="assistant-times">
+                    <div class="assistant-time"><small>Transcurrido</small><strong>{{ detailElapsedValue }}</strong><span>{{ detailElapsedLabel }}. Diferencia entre marcas registradas; no mide trabajo.</span></div>
+                    <div class="assistant-time assistant-time--active"><small>Tiempo activo</small><strong>{{ detailActiveValue }}</strong><span>{{ detailActiveNote }}</span><sc-if value="{{ detailHasWarnings }}"><sc-for list="{{ detailActiveWarnings }}" as="w"><span class="assistant-warning">{{ w.text }}</span></sc-for></sc-if></div>
+                  </div>
+                  <dl class="assistant-meta">
+                    <div><dt>Asistente</dt><dd>{{ detailAssistant }}</dd></div>
+                    <div><dt>Delegada</dt><dd><time datetime="{{ detailDelegatedIso }}">{{ detailDelegatedAbs }}</time></dd></div>
+                    <sc-if value="{{ detailHasClosed }}"><div><dt>{{ detailClosedLabel }}</dt><dd><time datetime="{{ detailClosedIso }}">{{ detailClosedAbs }}</time></dd></div></sc-if>
+                    <div><dt>Última actividad</dt><dd><time datetime="{{ detailLastIso }}">{{ detailLastAbs }}</time></dd></div>
+                    <sc-if value="{{ detailHasBlocker }}"><div class="assistant-blocker"><dt>Bloqueo</dt><dd>{{ detailBlocker }}</dd></div></sc-if>
+                    <sc-if value="{{ detailHasNextStep }}"><div><dt>Próximo paso</dt><dd>{{ detailNextStep }}</dd></div></sc-if>
+                    <sc-if value="{{ detailHasDeliverables }}"><div><dt>Entregables</dt><dd><ul class="assistant-deliverables"><sc-for list="{{ detailDeliverables }}" as="d"><li>{{ d.label }} · <time datetime="{{ d.iso }}">{{ d.abs }}</time></li></sc-for></ul></dd></div></sc-if>
+                  </dl>
+                  <h4 class="assistant-timeline-title">Cronología <small>más reciente primero · {{ detailZoneLabel }}</small></h4>
+                  <ol class="assistant-timeline">
+                    <sc-for list="{{ detailEvents }}" as="ev" hint-placeholder-count="3">
+                      <li data-type="{{ ev.type }}"><time datetime="{{ ev.iso }}">{{ ev.abs }}</time><small>{{ ev.rel }}</small><strong>{{ ev.label }}</strong><sc-if value="{{ ev.hasSummary }}"><p>{{ ev.summary }}</p></sc-if><span>Registrado por {{ ev.actor }}</span></li>
+                    </sc-for>
+                  </ol>
+                </section>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
         <sc-if value="{{ isTeamView }}">
           <div class="team-view">
             <p>Consulta de las tareas de este espacio. Tus listas personales conservan solo las que creaste o recibiste por delegación directa.</p>
@@ -766,6 +957,35 @@
             <sc-for list="{{ teamRows }}" as="t">
               <article class="team-task"><strong>{{ t.title }}</strong><span>{{ t.creatorLabel }}</span><span class="timeline-assignee">{{ t.responsibleLabel }}</span><small>{{ t.projectName }} · {{ t.status }} · Tiempo real {{ t.time }}</small><small>{{ t.planLabel }}</small></article>
             </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isSupervisionView }}" hint-placeholder-val="{{ false }}">
+          <div class="supervision-view">
+            <div class="supervision-toolbar">
+              <label for="supervision-person">Persona del espacio activo<select id="supervision-person" class="input" value="{{ supervisionPersonId }}" onChange="{{ onSupervisionPerson }}"><option value="">Selecciona una persona</option><sc-for list="{{ supervisionPeopleOptions }}" as="p"><option value="{{ p.id }}">{{ p.name }} · {{ p.role }}</option></sc-for></select></label>
+              <button class="btn btn-secondary" onClick="{{ onRefreshSupervision }}">Actualizar supervisión</button>
+              <span>Las fechas planificadas y los bloques horarios explícitos se muestran por separado. “Hoy” usa la zona local de quien consulta.</span>
+            </div>
+            <sc-if value="{{ supervisionLoading }}"><p role="status" aria-live="polite">Cargando datos autorizados…</p></sc-if>
+            <sc-if value="{{ supervisionError }}"><p role="alert">{{ supervisionError }}</p></sc-if>
+            <sc-if value="{{ supervisionNoPeople }}"><div class="supervision-empty" role="status">No hay personas disponibles en este espacio.</div></sc-if>
+            <sc-if value="{{ supervisionNeedsPerson }}"><div class="supervision-empty" role="status">Elige una persona para cargar su cronograma y los bloques horarios explícitos de hoy.</div></sc-if>
+            <sc-if value="{{ supervisionPersonSelected }}">
+              <div class="supervision-columns">
+                <section class="supervision-section" aria-labelledby="supervision-timeline-heading">
+                  <h3 id="supervision-timeline-heading">Cronograma por persona</h3><p>Rango de inicio y fin guardado en cada tarea. Una tarea aparece una sola vez por identificador.</p>
+                  <sc-if value="{{ supervisionNoTimeline }}"><div class="supervision-empty">No hay tareas con fechas de cronograma.</div></sc-if>
+                  <ul class="supervision-list"><sc-for list="{{ supervisionTimelineRows }}" as="t"><li class="supervision-task" id="{{ t.anchor }}"><strong>{{ t.title }}</strong><small>{{ t.project }} · {{ t.status }}</small><time datetime="{{ t.startIso }}">{{ t.start }}</time> → <time datetime="{{ t.endIso }}">{{ t.end }}</time></li></sc-for></ul>
+                  <sc-if value="{{ supervisionHasUnscheduled }}"><h4>Tareas sin rango de cronograma</h4><ul class="supervision-list"><sc-for list="{{ supervisionUnscheduledRows }}" as="t"><li class="supervision-task" id="{{ t.anchor }}"><strong>{{ t.title }}</strong><small>{{ t.project }} · {{ t.status }} · {{ t.dateNote }}</small></li></sc-for></ul></sc-if>
+                </section>
+                <section class="supervision-section" aria-labelledby="supervision-hourly-heading">
+                  <h3 id="supervision-hourly-heading">Bloques de hoy · {{ supervisionTodayLabel }} · {{ supervisionTimeZone }}</h3><p>Solo intervalos workBlocks persistidos para hoy. El rango completo del cronograma no se convierte en horas trabajadas.</p>
+                  <sc-if value="{{ supervisionNoBlocks }}"><div class="supervision-empty">No hay bloques horarios explícitos para hoy.</div></sc-if>
+                  <ul class="supervision-list"><sc-for list="{{ supervisionBlockRows }}" as="b"><li class="supervision-task"><a href="#{{ b.anchor }}">{{ b.title }}</a><small><time datetime="{{ b.startIso }}">{{ b.start }}</time>–<time datetime="{{ b.endIso }}">{{ b.end }}</time> · {{ b.project }}</small><small>Bloque horario explícito {{ b.continuation }}</small></li></sc-for></ul>
+                </section>
+              </div>
+            </sc-if>
           </div>
         </sc-if>
 
@@ -954,6 +1174,8 @@ class Component extends DCLogic {
     pushReady: false,
     activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, full: false,
     teamTasks:[], teamProjects:[], teamLoading:false, teamError:'',
+    supervisionPeople:[], supervisionPersonId:'', supervisionTasks:[], supervisionLoading:false, supervisionError:'',
+    assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantFilter:'all', assistantQuery:'', assistantSelId:null, assistantDemoState:'none', assistantActionBusy:false, assistantActionMessage:'', assistantActionRole:'status',
     auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '', delegatingId: null, delegationDraft: [], delegationBusy: false, delegationError: '',
     authName: '', authEmail: '', authPassword: '', adminSummary: [], adminMembers: [], workspaceMembers: [], adminOpen: false, statsDay: null,
     newWorkspaceName: '', inviteEmail: '', memberRole: 'member', inviteRole: 'member', inviteWorkspaceId: null, inviteUrl: '', inviteWorkspace: '', inviteToken: '', suggestionTitle: '', suggestionBody: '', suggestions: [], improvementChecklist: [], checklistDraft: '', mobileNavOpen: false, toast: '', notificationState: 'default', theme: 'classic'
@@ -1293,11 +1515,182 @@ class Component extends DCLogic {
   }
   dkey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + this.pad(d.getMonth() + 1) + '-' + this.pad(d.getDate()); }
 
+  assistantSourcePreferenceKey() {
+    return this.KEY + ':assistant-source:' + Number(this.state.auth?.id || 0) + ':' + Number(this.state.workspaceId || 0);
+  }
+  preferredAssistantSource() {
+    if (!this.state.auth || !this.state.workspaceId) return 'none';
+    try { return localStorage.getItem(this.assistantSourcePreferenceKey()) === 'live' ? 'live' : 'none'; } catch (e) { return 'none'; }
+  }
+  rememberAssistantSource(mode) {
+    if (!this.state.auth || !this.state.workspaceId) return;
+    try {
+      const key = this.assistantSourcePreferenceKey();
+      if (mode === 'live') localStorage.setItem(key, 'live');
+      else localStorage.removeItem(key);
+    } catch (e) {}
+  }
+  // Private records stay on the server. Remember only that this authorized
+  // user/workspace selected the live source; never cache run contents locally.
+  // Demo fixtures remain explicit and are not restored after a page reload.
+  loadAssistantRuns(mode = null) {
+    if (mode == null) mode = this.state.assistantDemoState !== 'none' ? this.state.assistantDemoState : this.preferredAssistantSource();
+    const request = this.assistantRequestId = (this.assistantRequestId || 0) + 1;
+    if (!this.isWorkspaceAdmin()) {
+      const denied = { assistantStatus:'idle', assistantRuns:[], assistantError:'', assistantSelId:null, assistantDemoState:'none', assistantActionBusy:false, assistantActionMessage:'' };
+      if (this.state.auth && this.state.view === 'assistant') denied.view = 'today';
+      this.setState(denied);
+      return Promise.resolve();
+    }
+    if (!['live','data','empty','loading','error'].includes(mode)) {
+      this.setState({ assistantStatus:'idle', assistantRuns:[], assistantError:'', assistantSelId:null, assistantDemoState:'none', assistantActionBusy:false, assistantActionMessage:'' });
+      return Promise.resolve();
+    }
+    const userId = Number(this.state.auth.id), workspaceId = Number(this.state.workspaceId);
+    const stillAuthorized = () => request === this.assistantRequestId &&
+      Number(this.state.auth?.id) === userId && Number(this.state.workspaceId) === workspaceId && this.isWorkspaceAdmin();
+    this.setState({ assistantStatus:'loading', assistantRuns:[], assistantError:'', assistantDemoState:mode, assistantSelId:null, assistantActionBusy:false, assistantActionMessage:'' });
+    if (mode === 'loading') return Promise.resolve();
+    return Promise.resolve().then(() => {
+      if (!stillAuthorized()) return;
+      const demo = typeof KaizenAssistantDemo !== 'undefined' ? KaizenAssistantDemo : null;
+      if (mode === 'error') throw new Error('No se pudieron cargar los datos de demostración.');
+      if (mode === 'data' || mode === 'empty') {
+        if (!demo || demo.demo !== true) throw new Error('No se pudo cargar la demostración sintética.');
+        this.setState({ assistantStatus:'ready', assistantRuns: mode === 'empty' ? [] : demo.demoRuns(Date.now()) });
+        return;
+      }
+      return this.api('assistant_runs',{workspace_id:workspaceId}).then(result => {
+        if (!stillAuthorized()) return;
+        if (!result.ok) throw new Error(result.error || 'No se pudieron cargar las ejecuciones del espacio.');
+        this.setState({ assistantStatus:'ready', assistantRuns:Array.isArray(result.runs)?result.runs:[], assistantDemoState:'live' });
+      });
+    }).catch(e => { if (stillAuthorized()) this.setState({ assistantStatus:'error', assistantRuns:[], assistantError:e.message || 'No se pudieron cargar las ejecuciones.' }); });
+  }
+  focusAssistant(selector) {
+    if (typeof document === 'undefined') return;
+    setTimeout(() => { try { document.querySelector(selector)?.focus(); } catch (e) {} }, 0);
+  }
+  openAssistantRun(id) {
+    if (!this.isWorkspaceAdmin()) return;
+    this.setState({ assistantSelId:id });
+    this.focusAssistant('#assistant-detail-heading');
+  }
+  closeAssistantRun() {
+    const id = this.state.assistantSelId;
+    this.setState({ assistantSelId:null });
+    if (id) this.focusAssistant('[data-run-open="' + String(id).replace(/[^\w-]/g, '') + '"]');
+  }
+  async markAssistantRunCompleted(runId) {
+    const s=this.state, workspaceId=Number(s.workspaceId), userId=Number(s.auth?.id||0);
+    if (!this.isWorkspaceAdmin() || s.assistantDemoState!=='live' || s.assistantActionBusy || !/^[a-f0-9]{32}$/i.test(String(runId||''))) return;
+    this.setState({assistantActionBusy:true,assistantActionMessage:'',assistantActionRole:'status'});
+    try {
+      const result=await this.api('assistant_run_mark_completed',{workspace_id:workspaceId,run_id:String(runId)});
+      if (Number(this.state.workspaceId)!==workspaceId || Number(this.state.auth?.id||0)!==userId || !this.isWorkspaceAdmin() || this.state.view!=='assistant' || this.state.assistantDemoState!=='live') return;
+      if (!result.ok || !result.run || result.run.id!==String(runId)) throw new Error(result.error || 'No se pudo guardar el cambio.');
+      const runs=Array.isArray(this.state.assistantRuns)?this.state.assistantRuns.slice():[];
+      const index=runs.findIndex(run=>run.id===String(runId));
+      if (index>=0) runs[index]=result.run; else runs.unshift(result.run);
+      this.setState({assistantRuns:runs,assistantActionBusy:false,assistantActionMessage:result.duplicate?'Esta ejecución ya estaba completada.':'Marcada como completada manualmente en Kaizen.',assistantActionRole:'status'});
+    } catch (e) {
+      if (Number(this.state.workspaceId)!==workspaceId || Number(this.state.auth?.id||0)!==userId || this.state.view!=='assistant' || this.state.assistantDemoState!=='live') return;
+      this.setState({assistantActionBusy:false,assistantActionMessage:e.message || 'No se pudo marcar como completada.',assistantActionRole:'alert'});
+    }
+  }
+  assistantVals(s, now) {
+    const A = typeof KaizenAssistantRuns !== 'undefined' ? KaizenAssistantRuns : null;
+    const canSeeAssistant = this.isWorkspaceAdmin();
+    const isAssistant = s.view === 'assistant' && canSeeAssistant;
+    const demo = typeof KaizenAssistantDemo !== 'undefined' ? KaizenAssistantDemo : null;
+    const isDemo = ['data','empty','loading','error'].includes(s.assistantDemoState);
+    const notLoaded = s.assistantDemoState === 'none' && s.assistantStatus === 'idle';
+    const base = { isAssistant, assistantDemoLabel:notLoaded?'SIN CARGAR':isDemo?(demo?.label || 'DEMO · datos ficticios'):'REGISTROS PRIVADOS', assistantDataMessage:notLoaded?'Elige servidor para consultar ejecuciones autorizadas o una demo con datos ficticios. No se carga información hasta que elijas.':isDemo?'Ejecuciones ficticias para revisar el diseño. No se consulta la API ni se muestran tareas, notas ni personas reales.':'Datos de seguimiento del espacio activo, guardados de forma privada y consultados con autorización de administrador. La respuesta no incluye notas ni historiales de las tareas de Kaizen.' };
+    if (!A) return { ...base, assistantOpenCount:0, assistantNotLoaded:false, assistantLoading:false, assistantHasError:isAssistant, assistantError:'No se pudo cargar el módulo de ejecuciones.', assistantReady:false, assistantCards:[], assistantStatusFilters:[], assistantHasDetail:false };
+    const summaries = canSeeAssistant && s.assistantStatus === 'ready' ? A.summarizeAll(s.assistantRuns, now) : [];
+    const { list, counts } = A.filter(summaries, { status:s.assistantFilter, query:s.assistantQuery });
+    const when = time => ({ has:Number.isFinite(time), iso:A.iso(time), abs:A.absolute(time), rel:A.relative(time, now) });
+    const elapsed = r => {
+      const value = A.duration(r.elapsed.ms);
+      if (r.elapsed.kind === 'open') return { label:'Tiempo transcurrido desde la delegación', value };
+      if (r.elapsed.kind === 'resolution') return { label:'Tiempo de resolución (transcurrido)', value };
+      if (r.elapsed.kind === 'cancelled') return { label:'Transcurrido hasta la cancelación · no cuenta como resuelta', value };
+      return { label:'Tiempo transcurrido', value:A.MISSING };
+    };
+    const cards = list.map(r => {
+      const delegated = when(r.delegatedAt), e = elapsed(r), progressAt = when(r.progress?.at);
+      return {
+        id:r.id, title:r.title, status:r.status, statusLabel:r.statusLabel,
+        delegatedHas:delegated.has, delegatedMissing:!delegated.has, delegatedIso:delegated.iso, delegatedAbs:delegated.abs, delegatedRel:delegated.rel,
+        elapsedLabel:e.label, elapsedValue:e.value,
+        hasProgress:!!r.progress, noProgress:!r.progress, progressText:r.progress?.summary || '', progressIso:progressAt.iso, progressAbs:progressAt.abs,
+        hasBlocker:!!r.blocker, blockerText:r.blocker?.summary || '',
+        hasNextStep:!!r.nextStep, nextStepText:r.nextStep?.summary || '',
+        hasDeliverables:r.deliverables.length > 0, deliverables:r.deliverables.map(d => ({ label:d.label })),
+        selected:String(s.assistantSelId === r.id), openLabel:'Ver detalle: ' + r.title,
+        canManualComplete:s.assistantDemoState==='live' && ['queued','in_progress','blocked'].includes(r.status),
+        completeLabel:'Marcar como completada manualmente: ' + r.title,
+        onOpen:() => this.openAssistantRun(r.id),
+        onManualComplete:() => this.markAssistantRunCompleted(r.id)
+      };
+    });
+    const sel = summaries.find(r => r.id === s.assistantSelId) || null;
+    let detail = { assistantHasDetail:false };
+    if (sel && isAssistant) {
+      const e = elapsed(sel), delegated = when(sel.delegatedAt), closed = when(sel.closedAt), last = when(sel.lastActivityAt);
+      const notes = [];
+      if (sel.active.open) notes.push('Hay un intervalo de trabajo abierto; no se suma hasta que se registre su pausa.');
+      if (sel.active.ignored) notes.push(sel.active.ignored + (sel.active.ignored === 1 ? ' registro de trabajo sin pareja válida no se suma.' : ' registros de trabajo sin pareja válida no se suman.'));
+      detail = {
+        assistantHasDetail:true, detailTitle:sel.title, detailStatus:sel.status, detailStatusLabel:sel.statusLabel,
+        detailAssistant:sel.assistant || A.MISSING, detailBrief:sel.brief || A.MISSING,
+        detailDelegatedAbs:delegated.abs, detailDelegatedIso:delegated.iso,
+        detailClosedLabel:sel.status === 'cancelled' ? 'Cancelada' : 'Completada', detailHasClosed:sel.status === 'completed' || sel.status === 'cancelled', detailClosedAbs:closed.abs, detailClosedIso:closed.iso,
+        detailLastAbs:last.abs, detailLastIso:last.iso,
+        detailElapsedLabel:e.label, detailElapsedValue:e.value,
+        detailActiveValue:sel.active.intervals ? A.duration(sel.active.ms) : 'Sin registro',
+        detailActiveNote:sel.active.intervals ? sel.active.intervals + (sel.active.intervals === 1 ? ' intervalo registrado explícitamente.' : ' intervalos registrados explícitamente.') : 'Sin intervalos de trabajo registrados explícitamente.',
+        detailActiveWarnings:notes.map(text => ({ text })), detailHasWarnings:notes.length > 0,
+        detailHasBlocker:!!sel.blocker, detailBlocker:sel.blocker?.summary || '',
+        detailHasNextStep:!!sel.nextStep, detailNextStep:sel.nextStep?.summary || '',
+        detailHasDeliverables:sel.deliverables.length > 0, detailDeliverables:sel.deliverables.map(d => ({ label:d.label, abs:A.absolute(d.at), iso:A.iso(d.at) })),
+        detailCanManualComplete:s.assistantDemoState==='live' && ['queued','in_progress','blocked'].includes(sel.status),
+        detailEvents:sel.timeline.map(ev => { const t = when(ev.at); return { label:ev.label, summary:ev.summary, hasSummary:!!ev.summary, actor:ev.actor || A.MISSING, abs:t.abs, iso:t.iso, rel:t.has ? t.rel : '', type:ev.type }; }),
+        detailZoneLabel:'Hora local del dispositivo · ' + KaizenPlanning.zone(),
+        onCloseAssistantDetail:() => this.closeAssistantRun()
+      };
+    }
+    const filters = [['all','Todas'],['queued','En cola'],['in_progress','En curso'],['blocked','Bloqueadas'],['completed','Completadas'],['cancelled','Canceladas']];
+    const ready = s.assistantStatus === 'ready';
+    return {
+      ...base, ...detail,
+      assistantOpenCount:summaries.filter(r => r.open).length,
+      assistantNotLoaded:isAssistant && notLoaded,
+      assistantLoading:s.assistantStatus === 'loading',
+      assistantHasError:s.assistantStatus === 'error', assistantError:s.assistantError,
+      assistantReady:ready, assistantCards:cards,
+      assistantHasCards:ready && cards.length > 0,
+      assistantEmpty:ready && summaries.length === 0,
+      assistantNoMatches:ready && summaries.length > 0 && cards.length === 0,
+      assistantResultLabel:ready ? (cards.length === 1 ? '1 ejecución visible' : cards.length + ' ejecuciones visibles') + ' de ' + summaries.length + '.' : '',
+      assistantQuery:s.assistantQuery, assistantDemoState:s.assistantDemoState,
+      assistantActionBusy:s.assistantActionBusy, assistantActionMessage:s.assistantActionMessage, assistantActionRole:s.assistantActionRole,
+      onAssistantManualComplete:() => this.markAssistantRunCompleted(s.assistantSelId),
+      assistantLayoutDetail:String(!!detail.assistantHasDetail),
+      assistantStatusFilters:filters.map(([key, label]) => ({ key, label, count:counts[key] || 0, pressed:String(s.assistantFilter === key), onClick:() => this.setState({ assistantFilter:key }) })),
+      onAssistantQuery:e => this.setState({ assistantQuery:e.target.value }),
+      onAssistantClearFilters:() => this.setState({ assistantFilter:'all', assistantQuery:'' }),
+      onAssistantRetry:() => this.loadAssistantRuns(s.assistantDemoState==='live'?'live':'data'),
+      onAssistantDemoState:e => { const mode=['none','live','data','empty','loading','error'].includes(e.target.value) ? e.target.value : 'none'; this.rememberAssistantSource(mode); this.loadAssistantRuns(mode); }
+    };
+  }
+
   handleEscape(e) {
     if(e.key !== 'Escape')return;
     if(this.state.slotCreateOpen){this.cancelSlotCreate();e.preventDefault();return;}
     const disclosure=e.target?.closest?.('details[open]');
     if(disclosure){disclosure.open=false;disclosure.querySelector('summary')?.focus();e.preventDefault();return;}
+    if(this.state.view==='assistant'&&this.state.assistantSelId){this.closeAssistantRun();e.preventDefault?.();return;}
     if(this.state.full)this.setState({full:false});
   }
 
@@ -1347,6 +1740,26 @@ class Component extends DCLogic {
   componentWillUnmount() { clearInterval(this.timer); document.removeEventListener('visibilitychange', this.onVisibility); window.removeEventListener('keydown', this.onKey); window.removeEventListener('pagehide', this.onPageHide); }
   componentDidUpdate() {
     const s = this.state;
+    const canSeeAssistant = this.isWorkspaceAdmin();
+    if (!canSeeAssistant) {
+      const shouldLeaveView = !!s.auth && s.view === 'assistant';
+      const shouldClearData = s.assistantRuns.length > 0 || s.assistantStatus !== 'idle' || !!s.assistantSelId || !!s.assistantError || s.assistantDemoState !== 'none';
+      if (shouldLeaveView || shouldClearData) {
+        this.assistantRequestId = (this.assistantRequestId || 0) + 1;
+        this.setState({ ...(shouldLeaveView ? { view:'today' } : {}), assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none' });
+        return;
+      }
+    } else if (s.view === 'assistant' && s.assistantStatus === 'idle' && (s.assistantDemoState !== 'none' || this.preferredAssistantSource() === 'live')) {
+      this.loadAssistantRuns();
+    }
+    if(!this.isWorkspaceAdmin()){
+      const shouldLeave=!!s.auth&&s.view==='supervision';
+      const shouldClear=s.supervisionPeople.length>0||s.supervisionTasks.length>0||!!s.supervisionPersonId||s.supervisionLoading||!!s.supervisionError;
+      if(shouldLeave||shouldClear){this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.supervisionAutoKey=null;this.setState({...(shouldLeave?{view:'today'}:{}),supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:''});return;}
+    }else if(s.view==='supervision'){
+      // One automatic people load per identity/workspace; an empty list must not re-request on every update.
+      if(this.supervisionAutoKey!==Number(s.auth?.id)+':'+Number(s.workspaceId)&&!s.supervisionLoading&&!s.supervisionPeople.length&&!s.supervisionError)this.loadSupervisionPeople();
+    }else this.supervisionAutoKey=null;
     try {
       localStorage.setItem(this.KEY, JSON.stringify({
         tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, timelineMode:s.timelineMode, timelineAnchor:s.timelineAnchor, timelineProject:s.timelineProject, dailyDate:s.dailyDate, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist
@@ -1399,7 +1812,8 @@ class Component extends DCLogic {
       const r = await this.api('me');
       if (r.ok && r.user) {
         const workspaceId = this.preferredWorkspaceId(r.workspaces || []);
-        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', dailyAssignId:'', improvementChecklist: [] });
+        this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.supervisionAutoKey=null;
+        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', assistantRuns:[],assistantStatus:'idle',assistantError:'',assistantSelId:null,assistantDemoState:'none', supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'', improvementChecklist: [] });
         if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
       }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
@@ -1528,13 +1942,14 @@ class Component extends DCLogic {
       const ws = r.workspaces || [];
       this.remoteReady = true;
       const workspaceId = this.preferredWorkspaceId(ws);
-      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', improvementChecklist: [] });
+      this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.supervisionAutoKey=null;
+      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', assistantRuns:[],assistantStatus:'idle',assistantError:'',assistantSelId:null,assistantDemoState:'none', supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', improvementChecklist: [] });
       // Las cuentas nuevas empiezan vacías; los datos de demostración nunca se copian al espacio del usuario.
       if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
-  async logout() { this.discardSlotDraft(); this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1; this.remoteSaved = {};  await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', dailyAssignId:'', improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
-  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', dailyAssignId:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
+  async logout() { this.discardSlotDraft(); this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; this.remoteSaved = {};  await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, view:'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'', improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
+  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
   async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return; const r=await this.api('workspace_members',{workspace_id:workspaceId}); if(r.ok)this.setState({workspaceMembers:r.members||[]}); }
   async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], workspaceMembers: m.members || [], adminOpen: true }); } }
   async clearWorkspaceTasks(workspaceId, workspaceName) { if (this.state.auth?.role !== 'super_admin') return; const r=await this.api('workspace_tasks_clear',{workspace_id:workspaceId}); if(r.ok){ if(Number(this.state.workspaceId)===Number(workspaceId)) this.setState({tasks:[],selId:null}); this.setState({authError:'Se borraron ' + (r.deleted||0) + ' tareas de «' + workspaceName + '».'}); await this.loadAdminSummary(); } else this.setState({authError:r.error||'No se pudieron borrar las tareas.'}); }
@@ -1594,9 +2009,9 @@ class Component extends DCLogic {
   seed() {
     const now = Date.now(), day = 86400000;
     const projects = [
-      { id: 'p1', name: 'VEDAMCI' },
-      { id: 'p2', name: 'Nutrición UnADM' },
-      { id: 'p3', name: 'Libro' }
+      { id: 'p1', name: 'Project Alpha' },
+      { id: 'p2', name: 'Project Beta' },
+      { id: 'p3', name: 'Project Gamma' }
     ];
     const t = (o) => Object.assign({
       id: this.uid(), title: '', list: 'inbox', project: '', due: '', quadrant: 'q2',
@@ -1604,20 +2019,20 @@ class Component extends DCLogic {
       seconds: 0, pomos: 0, createdAt: now
     }, o);
     const tasks = [
-      t({ title: 'Cerrar el plan de alimentación de Laura', list: 'today', project: 'p1', quadrant: 'q1', due: this.dkey(now), estPomos: 2, seconds: 2760, pomos: 2, tags: ['consulta'], subtasks: [{ id: 'a1', title: 'Revisar recordatorio de 24 h', done: true }, { id: 'a2', title: 'Calcular VET', done: false }] }),
-      t({ title: 'Responder mensajes de pacientes', list: 'today', project: 'p1', quadrant: 'q3', seconds: 900, pomos: 0 }),
-      t({ title: 'Actividad 2 — evidencia de aprendizaje', list: 'today', project: 'p2', quadrant: 'q1', due: this.dkey(now + day), estPomos: 3, seconds: 4380, pomos: 3 }),
-      t({ title: 'Escribir capítulo 4', list: 'today', project: 'p3', quadrant: 'q2', estPomos: 4, seconds: 6300, pomos: 4, notes: 'Continuar desde la sección de la repetición como recurso.' }),
-      t({ title: 'Cotizar impresión de recetarios', list: 'inbox', project: 'p1', quadrant: 'q4' }),
-      t({ title: 'Ordenar fotos del taller', list: 'inbox', quadrant: 'q4' }),
-      t({ title: 'Leer artículo de microbiota 2024', list: 'inbox', project: 'p2', quadrant: 'q2', tags: ['lectura'] }),
-      t({ title: 'Rediseñar el flujo de primera consulta', list: 'future', project: 'p1', quadrant: 'q2', estPomos: 5 }),
-      t({ title: 'Preparar el reto de 5 días', list: 'future', project: 'p3', quadrant: 'q2', estPomos: 6 }),
-      t({ title: 'Actualizar tabla de equivalencias SMAE', list: 'future', project: 'p2', quadrant: 'q2' }),
-      t({ title: 'Revisar laboratorios de Marco', list: 'today', project: 'p1', quadrant: 'q1', done: true, doneAt: now - 2 * 3600000, seconds: 1500, pomos: 1 }),
-      t({ title: 'Enviar indicaciones a Rosa', list: 'today', project: 'p1', quadrant: 'q1', done: true, doneAt: now - day, seconds: 1200, pomos: 1 }),
-      t({ title: 'Foro unidad 3', list: 'today', project: 'p2', quadrant: 'q1', done: true, doneAt: now - 2 * day, seconds: 2400, pomos: 2 }),
-      t({ title: 'Guion de video Govardhana', list: 'today', project: 'p3', quadrant: 'q2', done: true, doneAt: now - 3 * day, seconds: 3000, pomos: 2 })
+      t({ title: 'Draft sprint update', list: 'today', project: 'p1', quadrant: 'q1', due: this.dkey(now), estPomos: 2, seconds: 2760, pomos: 2, tags: ['writing'] }),
+      t({ title: 'Review navigation draft', list: 'today', project: 'p1', quadrant: 'q1', seconds: 900, pomos: 0 }),
+      t({ title: 'Prepare kickoff agenda', list: 'future', project: 'p2', quadrant: 'q2', due: this.dkey(now + day), estPomos: 3, seconds: 4380, pomos: 3 }),
+      t({ title: 'Collect design references', list: 'future', project: 'p1', quadrant: 'q2', estPomos: 4, seconds: 6300, pomos: 4 }),
+      t({ title: 'Outline user test plan', list: 'future', project: 'p3', quadrant: 'q3' }),
+      t({ title: 'Tidy project notes', list: 'inbox', quadrant: 'q3' }),
+      t({ title: 'Plan weekly review', list: 'future', project: 'p2', quadrant: 'q2', tags: ['planning'] }),
+      t({ title: 'Sketch dashboard layout', list: 'future', project: 'p1', quadrant: 'q3', estPomos: 5 }),
+      t({ title: 'Map onboarding flow', list: 'future', project: 'p1', quadrant: 'q3', estPomos: 6 }),
+      t({ title: 'Read project brief', list: 'inbox', project: 'p2', quadrant: 'q2' }),
+      t({ title: 'Send meeting summary', list: 'today', project: 'p2', quadrant: 'q4', done: true, doneAt: now - 2 * 3600000, seconds: 1500, pomos: 1 }),
+      t({ title: 'Organize reference files', list: 'future', project: 'p1', quadrant: 'q4', done: true, doneAt: now - day, seconds: 1200, pomos: 1 }),
+      t({ title: 'Set up weekly checklist', list: 'inbox', project: 'p2', quadrant: 'q4', done: true, doneAt: now - 2 * day, seconds: 2400, pomos: 2 }),
+      t({ title: 'Review project milestones', list: 'future', project: 'p3', quadrant: 'q4', done: true, doneAt: now - 3 * day, seconds: 3000, pomos: 2 })
     ];
     const secsByDay = [5400, 7200, 3600, 8100, 2700, 6300, 4500];
     const hourShape = { 7: 0.1, 8: 0.16, 9: 0.22, 10: 0.24, 11: 0.1, 16: 0.08, 17: 0.06, 20: 0.04 };
@@ -1760,6 +2175,39 @@ class Component extends DCLogic {
     } catch(e) {
       if(request===this.teamRequestId&&Number(this.state.auth?.id)===userId&&Number(this.state.workspaceId)===Number(workspaceId))this.setState({teamTasks:[],teamProjects:[],teamLoading:false,teamError:e.message||'No se pudo conectar con el servidor.'});
     }
+  }
+
+  async loadSupervisionPeople() {
+    const {auth,workspaceId}=this.state;
+    if(!this.isWorkspaceAdmin()){this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.setState({supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'Solo un administrador del espacio puede consultar la supervisión.',view:auth?'today':this.state.view});return;}
+    const request=this.supervisionRequestId=(this.supervisionRequestId||0)+1,userId=Number(auth.id),wid=Number(workspaceId);
+    this.supervisionAutoKey=userId+':'+wid;
+    const stillAuthorized=()=>request===this.supervisionRequestId&&this.state.view==='supervision'&&Number(this.state.auth?.id)===userId&&Number(this.state.workspaceId)===wid&&this.isWorkspaceAdmin();
+    this.setState({supervisionLoading:true,supervisionError:'',supervisionPeople:[],supervisionTasks:[]});
+    try {
+      const r=await this.api('supervision_people',{workspace_id:wid});
+      if(!stillAuthorized())return;
+      if(!r.ok)throw new Error(r.error||'No se pudo cargar la lista de personas.');
+      const people=Array.isArray(r.people)?r.people:[];
+      const selected=people.find(p=>Number(p.id)===Number(this.state.supervisionPersonId))||null;
+      this.setState({supervisionPeople:people,supervisionPersonId:selected?String(selected.id):'',supervisionLoading:false});
+      if(selected)await this.loadSupervisionTasks(selected.id);
+    } catch(e){if(stillAuthorized())this.setState({supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:e.message||'No se pudo cargar la supervisión.'});}
+  }
+  async loadSupervisionTasks(personId=this.state.supervisionPersonId) {
+    const {auth,workspaceId}=this.state;
+    if(!this.isWorkspaceAdmin()){this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.setState({supervisionTasks:[],supervisionPersonId:'',supervisionLoading:false,supervisionError:'Solo un administrador del espacio puede consultar la supervisión.'});return;}
+    if(personId===null||personId===undefined||String(personId).trim()===''){this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.setState({supervisionTasks:[],supervisionPersonId:'',supervisionLoading:false,supervisionError:''});return;}
+    const request=this.supervisionRequestId=(this.supervisionRequestId||0)+1,userId=Number(auth.id),wid=Number(workspaceId),selected=Number(personId);
+    const stillAuthorized=()=>request===this.supervisionRequestId&&this.state.view==='supervision'&&Number(this.state.auth?.id)===userId&&Number(this.state.workspaceId)===wid&&Number(this.state.supervisionPersonId)===selected&&this.isWorkspaceAdmin();
+    this.setState({supervisionPersonId:String(selected),supervisionLoading:true,supervisionError:'',supervisionTasks:[]});
+    try {
+      const r=await this.api('supervision_tasks',{workspace_id:wid,person_id:selected});
+      if(!stillAuthorized())return;
+      if(!r.ok)throw new Error(r.error||'No se pudieron cargar las tareas de esta persona.');
+      const seen=new Set(),tasks=(Array.isArray(r.tasks)?r.tasks:[]).filter(task=>{if(!task||typeof task!=='object'||task.id===null||task.id===undefined||String(task.id)==='')return false;const id=String(task.id);if(seen.has(id))return false;seen.add(id);return true;});
+      this.setState({supervisionTasks:tasks,supervisionLoading:false});
+    } catch(e){if(stillAuthorized())this.setState({supervisionTasks:[],supervisionLoading:false,supervisionError:e.message||'No se pudieron cargar las tareas de esta persona.'});}
   }
 
   memberName(id) { const member=this.state.workspaceMembers.find(x=>Number(x.id)===Number(id)); return member?.name || member?.email || 'un miembro'; }
@@ -1990,6 +2438,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const s = this.state, now = Date.now(), day = 86400000;
+    const supervisionAnchor = id => 'supervision-task-' + Array.from(String(id), ch => ch.codePointAt(0).toString(16)).join('-');
     // Project collaboration remains available in Proyectos/Cronograma.
     // Personal lists and counters include only creator/direct delegation;
     // administrative overview data never enters this task collection.
@@ -1997,7 +2446,9 @@ class Component extends DCLogic {
     const delegatedTasks = personalTasks.filter(t => t.list !== 'trash' && Array.isArray(t.sharedWith) && t.sharedWith.length > 0);
     const activeTasks = personalTasks.filter(t => t.list !== 'trash');
     const open = activeTasks.filter(t => !t.done);
+    const assistant = this.assistantVals(s, now);
     const counts = {
+      assistant: assistant.assistantOpenCount,
       today: open.filter(t => t.list === 'today').length,
       inbox: open.filter(t => t.list === 'inbox').length,
       future: open.filter(t => t.list === 'future').length,
@@ -2011,7 +2462,8 @@ class Component extends DCLogic {
       stats: Object.keys(s.log).length,
       ideas: s.suggestions.length,
       admin: s.adminSummary.length,
-      team: this.isWorkspaceAdmin()?s.teamTasks.length:0
+      team: this.isWorkspaceAdmin()?s.teamTasks.length:0,
+      supervision: this.isWorkspaceAdmin()?s.supervisionTasks.length:0
     };
     const navDefs = [
       { id: 'today', label: 'Hoy' }, { id: 'inbox', label: 'Bandeja de entrada' },
@@ -2019,13 +2471,15 @@ class Component extends DCLogic {
       { id: 'done', label: 'Hechas' }, { id: 'trash', label: 'Borrado' },
       { id: 'projects', label: 'Proyectos' }, { id: 'calendar', label: 'Calendario de hoy' }, { id: 'timeline', label: 'Cronograma' }, { id: 'stats', label: 'Estadísticas' }, { id: 'ideas', label: 'Mejoras' }
     ];
+    if (this.isWorkspaceAdmin()) navDefs.push({ id:'assistant', label:'Asistente' });
     const hasWorkspaceAdmin = s.auth && (s.auth.role === 'super_admin' || s.auth.role === 'admin' || s.workspaces.some(w => w.member_role === 'admin'));
     if (hasWorkspaceAdmin) navDefs.push({ id: 'admin', label: 'Supervisión' });
+    if (this.isWorkspaceAdmin()) navDefs.push({ id:'supervision', label:'Por persona' });
     if(this.isWorkspaceAdmin())navDefs.push({id:'team',label:'Tareas del equipo'});
     const navItems = navDefs.map(n => {
       const on = s.view === n.id || (n.id === 'projects' && s.view === 'project');
       return {
-        id:n.id, label: n.label, count: counts[n.id] || 0, onClick: () => { this.discardSlotDraft();this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, delegatingId: null, slotCreateOpen:false, slotError:'', mobileNavOpen: false, ...(n.id==='calendar'?{dailyDate:this.dkey(Date.now()),dailyBrowseMonth:'',dailyAssignId:''}:{}) }); if (n.id === 'admin') this.loadAdminSummary(); if(n.id==='team')this.loadTeamTasks(); },
+        id:n.id, label: n.label, count: counts[n.id] || 0, onClick: () => { if((n.id==='assistant'||n.id==='supervision')&&!this.isWorkspaceAdmin())return; if(n.id!=='supervision')this.supervisionRequestId=(this.supervisionRequestId||0)+1; this.discardSlotDraft();this.setState({ view: n.id, projFilter: n.id === 'projects' ? null : s.projFilter, selId: null, delegatingId: null, slotCreateOpen:false, slotError:'', mobileNavOpen: false, ...(n.id==='supervision'?{}:{supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:''}), ...(n.id==='calendar'?{dailyDate:this.dkey(Date.now()),dailyBrowseMonth:'',dailyAssignId:''}:{}) }); if (n.id === 'admin') this.loadAdminSummary(); if(n.id==='team')this.loadTeamTasks(); if(n.id==='assistant'&&this.state.assistantStatus!=='ready')this.loadAssistantRuns(); if(n.id==='supervision')this.loadSupervisionPeople(); },
         style: {
           display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', cursor: 'pointer',
           padding: '9px 18px', border: 0, borderLeft: '3px solid ' + (on ? 'var(--color-accent)' : 'transparent'),
@@ -2063,8 +2517,10 @@ class Component extends DCLogic {
       stats: ['Estadísticas semanales', 'Últimos 7 días'],
       ideas: ['Mejoras', 'Ideas y sugerencias del espacio'],
       admin: ['Supervisión', 'Espacios de trabajo y tareas del equipo'],
+      supervision: ['Por persona', 'Cronograma y bloques explícitos de cada integrante'],
       team:['Tareas del equipo','Consulta administrativa · separada de tus tareas personales']
     };
+    if (this.isWorkspaceAdmin()) titles.assistant = ['Tareas delegadas al asistente','Ejecuciones de Luna · separadas de tus tareas de Kaizen'];
     const tt = titles[s.view] || titles.today;
 
     // La matriz muestra únicamente tareas pendientes; las hechas permanecen
@@ -2337,6 +2793,20 @@ class Component extends DCLogic {
       isTeamView:s.view==='team'&&this.isWorkspaceAdmin(),canSeeTeam:this.isWorkspaceAdmin(),teamLoading:s.teamLoading,teamError:s.teamError,teamEmpty:!s.teamLoading&&!s.teamTasks.length&&!s.teamError,
       onRefreshTeam:()=>this.loadTeamTasks(),onOpenTeam:()=>{this.setState({view:'team',selId:null,delegatingId:null});this.loadTeamTasks();},
       teamRows:this.isWorkspaceAdmin()?s.teamTasks.map(t=>({title:t.title,creatorLabel:'Creada por '+this.memberName(t._owner_id),responsibleLabel:this.responsibleLabel(t),projectName:s.teamProjects.find(p=>p.id===t.project)?.name||'Sin proyecto',status:t.list==='trash'?'Borrada':t.done?'Hecha':'Pendiente',time:this.fmtDur(t.seconds||0),planLabel:t.scheduledStart&&t.scheduledEnd?'Plan: '+fmtPlan(t.scheduledStart)+' → '+fmtPlan(t.scheduledEnd):'Sin planificación'})):[],
+      isSupervisionView:s.view==='supervision'&&this.isWorkspaceAdmin(),supervisionLoading:s.supervisionLoading,supervisionError:s.supervisionError,
+      supervisionPersonId:String(s.supervisionPersonId||''),supervisionPeopleOptions:this.isWorkspaceAdmin()?s.supervisionPeople.map(p=>({id:String(p.id),name:p.name,role:p.workspace_role==='admin'?'admin':'miembro'})):[],
+      supervisionTodayLabel:new Date(now).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}),
+      supervisionTimeZone:Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC',
+      supervisionNoPeople:!s.supervisionLoading&&!s.supervisionError&&!s.supervisionPeople.length,
+      supervisionNeedsPerson:!s.supervisionLoading&&!s.supervisionError&&s.supervisionPeople.length>0&&!s.supervisionPersonId,
+      supervisionPersonSelected:!!this.isWorkspaceAdmin()&&!!s.supervisionPersonId,
+      supervisionTimelineRows:(()=>{const values=this.isWorkspaceAdmin()?KaizenPlanning.timeline(s.supervisionTasks).scheduled:[];return values.map(t=>({anchor:supervisionAnchor(t.id),title:t.title,project:t.project_name||'Sin proyecto',status:t.done?'Hecha':'Pendiente',start:fmtPlan(t.scheduledStart),end:fmtPlan(t.scheduledEnd),startIso:new Date(t.scheduledStart).toISOString(),endIso:new Date(t.scheduledEnd).toISOString()}));})(),
+      supervisionUnscheduledRows:(()=>{const values=this.isWorkspaceAdmin()?KaizenPlanning.timeline(s.supervisionTasks).unscheduled:[];return values.map(t=>{const start=Date.parse(t.scheduledStart),end=Date.parse(t.scheduledEnd),valid=Number.isFinite(start)&&Number.isFinite(end)&&end>start;return {anchor:supervisionAnchor(t.id),title:t.title,project:t.project_name||'Sin proyecto',status:t.done?'Hecha':'Pendiente',dateNote:(t.scheduledStart||t.scheduledEnd)&&!valid?'Revisa el rango de fechas':t.due?'Fecha límite: '+t.due:'Sin fecha límite'};});})(),
+      supervisionBlockRows:(()=>{if(!this.isWorkspaceAdmin())return [];const seen=new Set(),blocks=KaizenPlanning.hourlyDay(s.supervisionTasks,this.dkey(now),now).blocks.filter(({task,block})=>{const signature=block.id?JSON.stringify([String(task.id),String(block.id)]):JSON.stringify([String(task.id),String(block.start),String(block.end)]);if(seen.has(signature))return false;seen.add(signature);return true;});return blocks.map(({task,block,start,end,continuesBefore,continuesAfter})=>({anchor:supervisionAnchor(task.id),title:task.title,project:task.project_name||'Sin proyecto',start:new Date(start).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),end:new Date(end).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),startIso:new Date(start).toISOString(),endIso:new Date(end).toISOString(),continuation:continuesBefore&&continuesAfter?'· Continúa desde ayer y después de hoy':continuesBefore?'· Continúa desde ayer':continuesAfter?'· Continúa después de hoy':''}));})(),
+      supervisionNoTimeline:!s.supervisionLoading&&!s.supervisionError&&!s.supervisionTasks.some(t=>t.scheduledStart&&t.scheduledEnd&&Date.parse(t.scheduledEnd)>Date.parse(t.scheduledStart)),
+      supervisionHasUnscheduled:!s.supervisionLoading&&!s.supervisionError&&KaizenPlanning.timeline(s.supervisionTasks).unscheduled.length>0,
+      supervisionNoBlocks:!s.supervisionLoading&&!s.supervisionError&&!KaizenPlanning.hourlyDay(s.supervisionTasks,this.dkey(now),now).blocks.length,
+      onSupervisionPerson:e=>this.loadSupervisionTasks(e.target.value),onRefreshSupervision:()=>this.loadSupervisionPeople(),
       isList, isMatrix: s.view === 'matrix', isProjects: s.view === 'projects', isProjectDetail: s.view === 'project', isIdeas: s.view === 'ideas', isStats: s.view === 'stats', isAdminView: s.view === 'admin',
       projectDetailName: this.projName(s.projFilter) || 'Proyecto',
       projectDetailStats: (() => { const a=s.tasks.filter(t=>t.project===s.projFilter && t.list !== 'trash'), d=a.filter(t=>t.done).length; return d + '/' + a.length + ' hechas · ' + this.fmtDur(a.reduce((sum,t)=>sum+t.seconds,0)); })(),
@@ -2406,7 +2876,7 @@ class Component extends DCLogic {
       onSaveDelegation: ()=>this.saveDelegation(), onCloseDelegation: ()=>this.closeDelegation(),
       onCancelDelegation: e=>{e.preventDefault();this.closeDelegation();},
       hasSel: !!sel, autoStartText: 'El temporizador solo inicia al pulsar «Enfocar» o «Cronometrar».', onCloseSel: () => this.setState({ selId: null, delegatingId: null })
-    }, detail);
+    }, detail, assistant);
   }
 
   async addProject() {

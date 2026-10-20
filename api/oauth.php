@@ -18,9 +18,15 @@ function oauthJson(array $data,int $status=200): never {
     http_response_code($status);header('Content-Type: application/json; charset=utf-8');
     echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;
 }
-function oauthHtml(string $body,int $status=200): never {
+function oauthHtml(string $body,int $status=200,?string $redirectUri=null): never {
     http_response_code($status);header('Content-Type: text/html; charset=utf-8');
-    header("Content-Security-Policy: default-src 'none'; form-action 'self'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+    $formAction="'self'";
+    if ($redirectUri!==null) {
+        $parts=parse_url($redirectUri);
+        if (is_array($parts) && in_array($parts['scheme']??null,['http','https'],true) && isset($parts['host']))
+            $formAction.=' '.$parts['scheme'].'://'.$parts['host'].(isset($parts['port'])?':'.$parts['port']:'');
+    }
+    header("Content-Security-Policy: default-src 'none'; form-action ".$formAction."; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
     echo '<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Conectar Kaizen</title><style>body{font:16px system-ui;max-width:38rem;margin:4rem auto;padding:0 1rem;line-height:1.5}button{padding:.7rem 1rem;margin:.5rem}li{margin:.5rem 0}</style><main>'.$body.'</main></html>';exit;
 }
 function oauthEscape(string $value): string {return htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
@@ -56,20 +62,23 @@ try {
             'response_types_supported'=>['code'],'grant_types_supported'=>['authorization_code','refresh_token'],
             'code_challenge_methods_supported'=>['S256'],
             'token_endpoint_auth_methods_supported'=>['none'],
-            'scopes_supported'=>$config['mcp_max_scope']==='kaizen:write'?['kaizen:read','kaizen:write']:['kaizen:read'],
+            'scopes_supported'=>mcpOAuthSupportedScopes($config),
             'authorization_response_iss_parameter_supported'=>true,
             'client_id_metadata_document_supported'=>true]);
     }
     if ($action==='resource-metadata' && ($_SERVER['REQUEST_METHOD']??'')==='GET') {
         oauthJson(['resource'=>$config['mcp_resource'],
             'authorization_servers'=>[$config['mcp_issuer']],
-            'scopes_supported'=>$config['mcp_max_scope']==='kaizen:write'?['kaizen:read','kaizen:write']:['kaizen:read'],
+            'scopes_supported'=>mcpOAuthSupportedScopes($config),
             'bearer_methods_supported'=>['header']]);
     }
     if ($action==='token') {
         if (($_SERVER['REQUEST_METHOD']??'')!=='POST') {header('Allow: POST');http_response_code(405);exit;}
         if (strtolower(trim(explode(';',$_SERVER['CONTENT_TYPE']??'')[0]))!=='application/x-www-form-urlencoded' || (int)($_SERVER['CONTENT_LENGTH']??0)>8192) oauthJson(['error'=>'invalid_request'],400);
-        if (isset($_SERVER['HTTP_AUTHORIZATION']) || isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) oauthJson(['error'=>'invalid_client'],401);
+        $clientAuth=$_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??null;
+        // Some Apache setups expose an empty Authorization value even when the
+        // public OAuth client sent no credentials.
+        if (is_string($clientAuth) && trim($clientAuth)!=='') oauthJson(['error'=>'invalid_client'],401);
         $pdo=mcpOAuthDb($config);
         $grant=$_POST['grant_type']??null;
         if ($grant==='authorization_code') $tokens=mcpOAuthExchangeCode($pdo,$config,$_POST);
@@ -86,12 +95,18 @@ try {
         if ($action==='connections') {
             if (($_SERVER['REQUEST_METHOD']??'')==='POST') {
                 if (!hash_equals($_SESSION['mcp_oauth_csrf'],(string)($_POST['csrf']??''))) oauthHtml('<h1>Solicitud inválida</h1>',403);
-                mcpOAuthRevokeGrant($pdo,(int)$user['id'],$config['mcp_oauth_client_id'],$config['mcp_resource']);
+                foreach (mcpOAuthAllowedClients($config) as $clientId)
+                    mcpOAuthRevokeGrant($pdo,(int)$user['id'],$clientId,$config['mcp_resource']);
                 oauthHtml('<h1>Conexión revocada</h1><p>Los tokens de Kaizen MCP dejaron de ser válidos.</p>');
             }
-            $q=$pdo->prepare('SELECT scopes FROM mcp_oauth_grants WHERE user_id=? AND client_id=? AND resource=? AND revoked_at IS NULL');
-            $q->execute([(int)$user['id'],$config['mcp_oauth_client_id'],$config['mcp_resource']]);$scopes=$q->fetchColumn();
-            $details=$scopes?'<p>Permisos activos: '.oauthEscape($scopes).'</p><form method="post"><input type="hidden" name="csrf" value="'.oauthEscape($_SESSION['mcp_oauth_csrf']).'"><button type="submit">Revocar conexión</button></form>':'<p>No hay una conexión activa.</p>';
+            $q=$pdo->prepare('SELECT client_id,scopes FROM mcp_oauth_grants WHERE user_id=? AND resource=? AND revoked_at IS NULL');
+            $q->execute([(int)$user['id'],$config['mcp_resource']]);
+            $details='';foreach ($q->fetchAll() as $grant) {
+                if (!in_array($grant['client_id'],mcpOAuthAllowedClients($config),true)) continue;
+                $client=$grant['client_id']===KAIZEN_CODEX_CLIENT_ID?'Codex':'ChatGPT';
+                $details.='<p>'.oauthEscape($client).': '.oauthEscape($grant['scopes']).'</p>';
+            }
+            $details=$details!==''?$details.'<form method="post"><input type="hidden" name="csrf" value="'.oauthEscape($_SESSION['mcp_oauth_csrf']).'"><button type="submit">Revocar conexiones</button></form>':'<p>No hay una conexión activa.</p>';
             oauthHtml('<h1>Conexión MCP de Kaizen</h1>'.$details);
         }
         $request=mcpOAuthValidAuthorization(($_SERVER['REQUEST_METHOD']??'')==='POST'?$_POST:$_GET,$config);
@@ -103,8 +118,10 @@ try {
             oauthRedirect($request,$config,$code);
         }
         $items='<li>Leer tareas, proyectos y agenda de los espacios a los que tienes acceso.</li>';
+        if (str_contains($request['scope'],'kaizen:assistant_runs:write')) $items.='<li>Registrar y actualizar las tareas delegadas al asistente en espacios que administras.</li>';
         if (str_contains($request['scope'],'kaizen:write')) $items.='<li>Crear y modificar tareas, bloques de agenda y proyectos con tus permisos actuales.</li>';
-        oauthHtml('<h1>Conectar Kaizen</h1><p>'.oauthEscape($user['name']).', ChatGPT solicita estos permisos para tu cuenta:</p><ul>'.$items.'</ul><p>Podrás revocarlos desde Kaizen. La conexión no amplía tus permisos de espacios.</p><form method="post">'.oauthFormFields($request).'<input type="hidden" name="csrf" value="'.oauthEscape($_SESSION['mcp_oauth_csrf']).'"><button name="decision" value="approve">Autorizar</button><button name="decision" value="deny">Cancelar</button></form>');
+        $client=$request['client_id']===KAIZEN_CODEX_CLIENT_ID?'Codex':'ChatGPT';
+        oauthHtml('<h1>Conectar Kaizen</h1><p>'.oauthEscape($user['name']).', '.oauthEscape($client).' solicita estos permisos para tu cuenta:</p><ul>'.$items.'</ul><p>Podrás revocarlos desde Kaizen. La conexión no amplía tus permisos de espacios.</p><form method="post">'.oauthFormFields($request).'<input type="hidden" name="csrf" value="'.oauthEscape($_SESSION['mcp_oauth_csrf']).'"><button name="decision" value="approve">Autorizar</button><button name="decision" value="deny">Cancelar</button></form>',200,$request['redirect_uri']);
     }
     http_response_code(404);
 } catch (DomainException $e) {
