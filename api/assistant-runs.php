@@ -143,28 +143,37 @@ function assistantRunRecords(PDO $pdo, int $workspaceId, array $user): array {
     $q = $pdo->prepare('SELECT * FROM assistant_runs WHERE workspace_id=? ORDER BY verified_at DESC,id');
     $q->execute([$workspaceId]); $rows = $q->fetchAll();
     if (!$rows) return [];
-    $updatesQ = $pdo->prepare('SELECT * FROM assistant_run_updates WHERE workspace_id=? ORDER BY id');
+    $updatesQ = $pdo->prepare('SELECT aru.*,u.name AS recorded_name FROM assistant_run_updates aru LEFT JOIN users u ON u.id=aru.recorded_by WHERE aru.workspace_id=? ORDER BY aru.id');
     $updatesQ->execute([$workspaceId]); $updates = [];
     foreach ($updatesQ as $update) $updates[$update['run_id']][] = $update;
     $records = [];
     foreach ($rows as $row) {
         $events = [assistantRunEvent('delegated-'.$row['id'],'delegated',$row['delegated_at'],(string)($row['source'] ?? 'Kaizen'),'Delegación registrada; la fecha se muestra solo cuando fue verificada.')];
-        $previous = ['status'=>null,'blocker'=>null,'next_step'=>null,'deliverables'=>[]];
+        $previous = ['status'=>null,'progress'=>null,'blocker'=>null,'next_step'=>null,'deliverables'=>[]];
         foreach ($updates[$row['id']] ?? [] as $update) {
-            $at = (string)$update['verified_at']; $actor = (string)$update['source'];
+            $at = (string)$update['verified_at'];
+            $actor = (string)$update['source'] === 'kaizen_manual' && trim((string)($update['recorded_name'] ?? '')) !== ''
+                ? trim((string)$update['recorded_name']) : (string)$update['source'];
             $events[] = assistantRunEvent('verified-'.$update['id'],'status_verified',$at,$actor,'Estado verificado: '.$update['status'].'.');
             if ($previous['status'] !== null && $previous['status'] !== $update['status']) $events[] = assistantRunEvent('status-'.$update['id'],'status_changed',$at,$actor,'Estado actualizado: '.$update['status'].'.');
-            if (!empty($update['progress'])) $events[] = assistantRunEvent('progress-'.$update['id'],'progress_note',$at,$actor,(string)$update['progress']);
-            if (!empty($update['blocker'])) $events[] = assistantRunEvent('blocker-'.$update['id'],'blocker_set',$at,$actor,(string)$update['blocker']);
-            elseif (!empty($previous['blocker'])) $events[] = assistantRunEvent('blocker-clear-'.$update['id'],'blocker_cleared',$at,$actor,'El bloqueo quedó resuelto.');
-            if (!empty($update['next_step'])) $events[] = assistantRunEvent('next-'.$update['id'],'next_step_set',$at,$actor,(string)$update['next_step']);
-            elseif (!empty($previous['next_step'])) $events[] = assistantRunEvent('next-clear-'.$update['id'],'next_step_cleared',$at,$actor,'El próximo paso quedó actualizado.');
+            if (!empty($update['progress']) && $previous['progress'] !== $update['progress']) $events[] = assistantRunEvent('progress-'.$update['id'],'progress_note',$at,$actor,(string)$update['progress']);
+            if ($previous['blocker'] !== $update['blocker']) {
+                if (!empty($update['blocker'])) $events[] = assistantRunEvent('blocker-'.$update['id'],'blocker_set',$at,$actor,(string)$update['blocker']);
+                elseif (!empty($previous['blocker'])) $events[] = assistantRunEvent('blocker-clear-'.$update['id'],'blocker_cleared',$at,$actor,'El bloqueo quedó resuelto.');
+            }
+            if ($previous['next_step'] !== $update['next_step']) {
+                if (!empty($update['next_step'])) $events[] = assistantRunEvent('next-'.$update['id'],'next_step_set',$at,$actor,(string)$update['next_step']);
+                elseif (!empty($previous['next_step'])) $events[] = assistantRunEvent('next-clear-'.$update['id'],'next_step_cleared',$at,$actor,'El próximo paso quedó actualizado.');
+            }
             $deliverables = json_decode((string)$update['deliverables_json'],true); $deliverables = is_array($deliverables) ? $deliverables : [];
             foreach (array_diff($deliverables,$previous['deliverables']) as $item) $events[] = assistantRunEvent('deliverable-'.$update['id'].'-'.substr(hash('sha256',(string)$item),0,8),'deliverable_added',$at,$actor,(string)$item);
             foreach (array_diff($previous['deliverables'],$deliverables) as $item) $events[] = assistantRunEvent('deliverable-removed-'.$update['id'].'-'.substr(hash('sha256',(string)$item),0,8),'deliverable_removed',$at,$actor,(string)$item);
-            if ($previous['status'] !== 'completed' && $update['status'] === 'completed' && !empty($update['completed_at'])) $events[] = assistantRunEvent('completed-'.$update['id'],'completed',(string)$update['completed_at'],$actor,'Finalización verificada por la fuente.');
+            if ($previous['status'] !== 'completed' && $update['status'] === 'completed' && !empty($update['completed_at'])) {
+                $summary = (string)$update['source'] === 'kaizen_manual' ? 'Marcada como terminada manualmente en Kaizen.' : 'Finalización verificada por la fuente.';
+                $events[] = assistantRunEvent('completed-'.$update['id'],'completed',(string)$update['completed_at'],$actor,$summary);
+            }
             if ($previous['status'] !== 'cancelled' && $update['status'] === 'cancelled' && !empty($update['closed_at'])) $events[] = assistantRunEvent('cancelled-'.$update['id'],'cancelled',(string)$update['closed_at'],$actor,'Cancelación verificada por la fuente.');
-            $previous = ['status'=>$update['status'],'blocker'=>$update['blocker'],'next_step'=>$update['next_step'],'deliverables'=>$deliverables];
+            $previous = ['status'=>$update['status'],'progress'=>$update['progress'],'blocker'=>$update['blocker'],'next_step'=>$update['next_step'],'deliverables'=>$deliverables];
         }
         $records[] = [
             'kind'=>'assistant_run','id'=>(string)$row['id'],'workspace_id'=>$workspaceId,'source'=>(string)$row['source'],
@@ -212,6 +221,42 @@ function assistantRunUpsert(PDO $pdo, int $workspaceId, array $user, array $inpu
         $append->execute([$workspaceId,$runId,$payload['idempotency_key'],$hash,$payload['source'],$payload['status'],$payload['progress'],$payload['blocker'],$payload['next_step'],$payload['deliverables_json'],$delegatedAt,$completedAt,$closedAt,$verifiedAt,(int)$user['id']]);
         $pdo->commit();
         $record = null;
+        foreach (assistantRunRecords($pdo,$workspaceId,$user) as $candidate) if ($candidate['id']===$runId) { $record=$candidate; break; }
+        return ['duplicate'=>false,'verified_at'=>assistantRunIso($verifiedAt),'run'=>$record];
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+}
+
+function assistantRunMarkCompleted(PDO $pdo, int $workspaceId, array $user, $runId): array {
+    assistantWorkspaceAdmin($pdo,$workspaceId,$user);
+    if (!is_string($runId) || !preg_match('/^[a-f0-9]{32}$/iD',$runId)) throw new DomainException('ID de ejecución no válido.',422);
+    $pdo->beginTransaction();
+    try {
+        assistantWorkspaceAdmin($pdo,$workspaceId,$user,true);
+        $find=$pdo->prepare('SELECT * FROM assistant_runs WHERE workspace_id=? AND id=? FOR UPDATE');
+        $find->execute([$workspaceId,$runId]); $run=$find->fetch();
+        if (!$run) throw new DomainException('No se encontró la ejecución en este espacio.',404);
+        if ($run['status']==='cancelled') throw new DomainException('Una ejecución cancelada no se puede marcar como completada.',409);
+        if ($run['status']==='completed') {
+            $pdo->commit();
+            $record=null;
+            foreach (assistantRunRecords($pdo,$workspaceId,$user) as $candidate) if ($candidate['id']===$runId) { $record=$candidate; break; }
+            return ['duplicate'=>true,'verified_at'=>assistantRunIso((string)$run['verified_at']),'run'=>$record];
+        }
+        $verifiedAt=assistantRunNow();
+        $idempotencyKey='manual-complete:'.$runId.':'.bin2hex(random_bytes(12));
+        $payloadHash=hash('sha256',json_encode([
+            'run_id'=>$runId,'status'=>'completed','completed_at'=>$verifiedAt,'recorded_by'=>(int)$user['id']
+        ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
+        $deliverablesJson=(string)$run['deliverables_json'];
+        $append=$pdo->prepare('INSERT INTO assistant_run_updates(workspace_id,run_id,idempotency_key,payload_hash,source,status,progress,blocker,next_step,deliverables_json,delegated_at,completed_at,closed_at,verified_at,recorded_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+        $append->execute([$workspaceId,$runId,$idempotencyKey,$payloadHash,'kaizen_manual','completed',$run['progress'],$run['blocker'],$run['next_step'],$deliverablesJson,$run['delegated_at'],$verifiedAt,null,$verifiedAt,(int)$user['id']]);
+        $save=$pdo->prepare('UPDATE assistant_runs SET status=?,completed_at=?,closed_at=NULL,verified_at=?,updated_at=?,updated_by=? WHERE workspace_id=? AND id=?');
+        $save->execute(['completed',$verifiedAt,$verifiedAt,$verifiedAt,(int)$user['id'],$workspaceId,$runId]);
+        $pdo->commit();
+        $record=null;
         foreach (assistantRunRecords($pdo,$workspaceId,$user) as $candidate) if ($candidate['id']===$runId) { $record=$candidate; break; }
         return ['duplicate'=>false,'verified_at'=>assistantRunIso($verifiedAt),'run'=>$record];
     } catch (Throwable $e) {

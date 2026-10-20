@@ -148,6 +148,9 @@ try {
     if ($action === 'assistant_run_upsert') {
         $wid=(int)($data['workspace_id']??0); $result=assistantRunUpsert(db(),$wid,$u,$data); out(['ok'=>true]+$result);
     }
+    if ($action === 'assistant_run_mark_completed') {
+        $wid=(int)($data['workspace_id']??0); $result=assistantRunMarkCompleted(db(),$wid,$u,$data['run_id']??null); out(['ok'=>true]+$result);
+    }
     if ($action === 'supervision_people') {
         $wid=(int)($data['workspace_id']??0); out(['ok'=>true,'people'=>supervisionMembers(db(),$wid,$u)]);
     }

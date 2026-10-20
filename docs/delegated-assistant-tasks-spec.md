@@ -63,6 +63,7 @@ La rama añade las herramientas MCP `assistant_runs` y `assistant_run_upsert` ju
 
 - `assistant_runs`: lista registros del espacio, solo para administradores del espacio.
 - `assistant_run_upsert`: crea o actualiza un registro y agrega una actualización de auditoría; requiere `source`, `external_id`, `idempotency_key`, `title` y `status`, más campos opcionales de avance, bloqueo, próximo paso, entregables y fechas verificadas de delegación/cierre.
+- `assistant_run_mark_completed`: permite a una persona administradora marcar una ejecución abierta como completada desde la interfaz autenticada de Kaizen. El servidor registra la hora, quién lo hizo y el evento “Marcada como terminada manualmente en Kaizen”; la lectura existente `assistant_runs` devuelve ese evento para que Codex pueda detectarlo. Repetir la acción sobre una ejecución ya completada es seguro; una ejecución cancelada no puede completarse manualmente. No amplía el alcance OAuth ni modifica tareas normales.
 - `supervision_people` y `supervision_tasks`: devuelven integrantes y tareas del integrante seleccionado, solo a administradores del espacio.
 
 En MCP, la lectura usa `kaizen:read`. El upsert acepta `kaizen:assistant_runs:write` o el permiso amplio preexistente `kaizen:write`, siempre con autorización administrativa del workspace. El permiso limitado no habilita mutaciones de tareas, bloques o proyectos. Los consentimientos OAuth existentes no se amplían por la actualización del código. La integración de Codex se describe en `integrations/codex/README.md` y requiere activar la conexión local y confiar en el hook.
@@ -77,6 +78,7 @@ La respuesta de supervisión contiene solo título, estado, proyecto, fecha lím
 - La sección administrativa **Por persona** requiere elegir a un integrante antes de cargar sus tareas; no selecciona al primero de forma automática. Presenta sus rangos planificados y los bloques `workBlocks` explícitos de hoy en paneles separados. Los dos paneles hacen referencia al mismo ID de tarea y omiten IDs duplicados.
 - Usar la tipografía, el sistema de componentes y los colores de Kaizen. Dar a la sección una cabecera visual clara y jerarquía marcada, con resumen por estados y tarjetas escaneables.
 - Cada tarjeta presenta título, etiqueta de estado, edad desde delegación, último avance con hora registrada, bloqueo cuando exista, próximo paso y entregables disponibles.
+- Las ejecuciones abiertas en la fuente **Servidor · registros privados** ofrecen **Marcar como completada manualmente** en la tarjeta y en el detalle. La acción guarda el evento en el servidor y muestra confirmación accesible; no aparece en datos de demo ni en ejecuciones canceladas/completadas.
 - Las vistas/filtros por estado y búsqueda no mutan la ejecución. La tarjeta completada muestra **Tiempo de resolución** calculado con marcas verificadas. La cancelada se presenta como cancelada, no como resuelta.
 - El detalle incluye la cronología de eventos y distingue visualmente el tiempo transcurrido del activo. Sin sesiones registradas, se lee **Tiempo activo: Sin registro**.
 - Mostrar fechas y horas con zona local del dispositivo, conservando y usando la marca UTC/origen del dato. Incluir una fecha absoluta accesible además del texto relativo (“hace …”).
@@ -101,14 +103,15 @@ La respuesta de supervisión contiene solo título, estado, proyecto, fecha lím
 
 ### Interacción, acceso y calidad
 
-11. Los filtros de estado y búsqueda actualizan lista y contadores sin crear, editar ni completar ejecuciones.
-12. El detalle de una ejecución muestra eventos en orden, marcas de tiempo absolutas y zona/hora local de forma consistente.
-13. La versión conectada usa identidad y workspace autorizados en servidor; no confía en identidad/rol/workspace recibidos desde el navegador.
-14. Una lectura/escritura con sesión no autorizada se rechaza y no filtra títulos, briefs, eventos ni entregables entre workspaces.
-15. La suite visual/funcional verifica 1280 px y anchos móviles de 375 y 320 px, navegación por teclado, foco y estados vacíos/carga/error.
-16. Las pruebas de integración usan fixtures y una base aislada desechable; no cargan credenciales, OAuth ni cuentas de producción.
-17. La ruta de supervisión rechaza a miembros normales, usuarios ajenos y selecciones fuera del workspace; pruebas de dos integrantes verifican aislamiento.
-18. La misma tarea aparece con un único ID y conserva por separado el rango completo de cronograma y cada `workBlock` explícito.
+11. Los filtros de estado y búsqueda actualizan lista y contadores sin crear, editar ni completar ejecuciones; la acción manual de finalización es un control separado.
+12. Marcar una ejecución abierta manualmente la cambia a `completed`, asigna `completed_at` desde el reloj del servidor, conserva su avance/bloqueos/entregables anteriores y añade un evento con actor humano. La misma lectura autenticada devuelve el cambio; repetir la acción no crea otro evento.
+13. El detalle de una ejecución muestra eventos en orden, marcas de tiempo absolutas y zona/hora local de forma consistente.
+14. La versión conectada usa identidad y workspace autorizados en servidor; no confía en identidad/rol/workspace recibidos desde el navegador.
+15. Una lectura/escritura con sesión no autorizada se rechaza y no filtra títulos, briefs, eventos ni entregables entre workspaces.
+16. La suite visual/funcional verifica 1280 px y anchos móviles de 375 y 320 px, navegación por teclado, foco y estados vacíos/carga/error.
+17. Las pruebas de integración usan fixtures y una base aislada desechable; no cargan credenciales, OAuth ni cuentas de producción.
+18. La ruta de supervisión rechaza a miembros normales, usuarios ajenos y selecciones fuera del workspace; pruebas de dos integrantes verifican aislamiento.
+19. La misma tarea aparece con un único ID y conserva por separado el rango completo de cronograma y cada `workBlock` explícito.
 
 ## Fuera de alcance de este cambio
 
