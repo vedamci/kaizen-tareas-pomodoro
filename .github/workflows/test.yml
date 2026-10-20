@@ -1,7 +1,6 @@
-name: Test and deploy Kaizen
+name: Test Kaizen
 on:
   pull_request:
-  workflow_dispatch:
   push:
     branches: ['main', 'feature/**']
 permissions:
@@ -53,27 +52,3 @@ jobs:
           KAIZEN_TEST_DB_USER: root
           KAIZEN_TEST_DB_PASSWORD: root # Disposable runner default.
         run: node --test tests/mcp-http.test.mjs
-
-  deploy:
-    name: Deploy production from GitHub
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: test
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    concurrency:
-      group: kaizen-production-deploy
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - name: Preview deployment file set
-        run: python3 tools/deploy_ftp.py --dry-run
-      - name: Publish over FTPS
-        env:
-          KAIZEN_FTP_HOST: ${{ secrets.KAIZEN_FTP_HOST }}
-          KAIZEN_FTP_USERNAME: ${{ secrets.KAIZEN_FTP_USERNAME }}
-          KAIZEN_FTP_PASSWORD: ${{ secrets.KAIZEN_FTP_PASSWORD }}
-          KAIZEN_FTP_REMOTE_DIR: ${{ secrets.KAIZEN_FTP_REMOTE_DIR }}
-          KAIZEN_FTP_PORT: ${{ vars.KAIZEN_FTP_PORT }}
-        run: python3 tools/deploy_ftp.py --apply
