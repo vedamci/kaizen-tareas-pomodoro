@@ -304,6 +304,8 @@
   .assistant-search label { display:block; font-size:12px; font-weight:700; margin-bottom:4px; }
   .assistant-search .input { width:100%; min-height:44px; min-width:0; }
   .assistant-result { grid-column:1 / -1; margin:0; font-size:12px; color:color-mix(in srgb,var(--color-text) 72%,transparent); }
+  .assistant-action-message { margin:0; padding:10px 12px; border-left:4px solid var(--color-accent-700); background:var(--color-surface); overflow-wrap:anywhere; }
+  .assistant-action-message[role="alert"] { border-left-color:var(--color-accent); }
   .assistant-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:20px; align-items:start; min-width:0; }
   .assistant-layout[data-detail="true"] { grid-template-columns:minmax(0,1fr) minmax(320px,440px); }
   .assistant-cards { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr)); gap:14px; min-width:0; }
@@ -333,6 +335,7 @@
   .assistant-blocker dd { font-weight:600; }
   .assistant-deliverables { margin:0; padding-left:18px; }
   .assistant-open { margin-top:auto; min-height:44px; width:100%; text-align:left; }
+  .assistant-manual-complete { min-height:44px; width:100%; }
   .assistant-detail { position:sticky; top:16px; display:flex; flex-direction:column; gap:14px; min-width:0; padding:18px; background:var(--color-surface); border:2px solid var(--color-divider); overflow-wrap:anywhere; }
   .assistant-detail-top { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; }
   .assistant-detail-top .btn { min-height:44px; }
@@ -871,9 +874,10 @@
           <div class="assistant-view">
             <div class="assistant-demo-banner" role="note"><strong class="assistant-demo-label">{{ assistantDemoLabel }}</strong><span>{{ assistantDataMessage }}</span></div>
             <section class="assistant-hero" aria-labelledby="assistant-hero-title">
-              <div><small>Delegadas a Luna</small><h3 id="assistant-hero-title">Sigue lo que el asistente tiene entre manos</h3><p>Estado, último avance verificable, bloqueo, próximo paso y entregables. Estas ejecuciones no son tareas de Kaizen y no cambian al compartir o completar tareas.</p></div>
+              <div><small>Delegadas a Luna</small><h3 id="assistant-hero-title">Sigue lo que el asistente tiene entre manos</h3><p>Estado, último avance verificable, bloqueo, próximo paso y entregables. Son registros separados de las tareas normales de Kaizen; aquí puedes marcar manualmente una ejecución como completada.</p></div>
               <details class="assistant-demo-states"><summary>Cambiar origen de datos</summary><label for="assistant-demo-state">Fuente visible</label><select id="assistant-demo-state" class="input" value="{{ assistantDemoState }}" onChange="{{ onAssistantDemoState }}"><option value="none">Servidor · sin cargar</option><option value="live">Servidor · registros privados</option><option value="data">Demo · datos ficticios</option><option value="empty">Demo · sin registros</option><option value="loading">Demo · cargando</option><option value="error">Demo · error de carga</option></select></details>
             </section>
+            <sc-if value="{{ assistantActionMessage }}" hint-placeholder-val="{{ false }}"><p class="assistant-action-message" role="{{ assistantActionRole }}" aria-live="polite">{{ assistantActionMessage }}</p></sc-if>
 
             <sc-if value="{{ assistantNotLoaded }}" hint-placeholder-val="{{ false }}"><p class="assistant-state" role="status" aria-live="polite">Selecciona una fuente para ver ejecuciones. Aún no se ha consultado el servidor.</p></sc-if>
             <sc-if value="{{ assistantLoading }}" hint-placeholder-val="{{ false }}"><p class="assistant-state" role="status" aria-live="polite">Cargando ejecuciones del asistente…</p></sc-if>
@@ -907,6 +911,7 @@
                         <sc-if value="{{ card.hasDeliverables }}"><div><dt>Entregables</dt><dd><ul class="assistant-deliverables"><sc-for list="{{ card.deliverables }}" as="d"><li>{{ d.label }}</li></sc-for></ul></dd></div></sc-if>
                       </dl>
                       <button type="button" class="btn btn-secondary assistant-open" data-run-open="{{ card.id }}" aria-label="{{ card.openLabel }}" onClick="{{ card.onOpen }}">Ver detalle y cronología</button>
+                      <sc-if value="{{ card.canManualComplete }}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-secondary assistant-manual-complete" aria-label="{{ card.completeLabel }}" disabled="{{ assistantActionBusy }}" onClick="{{ card.onManualComplete }}">Marcar como completada manualmente</button></sc-if>
                     </li>
                   </sc-for>
                 </ul>
@@ -914,7 +919,7 @@
 
               <sc-if value="{{ assistantHasDetail }}" hint-placeholder-val="{{ false }}">
                 <section class="assistant-detail" aria-labelledby="assistant-detail-heading">
-                  <div class="assistant-detail-top"><span class="assistant-status" data-status="{{ detailStatus }}">{{ detailStatusLabel }}</span><button type="button" class="btn btn-secondary" onClick="{{ onCloseAssistantDetail }}">Cerrar detalle</button></div>
+                  <div class="assistant-detail-top"><span class="assistant-status" data-status="{{ detailStatus }}">{{ detailStatusLabel }}</span><sc-if value="{{ detailCanManualComplete }}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-secondary" disabled="{{ assistantActionBusy }}" onClick="{{ onAssistantManualComplete }}">Marcar completada</button></sc-if><button type="button" class="btn btn-secondary" onClick="{{ onCloseAssistantDetail }}">Cerrar detalle</button></div>
                   <h3 id="assistant-detail-heading" tabIndex="-1">{{ detailTitle }}</h3>
                   <p class="assistant-brief">{{ detailBrief }}</p>
                   <div class="assistant-times">
@@ -1170,7 +1175,7 @@ class Component extends DCLogic {
     activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, full: false,
     teamTasks:[], teamProjects:[], teamLoading:false, teamError:'',
     supervisionPeople:[], supervisionPersonId:'', supervisionTasks:[], supervisionLoading:false, supervisionError:'',
-    assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantFilter:'all', assistantQuery:'', assistantSelId:null, assistantDemoState:'none',
+    assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantFilter:'all', assistantQuery:'', assistantSelId:null, assistantDemoState:'none', assistantActionBusy:false, assistantActionMessage:'', assistantActionRole:'status',
     auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '', delegatingId: null, delegationDraft: [], delegationBusy: false, delegationError: '',
     authName: '', authEmail: '', authPassword: '', adminSummary: [], adminMembers: [], workspaceMembers: [], adminOpen: false, statsDay: null,
     newWorkspaceName: '', inviteEmail: '', memberRole: 'member', inviteRole: 'member', inviteWorkspaceId: null, inviteUrl: '', inviteWorkspace: '', inviteToken: '', suggestionTitle: '', suggestionBody: '', suggestions: [], improvementChecklist: [], checklistDraft: '', mobileNavOpen: false, toast: '', notificationState: 'default', theme: 'classic'
@@ -1532,19 +1537,19 @@ class Component extends DCLogic {
     if (mode == null) mode = this.state.assistantDemoState !== 'none' ? this.state.assistantDemoState : this.preferredAssistantSource();
     const request = this.assistantRequestId = (this.assistantRequestId || 0) + 1;
     if (!this.isWorkspaceAdmin()) {
-      const denied = { assistantStatus:'idle', assistantRuns:[], assistantError:'', assistantSelId:null, assistantDemoState:'none' };
+      const denied = { assistantStatus:'idle', assistantRuns:[], assistantError:'', assistantSelId:null, assistantDemoState:'none', assistantActionBusy:false, assistantActionMessage:'' };
       if (this.state.auth && this.state.view === 'assistant') denied.view = 'today';
       this.setState(denied);
       return Promise.resolve();
     }
     if (!['live','data','empty','loading','error'].includes(mode)) {
-      this.setState({ assistantStatus:'idle', assistantRuns:[], assistantError:'', assistantSelId:null, assistantDemoState:'none' });
+      this.setState({ assistantStatus:'idle', assistantRuns:[], assistantError:'', assistantSelId:null, assistantDemoState:'none', assistantActionBusy:false, assistantActionMessage:'' });
       return Promise.resolve();
     }
     const userId = Number(this.state.auth.id), workspaceId = Number(this.state.workspaceId);
     const stillAuthorized = () => request === this.assistantRequestId &&
       Number(this.state.auth?.id) === userId && Number(this.state.workspaceId) === workspaceId && this.isWorkspaceAdmin();
-    this.setState({ assistantStatus:'loading', assistantRuns:[], assistantError:'', assistantDemoState:mode, assistantSelId:null });
+    this.setState({ assistantStatus:'loading', assistantRuns:[], assistantError:'', assistantDemoState:mode, assistantSelId:null, assistantActionBusy:false, assistantActionMessage:'' });
     if (mode === 'loading') return Promise.resolve();
     return Promise.resolve().then(() => {
       if (!stillAuthorized()) return;
@@ -1576,6 +1581,23 @@ class Component extends DCLogic {
     this.setState({ assistantSelId:null });
     if (id) this.focusAssistant('[data-run-open="' + String(id).replace(/[^\w-]/g, '') + '"]');
   }
+  async markAssistantRunCompleted(runId) {
+    const s=this.state, workspaceId=Number(s.workspaceId), userId=Number(s.auth?.id||0);
+    if (!this.isWorkspaceAdmin() || s.assistantDemoState!=='live' || s.assistantActionBusy || !/^[a-f0-9]{32}$/i.test(String(runId||''))) return;
+    this.setState({assistantActionBusy:true,assistantActionMessage:'',assistantActionRole:'status'});
+    try {
+      const result=await this.api('assistant_run_mark_completed',{workspace_id:workspaceId,run_id:String(runId)});
+      if (Number(this.state.workspaceId)!==workspaceId || Number(this.state.auth?.id||0)!==userId || !this.isWorkspaceAdmin() || this.state.view!=='assistant' || this.state.assistantDemoState!=='live') return;
+      if (!result.ok || !result.run || result.run.id!==String(runId)) throw new Error(result.error || 'No se pudo guardar el cambio.');
+      const runs=Array.isArray(this.state.assistantRuns)?this.state.assistantRuns.slice():[];
+      const index=runs.findIndex(run=>run.id===String(runId));
+      if (index>=0) runs[index]=result.run; else runs.unshift(result.run);
+      this.setState({assistantRuns:runs,assistantActionBusy:false,assistantActionMessage:result.duplicate?'Esta ejecución ya estaba completada.':'Marcada como completada manualmente en Kaizen.',assistantActionRole:'status'});
+    } catch (e) {
+      if (Number(this.state.workspaceId)!==workspaceId || Number(this.state.auth?.id||0)!==userId || this.state.view!=='assistant' || this.state.assistantDemoState!=='live') return;
+      this.setState({assistantActionBusy:false,assistantActionMessage:e.message || 'No se pudo marcar como completada.',assistantActionRole:'alert'});
+    }
+  }
   assistantVals(s, now) {
     const A = typeof KaizenAssistantRuns !== 'undefined' ? KaizenAssistantRuns : null;
     const canSeeAssistant = this.isWorkspaceAdmin();
@@ -1606,7 +1628,10 @@ class Component extends DCLogic {
         hasNextStep:!!r.nextStep, nextStepText:r.nextStep?.summary || '',
         hasDeliverables:r.deliverables.length > 0, deliverables:r.deliverables.map(d => ({ label:d.label })),
         selected:String(s.assistantSelId === r.id), openLabel:'Ver detalle: ' + r.title,
-        onOpen:() => this.openAssistantRun(r.id)
+        canManualComplete:s.assistantDemoState==='live' && ['queued','in_progress','blocked'].includes(r.status),
+        completeLabel:'Marcar como completada manualmente: ' + r.title,
+        onOpen:() => this.openAssistantRun(r.id),
+        onManualComplete:() => this.markAssistantRunCompleted(r.id)
       };
     });
     const sel = summaries.find(r => r.id === s.assistantSelId) || null;
@@ -1629,6 +1654,7 @@ class Component extends DCLogic {
         detailHasBlocker:!!sel.blocker, detailBlocker:sel.blocker?.summary || '',
         detailHasNextStep:!!sel.nextStep, detailNextStep:sel.nextStep?.summary || '',
         detailHasDeliverables:sel.deliverables.length > 0, detailDeliverables:sel.deliverables.map(d => ({ label:d.label, abs:A.absolute(d.at), iso:A.iso(d.at) })),
+        detailCanManualComplete:s.assistantDemoState==='live' && ['queued','in_progress','blocked'].includes(sel.status),
         detailEvents:sel.timeline.map(ev => { const t = when(ev.at); return { label:ev.label, summary:ev.summary, hasSummary:!!ev.summary, actor:ev.actor || A.MISSING, abs:t.abs, iso:t.iso, rel:t.has ? t.rel : '', type:ev.type }; }),
         detailZoneLabel:'Hora local del dispositivo · ' + KaizenPlanning.zone(),
         onCloseAssistantDetail:() => this.closeAssistantRun()
@@ -1648,6 +1674,8 @@ class Component extends DCLogic {
       assistantNoMatches:ready && summaries.length > 0 && cards.length === 0,
       assistantResultLabel:ready ? (cards.length === 1 ? '1 ejecución visible' : cards.length + ' ejecuciones visibles') + ' de ' + summaries.length + '.' : '',
       assistantQuery:s.assistantQuery, assistantDemoState:s.assistantDemoState,
+      assistantActionBusy:s.assistantActionBusy, assistantActionMessage:s.assistantActionMessage, assistantActionRole:s.assistantActionRole,
+      onAssistantManualComplete:() => this.markAssistantRunCompleted(s.assistantSelId),
       assistantLayoutDetail:String(!!detail.assistantHasDetail),
       assistantStatusFilters:filters.map(([key, label]) => ({ key, label, count:counts[key] || 0, pressed:String(s.assistantFilter === key), onClick:() => this.setState({ assistantFilter:key }) })),
       onAssistantQuery:e => this.setState({ assistantQuery:e.target.value }),

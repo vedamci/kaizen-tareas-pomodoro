@@ -8,6 +8,8 @@ const demo = require('../assistant-runs-demo.js');
 const planning = require('../planning.js');
 const html = fs.readFileSync(path.join(__dirname, '../Gestor de Tareas.dc.html'), 'utf8');
 const source = html.match(/<script type="text\/x-dc"[^>]*>([\s\S]*?)<\/script>/)[1];
+const publishedHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+const publishedSource = publishedHtml.match(/<script type="text\/x-dc"[^>]*>([\s\S]*?)<\/script>/)[1];
 const markup = html.slice(html.indexOf('<sc-if value="{{ isAssistant }}"'), html.indexOf('<sc-if value="{{ isTeamView }}">'));
 const supervisionMarkup = html.slice(html.indexOf('<sc-if value="{{ isSupervisionView }}"'), html.indexOf('<sc-if value="{{ isAdminView }}"'));
 const css = html.slice(html.indexOf('.assistant-view {'), html.indexOf('.team-view {'));
@@ -17,7 +19,7 @@ const iso = minutesAgo => new Date(NOW - minutesAgo * 60000).toISOString();
 const ev = (id, type, at, summary = '') => ({ id, type, at, summary, actor: 'Luna (prueba)' });
 const run = (extra = {}, events = [ev('e0', 'delegated', iso(120))]) => ({ kind: 'assistant_run', id: 'r1', assistant: 'Luna (prueba)', title: 'Ejecución sintética', status: 'in_progress', delegated_at: iso(120), events, ...extra });
 
-function component(calls, storage = new Map()) {
+function component(calls, storage = new Map(), appSource = source) {
   class Logic { props = {focusMinutes:25,breakMinutes:5,showQuadrantColors:true}; setState(next) { Object.assign(this.state, typeof next === 'function' ? next(this.state) : next); } }
   const fetch = () => { calls.fetch++; throw new Error('network disabled in tests'); };
   const localStorage = {
@@ -26,10 +28,11 @@ function component(calls, storage = new Map()) {
     removeItem(key) { storage.delete(key); }
   };
   const context = vm.createContext({ DCLogic:Logic, KaizenPlanning:planning, KaizenAssistantRuns:runs, KaizenAssistantDemo:demo, console, setTimeout, clearTimeout, Intl, Date, Promise, fetch, localStorage });
-  const c = new (vm.runInContext(source + '; Component', context))();
+  const c = new (vm.runInContext(appSource + '; Component', context))();
   c.api = async (action,payload) => {
     calls.api++;
     if(action==='assistant_runs')return {ok:true,runs:calls.assistantRuns||[]};
+    if(action==='assistant_run_mark_completed') { (calls.manualCompletions ||= []).push(payload); return calls.manualResult || {ok:false,error:'missing test response'}; }
     if(action==='supervision_people')return {ok:true,people:calls.supervisionPeople||[]};
     if(action==='supervision_tasks')return {ok:true,tasks:(calls.supervisionTasks||{})[Number(payload.person_id)]||[]};
     return { ok:true };
@@ -272,6 +275,36 @@ test('loading, empty and error states are distinct and retry restores demo data'
   assert.equal(v.assistantHasError, true); assert.equal(v.assistantCards.length, 0); assert.ok(v.assistantError);
   await v.onAssistantRetry(); v = c.renderVals();
   assert.equal(v.assistantReady, true); assert.ok(v.assistantCards.length > 0);
+});
+
+test('published app lets admins complete open private runs and records the server response', async () => {
+  assert.match(publishedHtml, /assistant-manual-complete/);
+  assert.match(publishedHtml, /assistant_run_mark_completed/);
+  const id='a'.repeat(32), delegated=ev('delegated-live', 'delegated', iso(120));
+  const open=run({id, source:'codex'}, [delegated]);
+  const completed={...open,status:'completed',completed_at:iso(5),verified_at:iso(5),events:[delegated,ev('completed-live','completed',iso(5),'Marcada como terminada manualmente en Kaizen.')]};
+  const calls={api:0,fetch:0,assistantRuns:[open],manualResult:{ok:true,duplicate:false,run:completed}};
+  const c=component(calls,new Map(),publishedSource);
+  workspaceRole(c,'admin'); c.state.view='assistant';
+  await c.loadAssistantRuns('live');
+  let v=c.renderVals();
+  assert.equal(v.assistantDemoState,'live');
+  assert.equal(v.assistantCards[0].canManualComplete,true);
+  v.assistantCards[0].onOpen(); v=c.renderVals();
+  assert.equal(v.detailCanManualComplete,true);
+  await v.onAssistantManualComplete();
+  assert.equal(calls.manualCompletions.length,1);
+  assert.equal(calls.manualCompletions[0].workspace_id,7);
+  assert.equal(calls.manualCompletions[0].run_id,id);
+  assert.equal(c.state.assistantRuns[0].status,'completed');
+  assert.equal(c.renderVals().assistantCards[0].canManualComplete,false);
+  assert.equal(c.renderVals().assistantActionMessage,'Marcada como completada manualmente en Kaizen.');
+
+  await c.loadAssistantRuns('data');
+  v=c.renderVals();
+  assert.equal(v.assistantCards.some(card=>card.canManualComplete),false,'demo executions never offer a server mutation');
+  await v.assistantCards.find(card=>card.status==='in_progress').onManualComplete();
+  assert.equal(calls.manualCompletions.length,1,'demo callback cannot call the server action');
 });
 
 test('assistant section requires active workspace admin access, including direct-view and loader guards', async () => {
