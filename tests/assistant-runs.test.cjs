@@ -393,7 +393,8 @@ test('markup keeps the demo label persistent and controls accessible from 320 px
   assert.match(css, /@media \(max-width:900px\)[\s\S]*\.assistant-filters \{ grid-template-columns:repeat\(2,minmax\(0,1fr\)\); \}/);
   assert.match(html, /<script src="\.\/assistant-runs\.js\?v=[^"]+"><\/script>/);
   assert.match(source.slice(source.indexOf('loadAssistantRuns('), source.indexOf('focusAssistant(')), /this\.api\('assistant_runs'/);
-  assert.match(source.slice(source.indexOf('loadSupervisionTasks('),source.indexOf('memberName(')),/this\.api\('supervision_tasks'/);
+  const supervisionLoader = source.indexOf('async loadSupervisionTasks(');
+  assert.match(source.slice(supervisionLoader,source.indexOf('memberName(',supervisionLoader)),/this\.api\('supervision_tasks'/);
   assert.match(html,/\.supervision-toolbar \.btn \{ min-height:44px; \}/);
   assert.match(supervisionMarkup,/<strong>\{\{ t\.title \}\}<\/strong>/,'timeline titles are plain text rather than self-links');
 });
