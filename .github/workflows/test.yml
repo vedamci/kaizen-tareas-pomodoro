@@ -13,6 +13,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+      - name: Verify published page matches the editable page
+        run: cmp --silent index.html 'Gestor de Tareas.dc.html'
       - name: JavaScript and component checks
         run: node --test tests/planning.test.cjs tests/assistant-runs.test.cjs
       - name: PHP syntax and project policy
