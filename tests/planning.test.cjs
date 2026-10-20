@@ -472,7 +472,8 @@ test('team navigation count follows loaded rows and refreshes without changing p
   c.api=async action=>{assert.equal(action,'team_tasks');return {ok:true,tasks:fixture,projects:[]};};
   const count=v=>v.navItems.find(n=>n.id==='team')?.count;
   assert.equal(count(c.renderVals()),0);await c.loadTeamTasks();
-  let v=c.renderVals();assert.equal(v.teamGroups.flatMap(group=>group.tasks).length,4);assert.equal(count(v),4);assert.equal(v.listTasks.length,1);assert.equal(v.navItems.find(n=>n.id==='inbox').count,1);
+  let v=c.renderVals();assert.equal(v.teamGroups.flatMap(group=>group.tasks).length,3);assert.equal(count(v),4);assert.equal(v.listTasks.length,1);assert.equal(v.navItems.find(n=>n.id==='inbox').count,1);
+  c.state.teamStatusFilter='trash';assert.equal(c.renderVals().teamGroups.flatMap(group=>group.tasks).length,1);c.state.teamStatusFilter='all';
   fixture=fixture.slice(0,2);await c.loadTeamTasks();v=c.renderVals();assert.equal(v.teamGroups.flatMap(group=>group.tasks).length,2);assert.equal(count(v),2);assert.equal(v.listTasks.length,1);
   fixture=[];await c.loadTeamTasks();assert.equal(count(c.renderVals()),0);
   c.state.workspaces[0].member_role='member';assert.equal(count(c.renderVals()),undefined);
