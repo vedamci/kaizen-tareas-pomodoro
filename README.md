@@ -181,7 +181,12 @@ mete las tareas de los compañeros en Hoy/Bandeja/Futuro. La vista **Tareas del
 equipo**, en Más vistas y Supervisión, permite al administrador del espacio
 consultar todas las tareas de ese espacio, con creador y responsables separados.
 Es de solo lectura y su colección no entra en listas, sincronización ni caché
-persistida personal. No se cambian usuarios ni roles.
+persistida personal. Ahora incluye un resumen clicable de pendientes, atrasadas,
+hechas y sin responsable; búsqueda por tarea, persona o proyecto; filtros de
+estado; y agrupación por responsable, proyecto o estado. Dentro de cada grupo,
+las tareas atrasadas y las fechas más próximas aparecen primero. Las tarjetas
+muestran el creador, responsables confirmados, proyecto, fecha límite, rango de
+planificación y tiempo Pomodoro registrado. No se cambian usuarios ni roles.
 
 Protección en API (identidad y rol proceden de sesión/DB, no del payload):
 
