@@ -322,9 +322,12 @@ Apache/HTTPS de producción ni la entrega de notificaciones push. La vista previ
 en Chrome sigue usando datos ficticios.
 
 Al fusionar cambios a `main`, GitHub envía el evento `push` al webhook de
-publicación que ya está configurado para este repositorio. El workflow ejecuta
-las pruebas y el webhook actualiza el sitio; no hay que cargar archivos ni
-configurar secretos FTP para cada cambio. Ver [docs/github-deploy.md](docs/github-deploy.md).
+publicación que ya está configurado para este repositorio. El sitio se publica
+desde `Gestor de Tareas.dc.html`; `index.html` debe conservar el mismo contenido
+para que la vista previa y la página publicada no se separen. El workflow
+comprueba que ambos archivos coincidan antes de pasar las pruebas. No hay que
+cargar archivos ni configurar secretos FTP para cada cambio. Ver
+[docs/github-deploy.md](docs/github-deploy.md).
 
 El calendario horario anterior llegó a `main` el 12 de octubre de 2026. La
 separación de bloques y cronograma está en `feature/daily-work-blocks` para revisión;

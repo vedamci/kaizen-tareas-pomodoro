@@ -372,10 +372,40 @@
     .assistant-times { grid-template-columns:minmax(0,1fr); }
     .assistant-detail { padding:14px; }
   }
-  .team-view { font-size:13px; line-height:1.6; }
-  .team-task { display:flex; flex-direction:column; gap:4px; padding:14px 0; border-bottom:1px solid var(--color-divider); overflow-wrap:anywhere; }
-  .team-task small { font-size:12px; }
+  .team-view { display:flex; flex-direction:column; gap:16px; max-width:1240px; min-width:0; font-size:13px; line-height:1.6; }
+  .team-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr)); gap:8px; }
+  .team-stat { display:flex; flex-direction:column; align-items:flex-start; gap:3px; min-height:76px; padding:12px; border:1px solid var(--color-divider); border-left:4px solid var(--color-divider); background:var(--color-bg); color:var(--color-text); text-align:left; cursor:pointer; }
+  .team-stat strong { font:800 22px/1 var(--font-heading); font-variant-numeric:tabular-nums; }
+  .team-stat span { font-size:12px; }
+  .team-stat:hover, .team-stat[aria-pressed="true"] { border-color:var(--color-accent-700); background:color-mix(in srgb,var(--color-accent) 8%,var(--color-bg)); color:var(--color-accent-700); }
+  .team-stat[data-filter="overdue"] { border-left-color:var(--color-accent); }
+  .team-stat[data-filter="done"] { border-left-color:var(--color-text); }
+  .team-toolbar { display:grid; grid-template-columns:minmax(220px,2fr) repeat(2,minmax(150px,1fr)) auto; gap:10px; align-items:end; padding:14px; background:var(--color-surface); border-left:4px solid var(--color-accent); }
+  .team-toolbar label { display:flex; flex-direction:column; gap:5px; min-width:0; font-size:12px; font-weight:700; }
+  .team-toolbar .input, .team-toolbar .btn { width:100%; min-width:0; min-height:44px; }
+  .team-result { margin:0; font-size:12px; color:color-mix(in srgb,var(--color-text) 70%,transparent); }
+  .team-groups { display:flex; flex-direction:column; gap:18px; }
+  .team-group { min-width:0; padding:14px; border:1px solid var(--color-divider); background:var(--color-bg); }
+  .team-group > h3 { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 10px; font:800 17px var(--font-heading); overflow-wrap:anywhere; }
+  .team-group > h3 span { flex:none; padding:2px 8px; border:1px solid var(--color-divider); font-size:12px; font-variant-numeric:tabular-nums; }
+  .team-group-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr)); gap:10px; }
+  .team-task { display:flex; flex-direction:column; gap:7px; min-width:0; padding:12px; border:1px solid var(--color-divider); border-top:3px solid var(--color-accent-700); background:var(--color-surface); overflow-wrap:anywhere; }
+  .team-task[data-status="overdue"] { border-top-color:var(--color-accent); }
+  .team-task[data-status="done"] { opacity:.78; border-top-color:var(--color-text); }
+  .team-task[data-status="trash"] { border-top-style:dashed; }
+  .team-task-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+  .team-task-head strong { font:800 15px/1.35 var(--font-heading); }
+  .team-status { flex:none; padding:2px 7px; border:1px solid currentColor; font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
+  .team-status[data-status="overdue"] { color:var(--color-accent); }
+  .team-status[data-status="done"] { color:var(--color-text); }
+  .team-status[data-status="trash"] { border-style:dashed; color:color-mix(in srgb,var(--color-text) 65%,transparent); }
+  .team-task-meta { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:12px; }
+  .team-task-meta > span { min-width:0; }
   .team-task .timeline-assignee { font-weight:600; }
+  .team-task small { font-size:11px; color:color-mix(in srgb,var(--color-text) 72%,transparent); }
+  .team-empty { padding:14px; border:1px dashed var(--color-divider); }
+  .team-view :focus-visible { outline:3px solid var(--color-accent-700); outline-offset:2px; }
+  @media (max-width:800px) { .team-toolbar { grid-template-columns:minmax(0,1fr); } .team-summary { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   .supervision-view { display:flex; flex-direction:column; gap:18px; max-width:1240px; font-size:13px; line-height:1.55; }
   .supervision-toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:10px; padding:16px; background:var(--color-surface); border-left:4px solid var(--color-accent); }
   .supervision-toolbar label { display:flex; flex-direction:column; gap:5px; min-width:min(100%,260px); font-weight:700; }
@@ -949,14 +979,28 @@
 
         <sc-if value="{{ isTeamView }}">
           <div class="team-view">
-            <p>Consulta de las tareas de este espacio. Tus listas personales conservan solo las que creaste o recibiste por delegación directa.</p>
-            <button class="btn btn-secondary" onClick="{{ onRefreshTeam }}" disabled="{{ teamLoading }}">Actualizar equipo</button>
+            <p style="margin:0">Consulta de solo lectura para este espacio. Tus listas personales conservan solo las tareas que creaste o recibiste por delegación directa.</p>
+            <sc-if value="{{ teamHasTasks }}">
+              <div class="team-summary" aria-label="Resumen de tareas del equipo">
+                <button class="team-stat" data-filter="all" aria-pressed="{{ teamAllSelected }}" onClick="{{ onTeamQuickFilterAll }}"><strong>{{ teamAllCount }}</strong><span>Todas las tareas</span></button>
+                <button class="team-stat" data-filter="pending" aria-pressed="{{ teamPendingSelected }}" onClick="{{ onTeamQuickFilterPending }}"><strong>{{ teamPendingCount }}</strong><span>Pendientes</span></button>
+                <button class="team-stat" data-filter="overdue" aria-pressed="{{ teamOverdueSelected }}" onClick="{{ onTeamQuickFilterOverdue }}"><strong>{{ teamOverdueCount }}</strong><span>Atrasadas</span></button>
+                <button class="team-stat" data-filter="done" aria-pressed="{{ teamDoneSelected }}" onClick="{{ onTeamQuickFilterDone }}"><strong>{{ teamDoneCount }}</strong><span>Hechas</span></button>
+                <button class="team-stat" data-filter="unassigned" aria-pressed="{{ teamUnassignedSelected }}" onClick="{{ onTeamQuickFilterUnassigned }}"><strong>{{ teamUnassignedCount }}</strong><span>Sin responsable</span></button>
+              </div>
+              <div class="team-toolbar">
+                <label for="team-search">Buscar tarea, persona o proyecto<input id="team-search" class="input" type="search" placeholder="Escribe para filtrar…" value="{{ teamQuery }}" onInput="{{ onTeamQuery }}"></label>
+                <label for="team-filter">Estado<select id="team-filter" class="input" value="{{ teamStatusFilter }}" onChange="{{ onTeamStatusFilter }}"><option value="all">Todas excepto papelera</option><option value="pending">Pendientes</option><option value="overdue">Atrasadas</option><option value="done">Hechas</option><option value="unassigned">Sin responsable</option><option value="trash">Papelera</option></select></label>
+                <label for="team-group">Agrupar por<select id="team-group" class="input" value="{{ teamGroupBy }}" onChange="{{ onTeamGroupBy }}"><option value="responsible">Responsable</option><option value="project">Proyecto</option><option value="status">Estado</option></select></label>
+                <button class="btn btn-secondary" onClick="{{ onRefreshTeam }}" disabled="{{ teamLoading }}">{{ teamRefreshLabel }}</button>
+              </div>
+              <p class="team-result" role="status" aria-live="polite">{{ teamResultLabel }}</p>
+            </sc-if>
             <sc-if value="{{ teamLoading }}"><p role="status">Cargando tareas del equipo…</p></sc-if>
             <sc-if value="{{ teamError }}"><p role="alert">{{ teamError }}</p></sc-if>
-            <sc-if value="{{ teamEmpty }}"><p>No hay tareas en este espacio.</p></sc-if>
-            <sc-for list="{{ teamRows }}" as="t">
-              <article class="team-task"><strong>{{ t.title }}</strong><span>{{ t.creatorLabel }}</span><span class="timeline-assignee">{{ t.responsibleLabel }}</span><small>{{ t.projectName }} · {{ t.status }} · Tiempo real {{ t.time }}</small><small>{{ t.planLabel }}</small></article>
-            </sc-for>
+            <sc-if value="{{ teamEmpty }}"><p class="team-empty">No hay tareas en este espacio.</p></sc-if>
+            <sc-if value="{{ teamNoResults }}"><div class="team-empty" role="status">No hay tareas que coincidan con esos filtros.<button class="btn btn-ghost" onClick="{{ onTeamResetFilters }}">Quitar filtros</button></div></sc-if>
+            <div class="team-groups"><sc-for list="{{ teamGroups }}" as="g"><section class="team-group"><h3>{{ g.label }}<span>{{ g.count }}</span></h3><div class="team-group-list"><sc-for list="{{ g.tasks }}" as="t"><article class="team-task" data-status="{{ t.statusKey }}"><div class="team-task-head"><strong>{{ t.title }}</strong><span class="team-status" data-status="{{ t.statusKey }}">{{ t.status }}</span></div><div class="team-task-meta"><span>{{ t.creatorLabel }}</span><span class="timeline-assignee">{{ t.responsibleLabel }}</span></div><div class="team-task-meta"><span>{{ t.projectName }}</span><span>{{ t.dueLabel }}</span></div><small>{{ t.planLabel }} · Tiempo real {{ t.time }}</small></article></sc-for></div></section></sc-for></div>
           </div>
         </sc-if>
 
@@ -1173,7 +1217,7 @@ class Component extends DCLogic {
     timerSpeed: 1,
     pushReady: false,
     activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, full: false,
-    teamTasks:[], teamProjects:[], teamLoading:false, teamError:'',
+    teamTasks:[], teamProjects:[], teamLoading:false, teamError:'', teamQuery:'', teamStatusFilter:'all', teamGroupBy:'responsible',
     supervisionPeople:[], supervisionPersonId:'', supervisionTasks:[], supervisionLoading:false, supervisionError:'',
     assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantFilter:'all', assistantQuery:'', assistantSelId:null, assistantDemoState:'none', assistantActionBusy:false, assistantActionMessage:'', assistantActionRole:'status',
     auth: null, workspaces: [], workspaceId: null, authMode: 'login', authError: '', delegatingId: null, delegationDraft: [], delegationBusy: false, delegationError: '',
@@ -1948,8 +1992,8 @@ class Component extends DCLogic {
       if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
-  async logout() { this.discardSlotDraft(); this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; this.remoteSaved = {};  await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, view:'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'', improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
-  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
+  async logout() { this.discardSlotDraft(); this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; this.remoteSaved = {};  await this.api('logout'); try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, view:'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'', improvementChecklist: [], authPassword: '', selId: null, delegatingId: null }); }
+  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
   async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return; const r=await this.api('workspace_members',{workspace_id:workspaceId}); if(r.ok)this.setState({workspaceMembers:r.members||[]}); }
   async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], workspaceMembers: m.members || [], adminOpen: true }); } }
   async clearWorkspaceTasks(workspaceId, workspaceName) { if (this.state.auth?.role !== 'super_admin') return; const r=await this.api('workspace_tasks_clear',{workspace_id:workspaceId}); if(r.ok){ if(Number(this.state.workspaceId)===Number(workspaceId)) this.setState({tasks:[],selId:null}); this.setState({authError:'Se borraron ' + (r.deleted||0) + ' tareas de «' + workspaceName + '».'}); await this.loadAdminSummary(); } else this.setState({authError:r.error||'No se pudieron borrar las tareas.'}); }
@@ -2175,6 +2219,59 @@ class Component extends DCLogic {
     } catch(e) {
       if(request===this.teamRequestId&&Number(this.state.auth?.id)===userId&&Number(this.state.workspaceId)===Number(workspaceId))this.setState({teamTasks:[],teamProjects:[],teamLoading:false,teamError:e.message||'No se pudo conectar con el servidor.'});
     }
+  }
+
+  teamViewModel() {
+    const s=this.state;
+    if(!this.isWorkspaceAdmin())return {rows:[],groups:[],all:0,pending:0,overdue:0,done:0,unassigned:0};
+    const today=this.dkey(Date.now()), fold=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-MX');
+    const projects=new Map((s.teamProjects||[]).map(project=>[String(project.id),String(project.name||'Sin proyecto')]));
+    const rows=(s.teamTasks||[]).map(task=>{
+      const trash=task.list==='trash', done=!trash&&(!!task.done||task.list==='done');
+      const dueCandidate=String(task.due||''),dueDateCheck=/^\d{4}-\d{2}-\d{2}$/.test(dueCandidate)?new Date(dueCandidate+'T00:00:00.000Z'):null;
+      const due=dueDateCheck&&dueDateCheck.toISOString().slice(0,10)===dueCandidate?dueCandidate:'';
+      const overdue=!trash&&!done&&!!due&&due<today;
+      const assigned=Array.isArray(task._shared_user_ids)?task._shared_user_ids:(Array.isArray(task.sharedWith)?task.sharedWith:[]);
+      const responsibleLabel=this.responsibleLabel(task), creatorLabel='Creada por '+this.memberName(task._owner_id);
+      const projectName=projects.get(String(task.project))||'Sin proyecto';
+      const status=trash?'En papelera':overdue?'Atrasada':done?'Hecha':'Pendiente';
+      const statusKey=trash?'trash':overdue?'overdue':done?'done':'pending';
+      const dueDate=due?new Date(due+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'}):'';
+      const start=Date.parse(task.scheduledStart),end=Date.parse(task.scheduledEnd);
+      const planLabel=Number.isFinite(start)&&Number.isFinite(end)&&end>start
+        ?'Plan: '+new Date(start).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})+' → '+new Date(end).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})
+        :'Sin planificación';
+      return {
+        title:String(task.title||'Tarea sin título'),creatorLabel,responsibleLabel,projectName,status,statusKey,
+        dueLabel:due?'Fecha límite: '+dueDate:'Sin fecha límite',planLabel,time:this.fmtDur(Math.max(0,Number(task.seconds)||0)),
+        isTrash:trash,isDone:done,isPending:!trash&&!done,isOverdue:overdue,hasAssignee:assigned.some(id=>Number(id)>0),dueSort:due||'9999-12-31',
+        search:fold([task.title,creatorLabel,responsibleLabel,projectName].join(' '))
+      };
+    });
+    const active=rows.filter(row=>!row.isTrash);
+    const stats={all:active.length,pending:active.filter(row=>row.isPending).length,overdue:active.filter(row=>row.isOverdue).length,done:active.filter(row=>row.isDone).length,unassigned:active.filter(row=>!row.hasAssignee).length};
+    const query=fold(s.teamQuery),filter=s.teamStatusFilter||'all';
+    const candidates=rows.filter(row=>{
+      const matchesFilter=filter==='trash'?row.isTrash:filter==='pending'?row.isPending:filter==='overdue'?row.isOverdue:filter==='done'?row.isDone:filter==='unassigned'?!row.isTrash&&!row.hasAssignee:!row.isTrash;
+      return matchesFilter;
+    });
+    const filtered=candidates.filter(row=>!query||row.search.includes(query));
+    const collator=new Intl.Collator('es-MX',{sensitivity:'base'});
+    const order={overdue:0,pending:1,done:2,trash:3};
+    filtered.sort((a,b)=>order[a.statusKey]-order[b.statusKey]||a.dueSort.localeCompare(b.dueSort)||collator.compare(a.title,b.title));
+    const groupBy=['responsible','project','status'].includes(s.teamGroupBy)?s.teamGroupBy:'responsible', grouped=new Map();
+    for(const row of filtered){
+      const key=groupBy==='project'?row.projectName:groupBy==='status'?row.status:row.responsibleLabel;
+      if(!grouped.has(key))grouped.set(key,[]);
+      grouped.get(key).push(row);
+    }
+    const groups=[...grouped].map(([label,tasks])=>({label,count:tasks.length,tasks}));
+    groups.sort((a,b)=>{
+      if(groupBy==='status'){const rank={'Atrasada':0,'Pendiente':1,'Hecha':2,'En papelera':3};return (rank[a.label]??9)-(rank[b.label]??9);}
+      const empty=groupBy==='project'?'Sin proyecto':'Sin asignar';
+      return Number(a.label===empty)-Number(b.label===empty)||collator.compare(a.label,b.label);
+    });
+    return {rows:filtered,groups,resultTotal:candidates.length,...stats};
   }
 
   async loadSupervisionPeople() {
@@ -2447,6 +2544,7 @@ class Component extends DCLogic {
     const activeTasks = personalTasks.filter(t => t.list !== 'trash');
     const open = activeTasks.filter(t => !t.done);
     const assistant = this.assistantVals(s, now);
+    const team = this.teamViewModel();
     const counts = {
       assistant: assistant.assistantOpenCount,
       today: open.filter(t => t.list === 'today').length,
@@ -2790,9 +2888,17 @@ class Component extends DCLogic {
       onRefreshAdmin: () => this.loadAdminSummary(),
       navItems, streak: streak,
       viewTitle: tt[0], viewSub: tt[1],
-      isTeamView:s.view==='team'&&this.isWorkspaceAdmin(),canSeeTeam:this.isWorkspaceAdmin(),teamLoading:s.teamLoading,teamError:s.teamError,teamEmpty:!s.teamLoading&&!s.teamTasks.length&&!s.teamError,
+      isTeamView:s.view==='team'&&this.isWorkspaceAdmin(),canSeeTeam:this.isWorkspaceAdmin(),teamLoading:s.teamLoading,teamError:s.teamError,teamEmpty:!s.teamLoading&&!s.teamTasks.length&&!s.teamError,teamHasTasks:!!s.teamTasks.length,
+      teamNoResults:!s.teamLoading&&!s.teamError&&!!s.teamTasks.length&&!team.rows.length,
+      teamQuery:s.teamQuery,teamStatusFilter:s.teamStatusFilter,teamGroupBy:s.teamGroupBy,
+      teamAllCount:team.all,teamPendingCount:team.pending,teamOverdueCount:team.overdue,teamDoneCount:team.done,teamUnassignedCount:team.unassigned,
+      teamAllSelected:s.teamStatusFilter==='all',teamPendingSelected:s.teamStatusFilter==='pending',teamOverdueSelected:s.teamStatusFilter==='overdue',teamDoneSelected:s.teamStatusFilter==='done',teamUnassignedSelected:s.teamStatusFilter==='unassigned',
+      teamResultLabel:'Mostrando '+team.rows.length+' de '+team.resultTotal+' tareas · agrupadas por '+({responsible:'responsable',project:'proyecto',status:'estado'}[s.teamGroupBy]||'responsable'),
+      teamRefreshLabel:s.teamLoading?'Actualizando…':'Actualizar equipo',teamGroups:team.groups,
       onRefreshTeam:()=>this.loadTeamTasks(),onOpenTeam:()=>{this.setState({view:'team',selId:null,delegatingId:null});this.loadTeamTasks();},
-      teamRows:this.isWorkspaceAdmin()?s.teamTasks.map(t=>({title:t.title,creatorLabel:'Creada por '+this.memberName(t._owner_id),responsibleLabel:this.responsibleLabel(t),projectName:s.teamProjects.find(p=>p.id===t.project)?.name||'Sin proyecto',status:t.list==='trash'?'Borrada':t.done?'Hecha':'Pendiente',time:this.fmtDur(t.seconds||0),planLabel:t.scheduledStart&&t.scheduledEnd?'Plan: '+fmtPlan(t.scheduledStart)+' → '+fmtPlan(t.scheduledEnd):'Sin planificación'})):[],
+      onTeamQuery:e=>this.setState({teamQuery:e.target.value}),onTeamStatusFilter:e=>this.setState({teamStatusFilter:e.target.value}),onTeamGroupBy:e=>this.setState({teamGroupBy:e.target.value}),
+      onTeamQuickFilterAll:()=>this.setState({teamStatusFilter:'all'}),onTeamQuickFilterPending:()=>this.setState({teamStatusFilter:'pending'}),onTeamQuickFilterOverdue:()=>this.setState({teamStatusFilter:'overdue'}),onTeamQuickFilterDone:()=>this.setState({teamStatusFilter:'done'}),onTeamQuickFilterUnassigned:()=>this.setState({teamStatusFilter:'unassigned'}),
+      onTeamResetFilters:()=>this.setState({teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible'}),
       isSupervisionView:s.view==='supervision'&&this.isWorkspaceAdmin(),supervisionLoading:s.supervisionLoading,supervisionError:s.supervisionError,
       supervisionPersonId:String(s.supervisionPersonId||''),supervisionPeopleOptions:this.isWorkspaceAdmin()?s.supervisionPeople.map(p=>({id:String(p.id),name:p.name,role:p.workspace_role==='admin'?'admin':'miembro'})):[],
       supervisionTodayLabel:new Date(now).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}),
