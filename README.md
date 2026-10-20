@@ -321,6 +321,11 @@ Límite: la prueba HTTP usa el servidor integrado de PHP; no valida la configura
 Apache/cPanel/HTTPS de producción ni la entrega de notificaciones push. La vista
 previa en Chrome sigue usando datos ficticios. No se probó ni publicó en producción.
 
+La rama también incluye publicación continua desde GitHub: al fusionar cambios a
+`main`, el workflow espera las pruebas y publica la aplicación por FTPS. Requiere
+configurar una vez los secretos del hosting en GitHub; después no se entra a
+cPanel para publicar cambios. Ver [docs/github-deploy.md](docs/github-deploy.md).
+
 El calendario horario anterior llegó a `main` el 12 de octubre de 2026. La
 separación de bloques y cronograma está en `feature/daily-work-blocks` para revisión;
 no se ha fusionado ni desplegado.
