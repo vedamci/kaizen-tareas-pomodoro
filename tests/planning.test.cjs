@@ -7,8 +7,11 @@ const html = fs.readFileSync(require('node:path').join(__dirname, '../Gestor de 
 const source = html.match(/<script type="text\/x-dc"[^>]*>([\s\S]*?)<\/script>/)[1];
 function component() {
   class Logic { props = {focusMinutes:25,breakMinutes:5,showQuadrantColors:true}; setState(next) { Object.assign(this.state, typeof next === 'function' ? next(this.state) : next); } }
-  const context = vm.createContext({ DCLogic:Logic, KaizenPlanning:planning, console, setTimeout, clearTimeout, Intl, Date, localStorage:{setItem(){}} });
-  return new (vm.runInContext(source+'; Component',context))();
+  const values=new Map(),localStorage={getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,String(value)),removeItem:key=>values.delete(key)};
+  const context = vm.createContext({ DCLogic:Logic, KaizenPlanning:planning, console, setTimeout, clearTimeout, Intl, Date, localStorage });
+  const instance=new (vm.runInContext(source+'; Component',context))();
+  instance.testStorage=values;
+  return instance;
 }
 test('password recovery UI keeps links private and clears sensitive drafts',async()=>{
   assert.match(html,/name="referrer" content="no-referrer"/);
@@ -250,6 +253,26 @@ test('timezone changes preserve the planned instant; DST gaps fail',()=>{
 });
 test('timeline filters by project or none, keeps undated and completed tasks, excludes trash',()=>{
   const tasks=[{id:'a',title:'A',project:'p',scheduledStart:'2026-10-05T10:00:00.000Z',scheduledEnd:'2026-10-05T11:00:00.000Z',done:true},{id:'b',title:'B',project:'p'},{id:'c',title:'C',project:''},{id:'d',title:'D',project:'p',list:'trash'}];assert.equal(planning.timeline(tasks,'p').scheduled.length,1);assert.equal(planning.timeline(tasks,'p').unscheduled[0].id,'b');assert.equal(planning.timeline(tasks,'__none__').unscheduled[0].id,'c');assert.equal(planning.timeline(tasks).unscheduled.length,2);
+});
+test('timeline responsibility selection filters by confirmed assignments, never creator',()=>{
+  const previous=process.env.TZ;process.env.TZ='UTC';
+  try {
+    const c=component();Object.assign(c.state,c.seed());c.state.auth={id:1,role:'user'};c.state.workspaceId=10;c.state.view='timeline';c.state.timelineMode='day';c.state.timelineAnchor=Date.parse('2026-10-05T12:00:00.000Z');
+    c.state.workspaceMembers=[{id:1,name:'Owner'},{id:2,name:'Assigned Two'},{id:3,name:'Assigned Three'}];
+    const planned=(id,owner,confirmed,overrides={})=>({id,title:id,project:'',list:'future',done:false,scheduledStart:'2026-10-05T09:00:00.000Z',scheduledEnd:'2026-10-05T10:00:00.000Z',_owner_id:owner,_shared_user_ids:confirmed,sharedWith:confirmed,...overrides});
+    c.state.tasks=[planned('assigned-two',1,[2]),planned('assigned-three',2,[3]),planned('created-by-two',2,[],{sharedWith:[2]}),planned('unassigned',3,[]),planned('unscheduled-two',1,[2],{scheduledStart:'',scheduledEnd:''})];
+    c.state.teamTasks=[planned('team-only',4,[2])];
+    let view=c.renderVals();assert.deepEqual(view.timelineRows.map(row=>row.title).sort(),['assigned-three','assigned-two','created-by-two','unassigned']);
+    view.onTimelineResponsible({target:{value:'2'}});view=c.renderVals();
+    assert.deepEqual(view.timelineRows.map(row=>row.title),['assigned-two']);assert.equal(view.unscheduledRows.length,1);assert.equal(view.unscheduledRows[0].title,'unscheduled-two');
+    assert.equal(view.timelineScheduledCount,1);assert.equal(view.timelineScopeLabel,'Responsable: Assigned Two');
+    assert.ok(!view.timelineRows.some(row=>row.title==='created-by-two'||row.title==='team-only'));
+    view.onTimelineResponsible({target:{value:'__unassigned__'}});view=c.renderVals();
+    assert.deepEqual(view.timelineRows.map(row=>row.title).sort(),['created-by-two','unassigned']);
+    view.onTimelineResponsible({target:{value:'1'}});view=c.renderVals();
+    assert.equal(view.timelineRows.length,0);assert.equal(view.unscheduledRows.length,0);assert.match(view.timelineEmptyMessage,/No hay tareas asignadas a Owner/);
+    view.onTimelineResponsible({target:{value:''}});assert.equal(c.renderVals().timelineRows.length,4,'clearing restores all currently accessible tasks');
+  } finally {if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous;}
 });
 test('members receive project tasks even without direct delegation',()=>{
   const c=component();c.state.auth={id:2};assert.equal(c.visibleRemoteTasks([{id:'a',_owner_id:1,_project_member:true},{id:'b',_owner_id:1,_shared_user_ids:[]}]).length,1);
@@ -569,6 +592,55 @@ test('today-first navigation keeps the agenda separate from month browsing and r
   v.navItems.find(n=>n.id==='calendar').onClick();assert.equal(c.state.dailyDate,c.dkey(Date.now()));assert.equal(c.renderVals().dailyHeroLabel,'Hoy');
   c.state.dailyDate='bad';assert.equal(c.selectedDailyDate(),c.dkey(Date.now()));
   assert.match(html,/class="daily-hero"/);assert.ok(html.indexOf('class="daily-hero"')<html.indexOf('class="daily-month-picker"'));
+  assert.match(html,/id="daily-responsible"/);assert.match(html,/id="timeline-responsible"/);assert.match(html,/Solo lectura en esta vista por responsable/);
   assert.match(html,/dailyDate:s\.dailyDate/);
   assert.match(html,/KaizenPlanning\.validDateKey\(base\.dailyDate/);
+});
+test('daily person filters keep the personal default, separate responsibility from creator, and never read team-only data',()=>{
+  const previous=process.env.TZ;process.env.TZ='UTC';
+  try {
+    const c=component();c.state.auth={id:1,role:'user'};c.state.workspaceId=7;c.state.workspaceMembers=[{id:1,name:'One'},{id:2,name:'Two'},{id:3,name:'Three'}];c.state.view='calendar';c.state.dailyDate='2026-10-07';
+    const base={list:'future',done:false,project:'p',tags:[],subtasks:[],seconds:0,sharedWith:[]};
+    const block=(id,hour)=>({id,start:`2026-10-07T${hour}:00:00.000Z`,end:`2026-10-07T${String(Number(hour)+1).padStart(2,'0')}:00:00.000Z`});
+    c.state.tasks=[
+      {...base,id:'own-unassigned',title:'Own unassigned',_owner_id:1,due:'2026-10-07',workBlocks:[block('b1','09')]},
+      {...base,id:'assigned-to-one',title:'Assigned to One',_owner_id:4,_shared_user_ids:[1],due:'2026-10-07',workBlocks:[block('b2','10')]},
+      {...base,id:'assigned-to-two',title:'Assigned to Two',_owner_id:4,_shared_user_ids:[2],due:'2026-10-07',workBlocks:[block('b3','11')]},
+      {...base,id:'created-by-two',title:'Created by Two',_owner_id:2,_shared_user_ids:[],sharedWith:[2],due:'2026-10-07'},
+      {...base,id:'project-unassigned',title:'Project unassigned',_owner_id:3,_project_member:true,_shared_user_ids:[],due:'2026-10-07',workBlocks:[block('b4','12')]},
+      {...base,id:'assigned-to-three-tomorrow',title:'Three tomorrow',_owner_id:4,_shared_user_ids:[3],due:'2026-10-08'}
+    ];
+    c.state.teamTasks=[{...base,id:'team-only',title:'Team only',_owner_id:5,_shared_user_ids:[2],due:'2026-10-07'}];
+    const before=JSON.stringify(c.state.tasks);
+    let view=c.renderVals();assert.equal(view.dailyCount,2);assert.deepEqual(view.hourlyBlocks.map(row=>row.title),['Own unassigned','Assigned to One']);
+    assert.match(view.dailyScopeLabel,/creadas por ti o asignadas directamente a ti/);
+    view.hourlySlots[0].onOpen();assert.equal(c.state.slotCreateOpen,true);
+    view.onDailyResponsible({target:{value:'2'}});assert.equal(c.state.slotCreateOpen,false,'changing the person discards a personal slot draft');view=c.renderVals();
+    assert.equal(view.dailyCount,1);assert.deepEqual(view.hourlyBlocks.map(row=>row.title),['Assigned to Two']);
+    assert.equal(view.dailyCanManage,false);assert.equal(view.hourlySlots.length,0);assert.equal(view.hourlyFree.length,0);assert.equal(view.dailyAssignOptions.length,0);
+    assert.deepEqual(view.dailyRows.map(row=>row.title),[],'tasks placed in explicit hour blocks are not duplicated as daily cards');
+    assert.ok(!view.hourlyBlocks.some(row=>row.title==='Created by Two'||row.title==='team-only'));
+    c.state.dailyTitle='Must not become a task for another person';c.addDailyTask();assert.equal(c.state.tasks.length,6);
+    view.onDailyResponsible({target:{value:'__unassigned__'}});view=c.renderVals();
+    assert.equal(view.dailyCount,3);assert.deepEqual(view.hourlyBlocks.map(row=>row.title),['Own unassigned','Project unassigned']);
+    assert.deepEqual(view.dailyRows.map(row=>row.title),['Created by Two']);assert.ok(view.dailyRows[0].readOnly);
+    assert.ok(!view.dailyRows.some(row=>row.title==='team-only'));
+    view.onDailyNextDay();view=c.renderVals();assert.equal(c.state.dailyResponsibleId,'__unassigned__');assert.equal(view.dailyCount,0);
+    view.onDailyResponsible({target:{value:'2'}});view=c.renderVals();assert.equal(view.dailyCount,0);assert.equal(view.dailyEmpty,true,'a person with no tasks receives a clear empty state');
+    view.onDailyResponsible({target:{value:'3'}});assert.equal(c.renderVals().dailyCount,1);
+    assert.equal(JSON.stringify(c.state.tasks),before,'filters do not modify task data or invent events');
+  } finally {if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous;}
+});
+test('person filters persist per identity and workspace only',()=>{
+  const c=component();c.state.auth={id:11};c.state.workspaceId=3;c.state.workspaceMembers=[{id:11,name:'One'},{id:12,name:'Two'}];
+  c.setPersonFilter('timeline','12');c.setPersonFilter('calendar','__unassigned__');
+  assert.equal(c.testStorage.get('tareas-modernist-v1:person-filter:11:3:timeline'),'12');
+  assert.equal(c.testStorage.get('tareas-modernist-v1:person-filter:11:3:calendar'),'__unassigned__');
+  c.state.timelineResponsibleId='';c.state.dailyResponsibleId='';c.restorePersonFilters(11,3,c.state.workspaceMembers);
+  assert.equal(c.state.timelineResponsibleId,'12');assert.equal(c.state.dailyResponsibleId,'__unassigned__');
+  c.state.auth={id:12};c.state.timelineResponsibleId='12';c.state.dailyResponsibleId='__unassigned__';c.restorePersonFilters(12,3,c.state.workspaceMembers);
+  assert.equal(c.state.timelineResponsibleId,'');assert.equal(c.state.dailyResponsibleId,'','another account does not inherit saved filters');
+  c.state.auth={id:11};c.state.workspaceId=4;c.restorePersonFilters(11,4,c.state.workspaceMembers);
+  assert.equal(c.state.timelineResponsibleId,'');assert.equal(c.state.dailyResponsibleId,'','another workspace does not inherit saved filters');
+  c.state.workspaceId=3;c.setPersonFilter('timeline','999');assert.equal(c.state.timelineResponsibleId,'','unknown people cannot be selected');
 });

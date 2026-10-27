@@ -86,6 +86,8 @@ test('HTTP sessions, project access, delegation, persistence and concurrent edit
     check(people.people.map(p=>p.id).sort().join(',')==='1,2,3,4','supervision lists only workspace members');
     const memberTasksBefore=await request(admin,'supervision_tasks',{workspace_id:1,person_id:2});
     check(memberTasksBefore.tasks.some(t=>t.id==='member-private')&&!memberTasksBefore.tasks.some(t=>t.id==='personal'),'per-person supervision excludes another member’s private task');
+    const memberPrivate=memberTasksBefore.tasks.find(t=>t.id==='member-private');
+    check(memberPrivate.creator_name==='Fixture 2'&&memberPrivate.responsible_names.length===0&&!('owner_id' in memberPrivate),'supervision labels an unassigned task as created by its owner without exposing owner IDs');
     await request(admin,'supervision_tasks',{workspace_id:1,person_id:5},404);
     await request(admin,'supervision_people',{workspace_id:2},403);
     await request(outsider,'supervision_people',{workspace_id:1},403);
@@ -149,6 +151,7 @@ test('HTTP sessions, project access, delegation, persistence and concurrent edit
     const supervisedBlocks=await request(admin,'supervision_tasks',{workspace_id:1,person_id:2});
     const supervisedTask=supervisedBlocks.tasks.filter(t=>t.id==='project-task');
     check(supervisedTask.length===1&&supervisedTask[0].scheduledStart==='2026-10-05T15:00:00.000Z'&&supervisedTask[0].workBlocks[0].start==='2026-10-05T15:30:00.000Z','one supervised task keeps timeline dates and its separate explicit hourly block');
+    check(supervisedTask[0].creator_name==='Fixture 1'&&supervisedTask[0].responsible_names.join(',')==='Fixture 2','supervision separates the task creator from the confirmed responsible person');
     check(!('notes' in supervisedTask[0])&&!('payload_json' in supervisedTask[0])&&!('owner_id' in supervisedTask[0])&&!('responsibility' in supervisedTask[0])&&!('list' in supervisedTask[0])&&!('scheduleTimeZone' in supervisedTask[0])&&!('timeZone' in supervisedTask[0].workBlocks[0]),'supervision response omits notes, storage, and unused identity/timezone fields');
     const snapshot=await get(member,'project-task');task=await get(owner,'project-task');task.project=b.id;await sync(owner,[task]);
     await request(member,'task_members',{workspace_id:1,task_id:'project-task'},403);
