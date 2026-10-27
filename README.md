@@ -332,3 +332,25 @@ cargar archivos ni configurar secretos FTP para cada cambio. Ver
 El calendario horario anterior llegó a `main` el 12 de octubre de 2026. La
 separación de bloques y cronograma está en `feature/daily-work-blocks` para revisión;
 no se ha fusionado ni desplegado.
+
+## Contraseñas (candidato PR #7)
+
+La contraseña se almacena mediante `password_hash(..., PASSWORD_DEFAULT)` y se
+verifica con `password_verify()`. El cambio desde Cuenta exige la contraseña
+actual y un token CSRF; el cambio o restablecimiento revoca las sesiones de
+dispositivos y obliga a iniciar sesión otra vez. El acceso y la emisión del
+token persistente bloquean la misma fila de usuario que el cambio y el
+restablecimiento para evitar una carrera de revocación.
+
+La recuperación por correo está desactivada en `api/config.example.php`.
+Antes de habilitarla se deben aprobar y configurar `password_reset_url` (HTTPS),
+`password_reset_from_email`, `password_reset_rate_secret` (valor aleatorio
+privado de al menos 32 caracteres) y la entrega de `mail()` del servidor. No
+hay servicio SMTP ni remitente real configurados en este repositorio. Tras
+validar la entrega se debe programar `php api/password-reset-worker.php` por
+CLI con una frecuencia que deje margen dentro de los 30 minutos de vida del
+enlace. El worker no expone un endpoint web. Las solicitudes HTTP solo crean
+trabajos cifrados; el worker descarta las direcciones inexistentes y envía los
+enlaces válidos. La tabla de tokens guarda únicamente el digest; la cola guarda
+el token cifrado con una clave derivada del secreto privado y lo borra tras el
+envío o vencimiento. Las pruebas usan remitente simulado y bases desechables.

@@ -10,6 +10,28 @@ function component() {
   const context = vm.createContext({ DCLogic:Logic, KaizenPlanning:planning, console, setTimeout, clearTimeout, Intl, Date, localStorage:{setItem(){}} });
   return new (vm.runInContext(source+'; Component',context))();
 }
+test('password recovery UI keeps links private and clears sensitive drafts',async()=>{
+  assert.match(html,/name="referrer" content="no-referrer"/);
+  assert.match(html,/Olvidé mi contraseña/);
+  assert.match(html,/autocomplete="new-password"/);
+  const c=component(),calls=[];
+  c.api=async(action,payload)=>{calls.push([action,payload]);return action==='password_reset_request'?{ok:true,message:'Revisa tu correo.'}:{ok:true,message:'Contraseña actualizada.'};};
+  c.state.authMode='forgot';c.state.authEmail='fixture@example.test';
+  await c.submitAuth();
+  assert.equal(calls[0][0],'password_reset_request');assert.equal(c.state.authSuccess,'Revisa tu correo.');
+  c.state.authMode='reset';c.state.resetToken='a'.repeat(64);c.state.resetPassword='new-fixture-password';c.state.resetConfirmation='new-fixture-password';
+  await c.submitAuth();
+  assert.equal(calls[1][0],'password_reset_confirm');assert.equal(c.state.authMode,'login');
+  assert.equal(c.state.resetToken,'');assert.equal(c.state.resetPassword,'');assert.equal(c.state.resetConfirmation,'');
+});
+test('in-app password change submits current password and signs out after success',async()=>{
+  const c=component(),calls=[];c.state.auth={id:1};
+  c.state.changeCurrent='old-fixture-password';c.state.changeNew='new-fixture-password';c.state.changeConfirmation='new-fixture-password';
+  c.api=async(action,payload)=>{calls.push([action,payload]);return {ok:true};};
+  await c.changePassword({preventDefault(){}});
+  assert.equal(calls[0][0],'password_change');assert.equal(calls[0][1].current_password,'old-fixture-password');
+  assert.equal(calls[1][0],'logout');assert.equal(c.state.auth,null);assert.equal(c.state.changeCurrent,'');assert.equal(c.state.changeNew,'');
+});
 const block=(id,start,end)=>({id, start, end});
 test('hourly agenda clips overnight tasks and leaves due-only tasks without hours',()=>{
   const previous=process.env.TZ;process.env.TZ='UTC';
