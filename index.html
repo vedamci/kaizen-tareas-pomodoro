@@ -29,6 +29,12 @@
   .timeline-toolbar { margin-bottom:16px; justify-content:space-between; }
   .timeline-toolbar label { font-size:12px; font-weight:700; }
   .timeline-toolbar .input { max-width:240px; }
+  .daily-person-filter { display:flex; align-items:end; gap:10px; flex-wrap:wrap; margin:0 0 16px; }
+  .daily-person-filter label { display:flex; flex-direction:column; gap:5px; min-width:min(100%,260px); font-size:12px; font-weight:700; }
+  .daily-person-filter .input { min-height:44px; max-width:360px; }
+  .daily-scope-label { align-self:center; font-size:12px; line-height:1.5; color:color-mix(in srgb,var(--color-text) 68%,transparent); }
+  .timeline-person-filter { min-width:min(100%,240px); }
+  .timeline-person-filter .input { max-width:280px; min-height:44px; }
   .timeline-navigation .btn, .timeline-toolbar .btn { min-height:44px; }
   .timeline-period { font-family:var(--font-heading); font-size:20px; margin:16px 0 6px; }
   .timeline-summary { font-size:12px; line-height:1.6; color:color-mix(in srgb,var(--color-text) 72%,transparent); margin-bottom:16px; }
@@ -774,9 +780,10 @@
 
         <sc-if value="{{ isDailyCalendar }}" hint-placeholder-val="{{ false }}">
           <div class="daily-hero"><div><small>{{ dailyHeroLabel }}</small><h3 aria-live="polite">{{ dailyDayLabel }}</h3><p>{{ dailyCount }} tareas · {{ dailyPending }} pendientes</p></div><div class="daily-actions"><button class="btn btn-secondary" aria-label="Día anterior" onClick="{{ onDailyPreviousDay }}">‹</button><button class="btn btn-secondary" onClick="{{ onDailyToday }}">Hoy</button><button class="btn btn-secondary" aria-label="Día siguiente" onClick="{{ onDailyNextDay }}">›</button></div></div>
+          <div class="daily-person-filter"><label for="daily-responsible">Ver tareas de<select id="daily-responsible" class="input" value="{{ dailyResponsibleId }}" onChange="{{ onDailyResponsible }}"><sc-for list="{{ dailyResponsibleOptions }}" as="p"><option value="{{ p.id }}">{{ p.label }}</option></sc-for></select></label><span class="daily-scope-label" role="status">{{ dailyScopeLabel }}</span></div>
           <section class="hourly-agenda" aria-label="Horas ocupadas del día seleccionado">
-            <h3>Horas ocupadas</h3><p>{{ hourlyCount }} bloques de trabajo · {{ scheduleZoneLabel }}. Toca una hora libre para agendar una tarea nueva o existente. Los bloques son independientes de las fechas del cronograma.</p>
-            <div class="hourly-scroll" role="region" aria-label="Agenda por horas; desplázate vertical y horizontalmente para recorrer el día" tabIndex="0"><div class="hourly-sheet" style="{{ hourlySheetStyle }}"><div class="hourly-axis" aria-hidden="true"><sc-for list="{{ hourlyTicks }}" as="tick"><div class="hourly-tick" style="{{ tick.style }}">{{ tick.label }}</div></sc-for></div><div class="hourly-events"><sc-for list="{{ hourlySlots }}" as="slot"><button class="hourly-slot" style="{{ slot.style }}" onClick="{{ slot.onOpen }}" title="{{ slot.label }}" aria-label="{{ slot.label }}"></button></sc-for><sc-for list="{{ hourlyBlocks }}" as="event"><button class="hourly-block" data-task-id="{{ event.id }}" data-block-id="{{ event.blockId }}" data-done="{{ event.done }}" style="{{ event.style }}" onClick="{{ event.onOpen }}" title="{{ event.label }}" aria-label="{{ event.label }}"><strong>{{ event.title }}</strong><small>{{ event.timeLabel }}</small><small>{{ event.peopleLabel }}</small></button></sc-for><sc-if value="{{ hourlyHasNow }}"><div class="hourly-now" style="{{ hourlyNowStyle }}" aria-hidden="true"></div></sc-if>
+            <h3>Horas ocupadas</h3><p>{{ hourlyCount }} bloques de trabajo · {{ scheduleZoneLabel }}. {{ dailyHourlyDescription }}</p>
+            <div class="hourly-scroll" role="region" aria-label="Agenda por horas; desplázate vertical y horizontalmente para recorrer el día" tabIndex="0"><div class="hourly-sheet" style="{{ hourlySheetStyle }}"><div class="hourly-axis" aria-hidden="true"><sc-for list="{{ hourlyTicks }}" as="tick"><div class="hourly-tick" style="{{ tick.style }}">{{ tick.label }}</div></sc-for></div><div class="hourly-events"><sc-for list="{{ hourlySlots }}" as="slot"><button class="hourly-slot" style="{{ slot.style }}" onClick="{{ slot.onOpen }}" title="{{ slot.label }}" aria-label="{{ slot.label }}"></button></sc-for><sc-for list="{{ hourlyBlocks }}" as="event"><button class="hourly-block" data-task-id="{{ event.id }}" data-block-id="{{ event.blockId }}" data-done="{{ event.done }}" style="{{ event.style }}" onClick="{{ event.onOpen }}" title="{{ event.label }}" aria-label="{{ event.label }}" disabled="{{ event.disabled }}"><strong>{{ event.title }}</strong><small>{{ event.timeLabel }}</small><small>{{ event.peopleLabel }}</small></button></sc-for><sc-if value="{{ hourlyHasNow }}"><div class="hourly-now" style="{{ hourlyNowStyle }}" aria-hidden="true"></div></sc-if>
             <sc-if value="{{ slotCreateOpen }}"><form class="slot-create" style="{{ slotCreateStyle }}" onSubmit="{{ onSlotCreate }}" aria-label="Agendar bloque horario"><h4>Agendar bloque de trabajo</h4><p>{{ slotTimeLabel }} · {{ slotZoneLabel }}. Edita la hora sin modificar el cronograma.</p><sc-if value="{{ slotCanChooseTask }}"><label for="slot-task-existing">Tarea existente<select id="slot-task-existing" class="input" value="{{ slotTaskId }}" onChange="{{ onSlotTask }}"><option value="">Crear tarea nueva</option><sc-for list="{{ slotTaskOptions }}" as="t"><option value="{{ t.id }}">{{ t.title }}</option></sc-for></select></label></sc-if><sc-if value="{{ slotIsNew }}"><div class="slot-create-fields"><label for="slot-task-title">Nombre de la tarea nueva<input id="slot-task-title" class="input" required value="{{ slotTitle }}" onInput="{{ onSlotTitle }}" placeholder="Nombre de la tarea"></label><label for="slot-task-project">Proyecto<select id="slot-task-project" class="input" value="{{ slotProject }}" onChange="{{ onSlotProject }}"><option value="">Sin proyecto</option><sc-for list="{{ projectOptions }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for></select></label></div></sc-if><div class="slot-create-fields"><label for="slot-task-start">Inicio<input id="slot-task-start" class="input" type="datetime-local" required value="{{ slotStartDraft }}" onInput="{{ onSlotStart }}"></label><label for="slot-task-end">Fin<input id="slot-task-end" class="input" type="datetime-local" required value="{{ slotEndDraft }}" onInput="{{ onSlotEnd }}"></label></div><div role="alert">{{ slotError }}</div><div class="slot-create-actions"><button class="btn btn-primary" type="submit">Guardar bloque</button><sc-if value="{{ slotIsEditing }}"><button class="btn btn-secondary" type="button" onClick="{{ onSlotRemove }}">Quitar bloque</button><button class="btn btn-secondary" type="button" onClick="{{ onSlotOpenTask }}">Abrir tarea</button></sc-if><button class="btn btn-secondary" type="button" onClick="{{ onSlotCancel }}">Cancelar</button></div></form></sc-if>
 </div></div></div>
 
@@ -785,10 +792,10 @@
           </section>
           <section class="daily-agenda" aria-label="Tareas del día seleccionado">
             <h3>Tareas sin bloque horario en este día</h3>
-            <div class="daily-add"><input class="input" aria-label="Título de la nueva tarea del día" placeholder="Nueva tarea para este día" value="{{ dailyTitle }}" onInput="{{ onDailyTitle }}" onKeyDown="{{ onDailyTitleKey }}"><select class="input" aria-label="Proyecto para la nueva tarea" value="{{ dailyProject }}" onChange="{{ onDailyProject }}"><option value="">Sin proyecto</option><sc-for list="{{ projectOptions }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for></select><button class="btn btn-primary" onClick="{{ onDailyAdd }}">Agregar al día</button></div>
-            <sc-if value="{{ hasDailyAssignOptions }}"><details class="daily-assign"><summary>Poner fecha a una tarea existente</summary><div><select class="input" aria-label="Tarea existente para este día" value="{{ dailyAssignId }}" onChange="{{ onDailyAssign }}"><option value="">Selecciona una tarea</option><sc-for list="{{ dailyAssignOptions }}" as="t"><option value="{{ t.id }}">{{ t.title }}</option></sc-for></select><button class="btn btn-secondary" disabled="{{ dailyAssignDisabled }}" onClick="{{ onDailyAssignApply }}">Asignar a este día</button></div></details></sc-if>
+            <sc-if value="{{ dailyCanManage }}"><div class="daily-add"><input class="input" aria-label="Título de la nueva tarea del día" placeholder="Nueva tarea para este día" value="{{ dailyTitle }}" onInput="{{ onDailyTitle }}" onKeyDown="{{ onDailyTitleKey }}"><select class="input" aria-label="Proyecto para la nueva tarea" value="{{ dailyProject }}" onChange="{{ onDailyProject }}"><option value="">Sin proyecto</option><sc-for list="{{ projectOptions }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for></select><button class="btn btn-primary" onClick="{{ onDailyAdd }}">Agregar al día</button></div></sc-if>
+            <sc-if value="{{ dailyCanManage }}"><sc-if value="{{ hasDailyAssignOptions }}"><details class="daily-assign"><summary>Poner fecha a una tarea existente</summary><div><select class="input" aria-label="Tarea existente para este día" value="{{ dailyAssignId }}" onChange="{{ onDailyAssign }}"><option value="">Selecciona una tarea</option><sc-for list="{{ dailyAssignOptions }}" as="t"><option value="{{ t.id }}">{{ t.title }}</option></sc-for></select><button class="btn btn-secondary" disabled="{{ dailyAssignDisabled }}" onClick="{{ onDailyAssignApply }}">Asignar a este día</button></div></details></sc-if></sc-if>
             <sc-if value="{{ dailyEmpty }}"><p class="daily-empty">No hay tareas sin bloque horario en este día. Puedes añadir una arriba o poner fecha a una tarea existente.</p></sc-if>
-            <sc-for list="{{ dailyRows }}" as="t"><article class="daily-card"><div><strong style="{{ t.titleStyle }}">{{ t.title }}</strong><small>{{ t.sourceLabel }} · {{ t.projectName }} · {{ t.creatorLabel }} · {{ t.responsibleLabel }}</small></div><label>Fecha límite <input class="input daily-date" type="date" value="{{ t.due }}" aria-label="Fecha límite de {{ t.title }}" onChange="{{ t.onDate }}"></label><div class="daily-actions"><button class="btn btn-secondary" onClick="{{ t.onToggle }}" aria-label="{{ t.toggleLabel }}">{{ t.toggleLabel }}</button><button class="btn btn-secondary" onClick="{{ t.onOpen }}">Abrir</button><sc-if value="{{ t.hasSchedule }}"><button class="btn btn-ghost" onClick="{{ t.onTimeline }}">Ver cronograma</button></sc-if></div></article></sc-for>
+            <sc-for list="{{ dailyRows }}" as="t"><article class="daily-card"><div><strong style="{{ t.titleStyle }}">{{ t.title }}</strong><small>{{ t.sourceLabel }} · {{ t.projectName }} · {{ t.creatorLabel }} · {{ t.responsibleLabel }}</small></div><sc-if value="{{ t.editable }}"><label>Fecha límite <input class="input daily-date" type="date" value="{{ t.due }}" aria-label="Fecha límite de {{ t.title }}" onChange="{{ t.onDate }}"></label><div class="daily-actions"><button class="btn btn-secondary" onClick="{{ t.onToggle }}" aria-label="{{ t.toggleLabel }}">{{ t.toggleLabel }}</button><button class="btn btn-secondary" onClick="{{ t.onOpen }}">Abrir</button><sc-if value="{{ t.hasSchedule }}"><button class="btn btn-ghost" onClick="{{ t.onTimeline }}">Ver cronograma</button></sc-if></div></sc-if><sc-if value="{{ t.readOnly }}"><small>Solo lectura en esta vista por responsable.</small></sc-if></article></sc-for>
           </section>
           <details class="daily-month-picker"><summary>Elegir otra fecha · {{ dailyMonthLabel }}</summary><div class="daily-toolbar"><h3>{{ dailyMonthLabel }}</h3><div class="daily-actions"><button class="btn btn-secondary" aria-label="Mes anterior" onClick="{{ onDailyPrevious }}">‹</button><button class="btn btn-secondary" aria-label="Mes siguiente" onClick="{{ onDailyNext }}">›</button></div></div><div class="daily-scroll" role="region" aria-label="Calendario de tareas diarias; desplazamiento horizontal" tabIndex="0"><div class="daily-weekdays" aria-hidden="true"><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span></div><div class="daily-grid"><sc-for list="{{ dailyDays }}" as="day"><button class="daily-day" data-selected="{{ day.selected }}" data-other="{{ day.other }}" aria-label="{{ day.label }}" aria-pressed="{{ day.selected }}" onClick="{{ day.onClick }}"><strong>{{ day.day }}</strong><small>{{ day.countLabel }}</small></button></sc-for></div></div></details>
         </sc-if>
@@ -796,10 +803,11 @@
         <sc-if value="{{ isTimeline }}" hint-placeholder-val="{{ false }}">
           <div class="timeline-toolbar">
             <div class="timeline-navigation"><label for="timeline-project">Proyecto</label><select id="timeline-project" class="input" value="{{ timelineProject }}" onChange="{{ onTimelineProject }}"><option value="">Todos los proyectos</option><option value="__none__">Sin proyecto</option><sc-for list="{{ allProjectOptions }}" as="p"><option value="{{ p.id }}" label="{{ p.name }}">{{ p.name }}</option></sc-for></select></div>
+            <div class="timeline-navigation timeline-person-filter"><label for="timeline-responsible">Responsable</label><select id="timeline-responsible" class="input" value="{{ timelineResponsibleId }}" onChange="{{ onTimelineResponsible }}"><sc-for list="{{ timelinePersonOptions }}" as="p"><option value="{{ p.id }}">{{ p.label }}</option></sc-for></select></div>
             <div class="timeline-navigation"><label for="timeline-mode">Vista</label><select id="timeline-mode" class="input" value="{{ timelineMode }}" onChange="{{ onTimelineMode }}"><option value="day">Día</option><option value="week">Semana</option><option value="month">Mes</option></select><button class="btn btn-secondary" aria-label="Periodo anterior" onClick="{{ onTimelinePrevious }}">‹</button><button class="btn btn-secondary" onClick="{{ onTimelineToday }}">Hoy</button><button class="btn btn-secondary" aria-label="Periodo siguiente" onClick="{{ onTimelineNext }}">›</button></div>
           </div>
           <h3 class="timeline-period" aria-live="polite">{{ timelinePeriodLabel }}</h3>
-          <div class="timeline-summary">{{ timelineVisibleCount }} tareas en este periodo · {{ scheduleZoneLabel }}</div><details class="calendar-help"><summary>Opciones del calendario</summary><p>Haz clic en una tarea para editar sus fechas. La línea bajo la barra muestra la duración exacta.</p><p>{{ timelineScheduledCount }} tareas planificadas. El tiempo real de trabajo se consulta en el detalle.</p><button class="btn btn-secondary" onClick="{{ onRefreshTasks }}">Actualizar tareas</button></details>
+          <div class="timeline-summary">{{ timelineVisibleCount }} tareas en este periodo · {{ timelineScopeLabel }} · {{ scheduleZoneLabel }}</div><details class="calendar-help"><summary>Opciones del calendario</summary><p>Haz clic en una tarea para editar sus fechas. La línea bajo la barra muestra la duración exacta.</p><p>{{ timelineScheduledCount }} tareas planificadas. El tiempo real de trabajo se consulta en el detalle.</p><button class="btn btn-secondary" onClick="{{ onRefreshTasks }}">Actualizar tareas</button></details>
           <div class="timeline-scroll" role="region" aria-label="Calendario de tareas; desplazamiento horizontal" tabIndex="0">
             <div class="timeline-sheet" style="{{ timelineSheetStyle }}">
               <div class="timeline-grid-row timeline-grid-header"><div class="timeline-heading">Tarea / responsable</div><div class="timeline-dates"><sc-for list="{{ timelineColumns }}" as="col"><div class="timeline-tick" style="{{ col.headerStyle }}">{{ col.label }}<small>{{ col.sublabel }}</small></div></sc-for><sc-if value="{{ timelineHasToday }}"><div class="timeline-now" style="{{ timelineTodayStyle }}"></div></sc-if></div></div>
@@ -1016,7 +1024,7 @@
             <div class="supervision-toolbar">
               <label for="supervision-person">Persona del espacio activo<select id="supervision-person" class="input" value="{{ supervisionPersonId }}" onChange="{{ onSupervisionPerson }}"><option value="">Selecciona una persona</option><sc-for list="{{ supervisionPeopleOptions }}" as="p"><option value="{{ p.id }}">{{ p.name }} · {{ p.role }}</option></sc-for></select></label>
               <button class="btn btn-secondary" onClick="{{ onRefreshSupervision }}">Actualizar supervisión</button>
-              <span>Las fechas planificadas y los bloques horarios explícitos se muestran por separado. “Hoy” usa la zona local de quien consulta.</span>
+              <span>La supervisión administrativa incluye tareas creadas por la persona seleccionada o asignadas a ella; creador y responsable se muestran por separado. “Hoy” usa la zona local de quien consulta.</span>
             </div>
             <sc-if value="{{ supervisionLoading }}"><p role="status" aria-live="polite">Cargando datos autorizados…</p></sc-if>
             <sc-if value="{{ supervisionError }}"><p role="alert">{{ supervisionError }}</p></sc-if>
@@ -1027,13 +1035,13 @@
                 <section class="supervision-section" aria-labelledby="supervision-timeline-heading">
                   <h3 id="supervision-timeline-heading">Cronograma por persona</h3><p>Rango de inicio y fin guardado en cada tarea. Una tarea aparece una sola vez por identificador.</p>
                   <sc-if value="{{ supervisionNoTimeline }}"><div class="supervision-empty">No hay tareas con fechas de cronograma.</div></sc-if>
-                  <ul class="supervision-list"><sc-for list="{{ supervisionTimelineRows }}" as="t"><li class="supervision-task" id="{{ t.anchor }}"><strong>{{ t.title }}</strong><small>{{ t.project }} · {{ t.status }}</small><time datetime="{{ t.startIso }}">{{ t.start }}</time> → <time datetime="{{ t.endIso }}">{{ t.end }}</time></li></sc-for></ul>
-                  <sc-if value="{{ supervisionHasUnscheduled }}"><h4>Tareas sin rango de cronograma</h4><ul class="supervision-list"><sc-for list="{{ supervisionUnscheduledRows }}" as="t"><li class="supervision-task" id="{{ t.anchor }}"><strong>{{ t.title }}</strong><small>{{ t.project }} · {{ t.status }} · {{ t.dateNote }}</small></li></sc-for></ul></sc-if>
+                  <ul class="supervision-list"><sc-for list="{{ supervisionTimelineRows }}" as="t"><li class="supervision-task" id="{{ t.anchor }}"><strong>{{ t.title }}</strong><small>{{ t.project }} · {{ t.status }}</small><small>{{ t.creatorLabel }} · {{ t.responsibleLabel }}</small><time datetime="{{ t.startIso }}">{{ t.start }}</time> → <time datetime="{{ t.endIso }}">{{ t.end }}</time></li></sc-for></ul>
+                  <sc-if value="{{ supervisionHasUnscheduled }}"><h4>Tareas sin rango de cronograma</h4><ul class="supervision-list"><sc-for list="{{ supervisionUnscheduledRows }}" as="t"><li class="supervision-task" id="{{ t.anchor }}"><strong>{{ t.title }}</strong><small>{{ t.project }} · {{ t.status }} · {{ t.dateNote }}</small><small>{{ t.creatorLabel }} · {{ t.responsibleLabel }}</small></li></sc-for></ul></sc-if>
                 </section>
                 <section class="supervision-section" aria-labelledby="supervision-hourly-heading">
                   <h3 id="supervision-hourly-heading">Bloques de hoy · {{ supervisionTodayLabel }} · {{ supervisionTimeZone }}</h3><p>Solo intervalos workBlocks persistidos para hoy. El rango completo del cronograma no se convierte en horas trabajadas.</p>
                   <sc-if value="{{ supervisionNoBlocks }}"><div class="supervision-empty">No hay bloques horarios explícitos para hoy.</div></sc-if>
-                  <ul class="supervision-list"><sc-for list="{{ supervisionBlockRows }}" as="b"><li class="supervision-task"><a href="#{{ b.anchor }}">{{ b.title }}</a><small><time datetime="{{ b.startIso }}">{{ b.start }}</time>–<time datetime="{{ b.endIso }}">{{ b.end }}</time> · {{ b.project }}</small><small>Bloque horario explícito {{ b.continuation }}</small></li></sc-for></ul>
+                  <ul class="supervision-list"><sc-for list="{{ supervisionBlockRows }}" as="b"><li class="supervision-task"><a href="#{{ b.anchor }}">{{ b.title }}</a><small><time datetime="{{ b.startIso }}">{{ b.start }}</time>–<time datetime="{{ b.endIso }}">{{ b.end }}</time> · {{ b.project }}</small><small>{{ b.creatorLabel }} · {{ b.responsibleLabel }}</small><small>Bloque horario explícito {{ b.continuation }}</small></li></sc-for></ul>
                 </section>
               </div>
             </sc-if>
@@ -1216,8 +1224,8 @@
 class Component extends DCLogic {
   state = {
     tasks: [], projects: [], log: {}, view: 'today', selId: null,
-    newTitle: '', newProject: '', subDraft: '', projFilter: null, newTaskProject: '', timelineProject: '', timelineMode: 'week', timelineAnchor: null,
-    dailyDate: '', dailyBrowseMonth: '', dailyTitle: '', dailyProject: '', dailyAssignId: '',
+    newTitle: '', newProject: '', subDraft: '', projFilter: null, newTaskProject: '', timelineProject: '', timelineMode: 'week', timelineAnchor: null, timelineResponsibleId: '',
+    dailyDate: '', dailyBrowseMonth: '', dailyTitle: '', dailyProject: '', dailyAssignId: '', dailyResponsibleId: '',
     slotCreateOpen:false, slotDay:'', slotTitle:'', slotProject:'', slotTaskId:'', slotBlockId:'', slotStartDraft:'', slotEndDraft:'', slotStartInstant:'', slotEndInstant:'', slotOwnerId:null, slotWorkspaceId:null, slotTimeLabel:'', slotError:'',
     projectEditId: null, projectMemberDraft: [], projectBusy: false, scheduleEditId: null, scheduleStartDraft: '', scheduleEndDraft: '', scheduleError: '', syncError: '',
     pomo: { mode: 'focus', remaining: 1500, running: false, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null },
@@ -1825,14 +1833,15 @@ class Component extends DCLogic {
     } catch (e) {}
     // On first opening a date, show useful occupied hours instead of midnight.
     // A later task edit does not move a reader who has already scrolled.
-    const dailyScrollKey=s.view==='calendar'?[this.selectedDailyDate(),s.auth?.id,s.workspaceId].join('|'):'';
+    const dailyScrollKey=s.view==='calendar'?[this.selectedDailyDate(),s.auth?.id,s.workspaceId,s.dailyResponsibleId||''].join('|'):'';
     if(!dailyScrollKey)this.dailyScrollKey='';
     if(dailyScrollKey && dailyScrollKey!==this.dailyScrollKey){
       this.dailyScrollKey=dailyScrollKey;
       if(typeof document!=='undefined')setTimeout(()=>{
         const region=document.querySelector('.hourly-scroll');
         if(!region||this.state.view!=='calendar'||this.selectedDailyDate()!==dailyScrollKey.split('|')[0])return;
-        const day=KaizenPlanning.hourlyDay(this.state.tasks.filter(t=>this.isPersonalTask(t)),this.selectedDailyDate());
+        const tasks=this.state.dailyResponsibleId?this.filterTasksByResponsible(this.state.tasks,this.state.dailyResponsibleId):this.state.tasks.filter(t=>this.isPersonalTask(t));
+        const day=KaizenPlanning.hourlyDay(tasks,this.selectedDailyDate());
         const first=day.blocks.find(b=>new Date(b.start).getHours()>=6)||day.blocks[0];
         region.scrollTop=Math.max(0,(first?.top??day.nowMinute??0)-120);
       },0);
@@ -1872,8 +1881,8 @@ class Component extends DCLogic {
         this.csrfToken=r.csrf_token||'';
         const workspaceId = this.preferredWorkspaceId(r.workspaces || []);
         this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.supervisionAutoKey=null;
-        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', assistantRuns:[],assistantStatus:'idle',assistantError:'',assistantSelId:null,assistantDemoState:'none', supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'', improvementChecklist: [] });
-        if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
+        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', assistantRuns:[],assistantStatus:'idle',assistantError:'',assistantSelId:null,assistantDemoState:'none', supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'',timelineResponsibleId:'',dailyResponsibleId:'',improvementChecklist: [] });
+        if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); const members=await this.loadWorkspaceMembers(workspaceId); this.restorePersonFilters(r.user.id,workspaceId,members); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
       }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
@@ -2005,9 +2014,9 @@ class Component extends DCLogic {
       this.remoteReady = true;
       const workspaceId = this.preferredWorkspaceId(ws);
       this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.supervisionAutoKey=null;
-      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', assistantRuns:[],assistantStatus:'idle',assistantError:'',assistantSelId:null,assistantDemoState:'none', supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', improvementChecklist: [] });
+      this.setState({ auth: r.user, workspaces: ws, workspaceId, authError: '', authPassword: '', tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', assistantRuns:[],assistantStatus:'idle',assistantError:'',assistantSelId:null,assistantDemoState:'none', supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'',timelineResponsibleId:'',dailyResponsibleId:'',improvementChecklist: [] });
       // Las cuentas nuevas empiezan vacías; los datos de demostración nunca se copian al espacio del usuario.
-      if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
+      if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); const members=await this.loadWorkspaceMembers(workspaceId); this.restorePersonFilters(r.user.id,workspaceId,members); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
   }
   async requestPasswordReset() {
@@ -2050,9 +2059,9 @@ class Component extends DCLogic {
     }catch(e){this.setState({changeError:'No se pudo conectar con el servidor.'});}
     finally{this.setState({changeBusy:false});}
   }
-  async logout() { this.discardSlotDraft(); this.csrfToken=''; this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; this.remoteSaved = {}; try { await this.api('logout'); } finally { try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, view:'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'', improvementChecklist: [], authPassword: '', changeCurrent:'',changeNew:'',changeConfirmation:'', selId: null, delegatingId: null }); } }
-  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId: '', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); await this.loadWorkspaceMembers(workspaceId); await this.loadChecklist(workspaceId); }
-  async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return; const r=await this.api('workspace_members',{workspace_id:workspaceId}); if(r.ok)this.setState({workspaceMembers:r.members||[]}); }
+  async logout() { this.discardSlotDraft(); this.csrfToken=''; this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; this.remoteSaved = {}; try { await this.api('logout'); } finally { try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, view:'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'',timelineResponsibleId:'',dailyResponsibleId:'', improvementChecklist: [], authPassword: '', changeCurrent:'',changeNew:'',changeConfirmation:'', selId: null, delegatingId: null }); } }
+  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId: '',timelineResponsibleId:'',dailyResponsibleId:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); const members=await this.loadWorkspaceMembers(workspaceId); this.restorePersonFilters(this.state.auth?.id,workspaceId,members); await this.loadChecklist(workspaceId); }
+  async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return []; const userId=Number(this.state.auth?.id||0),r=await this.api('workspace_members',{workspace_id:workspaceId}); if(!r.ok||Number(this.state.auth?.id||0)!==userId||Number(this.state.workspaceId||0)!==Number(workspaceId))return []; const members=Array.isArray(r.members)?r.members:[]; this.setState({workspaceMembers:members}); return members; }
   async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], workspaceMembers: m.members || [], adminOpen: true }); } }
   async clearWorkspaceTasks(workspaceId, workspaceName) { if (this.state.auth?.role !== 'super_admin') return; const r=await this.api('workspace_tasks_clear',{workspace_id:workspaceId}); if(r.ok){ if(Number(this.state.workspaceId)===Number(workspaceId)) this.setState({tasks:[],selId:null}); this.setState({authError:'Se borraron ' + (r.deleted||0) + ' tareas de «' + workspaceName + '».'}); await this.loadAdminSummary(); } else this.setState({authError:r.error||'No se pudieron borrar las tareas.'}); }
   async createWorkspace() { const name=this.state.newWorkspaceName.trim(); if(!name)return; const r=await this.api('workspace_create',{name}); if(r.ok){this.setState({workspaces:r.workspaces||[],newWorkspaceName:''});await this.loadAdminSummary();}else this.setState({authError:r.error||'No se pudo crear el espacio.'}); }
@@ -2252,6 +2261,54 @@ class Component extends DCLogic {
     const names=ids.map(id=>{const member=this.state.workspaceMembers.find(m=>Number(m.id)===id);return String(member?.name||'').trim()||String(member?.email||'').trim()||'nombre no disponible';});
     return (ids.length===1?'Responsable: ':'Responsables: ')+names.join(', ');
   }
+  confirmedResponsibleIds(task) {
+    const raw=Array.isArray(task?._shared_user_ids)?task._shared_user_ids:(Array.isArray(task?.sharedWith)?task.sharedWith:[]);
+    return [...new Set(raw.map(Number).filter(id=>Number.isInteger(id)&&id>0))];
+  }
+  personFilterOptions() {
+    const currentId=Number(this.state.auth?.id||0);
+    const members=(this.state.workspaceMembers||[]).map(member=>{
+      const id=Number(member.id),name=String(member.name||member.email||'').trim();
+      if(!Number.isInteger(id)||id<1||!name)return null;
+      return {id:String(id),label:name+(id===currentId?' (tú)':'')};
+    }).filter(Boolean);
+    members.sort((a,b)=>new Intl.Collator('es-MX',{sensitivity:'base'}).compare(a.label,b.label));
+    return members;
+  }
+  filterTasksByResponsible(tasks, responsibleId) {
+    if(!responsibleId)return tasks||[];
+    if(responsibleId==='__unassigned__')return (tasks||[]).filter(task=>this.confirmedResponsibleIds(task).length===0);
+    const id=Number(responsibleId);
+    if(!Number.isInteger(id)||id<1||!this.personFilterOptions().some(person=>person.id===String(id)))return [];
+    return (tasks||[]).filter(task=>this.confirmedResponsibleIds(task).includes(id));
+  }
+  personFilterStorageKey(view,userId=this.state.auth?.id,workspaceId=this.state.workspaceId) {
+    const uid=Number(userId||0),wid=Number(workspaceId||0);
+    if(!Number.isInteger(uid)||uid<1||!Number.isInteger(wid)||wid<1||!['timeline','calendar'].includes(view))return '';
+    return this.KEY+':person-filter:'+uid+':'+wid+':'+view;
+  }
+  setPersonFilter(view,value) {
+    if(!['timeline','calendar'].includes(view))return;
+    const normalized=String(value||'');
+    const valid=normalized===''||normalized==='__unassigned__'||this.personFilterOptions().some(person=>person.id===normalized);
+    const selection=valid?normalized:'';
+    const field=view==='timeline'?'timelineResponsibleId':'dailyResponsibleId';
+    if(view==='calendar'&&selection!==this.state.dailyResponsibleId)this.discardSlotDraft();
+    this.setState({[field]:selection});
+    const key=this.personFilterStorageKey(view);
+    if(key)try{localStorage.setItem(key,selection);}catch(e){}
+  }
+  restorePersonFilters(userId,workspaceId,members) {
+    if(Number(this.state.auth?.id||0)!==Number(userId||0)||Number(this.state.workspaceId||0)!==Number(workspaceId||0))return;
+    const memberIds=new Set((members||[]).map(member=>String(Number(member.id))).filter(id=>/^\d+$/.test(id)&&Number(id)>0));
+    const restore=view=>{
+      const key=this.personFilterStorageKey(view,userId,workspaceId);
+      let value='';
+      try{value=key?String(localStorage.getItem(key)||''):'';}catch(e){}
+      return value==='__unassigned__'||memberIds.has(value)?value:'';
+    };
+    this.setState({timelineResponsibleId:restore('timeline'),dailyResponsibleId:restore('calendar')});
+  }
   isPersonalTask(task) {
     if(!this.state.auth)return true;
     if(task._dashboard_visible===false)return false;
@@ -2371,6 +2428,7 @@ class Component extends DCLogic {
   selectDailyDate(key) { if(KaizenPlanning.validDateKey(key)){this.discardSlotDraft();this.setState({dailyDate:key,dailyBrowseMonth:'',dailyAssignId:''});} }
   openSlotCreate(start, end, event) {
     if(this.state.view!=='calendar'||this.state.slotCreateOpen)return;
+    if(this.state.dailyResponsibleId)return;
     const dayKey=this.selectedDailyDate();
     const day=KaizenPlanning.hourlyDay(this.state.tasks.filter(t=>this.isPersonalTask(t)),dayKey);
     if(!day.free.some(gap=>gap.start<=start&&gap.end>=end))return;
@@ -2409,6 +2467,7 @@ class Component extends DCLogic {
     },0);
   }
   openSlotEdit(taskId, blockId, event) {
+    if(this.state.dailyResponsibleId)return;
     const task=this.state.tasks.find(t=>t.id===taskId&&this.isPersonalTask(t));
     const block=task?.workBlocks?.find(b=>b.id===blockId);
     if(!block||this.state.view!=='calendar')return;
@@ -2431,7 +2490,7 @@ class Component extends DCLogic {
   createSlotTask(event) {
     event?.preventDefault?.();
     const s=this.state;
-    if(s.view!=='calendar'||!s.slotCreateOpen||this.slotCreateBusy||s.slotDay!==this.selectedDailyDate())return;
+    if(s.view!=='calendar'||s.dailyResponsibleId||!s.slotCreateOpen||this.slotCreateBusy||s.slotDay!==this.selectedDailyDate())return;
     if((s.slotOwnerId??null)!==(s.auth?.id??null)||(s.slotWorkspaceId??null)!==(s.workspaceId??null)){this.discardSlotDraft();return;}
     const title=s.slotTitle.trim(),project=s.slotProject;
     const existing=s.slotTaskId?s.tasks.find(t=>t.id===s.slotTaskId&&this.isPersonalTask(t)&&t.list!=='trash'):null;
@@ -2456,6 +2515,7 @@ class Component extends DCLogic {
     },0);
   }
   addDailyTask() {
+    if(this.state.dailyResponsibleId)return;
     const title=this.state.dailyTitle.trim(), due=this.selectedDailyDate(), project=this.state.dailyProject;
     if(!title)return;
     if(project&&!this.state.projects.some(p=>p.id===project&&p._can_assign!==false)){this.setState({toast:'Selecciona un proyecto al que tengas acceso.'});return;}
@@ -2464,11 +2524,12 @@ class Component extends DCLogic {
   }
   changeDailyDue(id, due) {
     const task=this.state.tasks.find(t=>t.id===id);
-    if(!task||task.list==='trash'||(due&&!KaizenPlanning.validDateKey(due)))return;
+    if(!task||task.list==='trash'||this.state.dailyResponsibleId||(due&&!KaizenPlanning.validDateKey(due)))return;
     const list=task.done?(task.list==='today'?'done':task.list):due?(due===this.dkey(Date.now())?'today':'future'):(task.list==='today'?'inbox':task.list);
     this.patch(id,{due,list});
   }
   assignDailyTask() {
+    if(this.state.dailyResponsibleId)return;
     const task=this.state.tasks.find(t=>t.id===this.state.dailyAssignId);
     if(!task||task.list==='trash'||!this.isPersonalTask(task))return;
     this.changeDailyDue(task.id,this.selectedDailyDate());
@@ -2825,31 +2886,44 @@ class Component extends DCLogic {
     const selectedProject = s.projects.find(p => p.id === s.projFilter);
     const projectOwner = Number(selectedProject?.owner_id || s.auth?.id);
     const memberDraft = s.projectEditId === selectedProject?.id ? s.projectMemberDraft : (selectedProject?.member_ids || []);
+    const personOptions=this.personFilterOptions();
+    const responsibleFilterLabel=(id,emptyLabel)=>{
+      if(!id)return emptyLabel;
+      if(id==='__unassigned__')return 'Sin asignar';
+      const person=personOptions.find(option=>option.id===String(id));
+      return person?person.label.replace(/ \(tú\)$/,''):'Persona no disponible';
+    };
+    const timelineScopeLabel=s.timelineResponsibleId==='__unassigned__'?'Sin asignar':s.timelineResponsibleId?'Responsable: '+responsibleFilterLabel(s.timelineResponsibleId,''):'Todas las tareas visibles';
+    const timelineScopePhrase=s.timelineResponsibleId==='__unassigned__'?'tareas sin asignar':s.timelineResponsibleId?'tareas asignadas a '+responsibleFilterLabel(s.timelineResponsibleId,''):'tareas visibles';
+    const dailyScopeLabel=s.dailyResponsibleId==='__unassigned__'?'Sin asignar · solo tareas que puedes ver.':s.dailyResponsibleId?'Responsable: '+responsibleFilterLabel(s.dailyResponsibleId,'')+' · solo tareas que puedes ver.':'Mi agenda · tareas creadas por ti o asignadas directamente a ti.';
+    const dailyCanManage=!s.dailyResponsibleId;
     const dailyDate=this.selectedDailyDate();
-    const daily=KaizenPlanning.dailyMonth(personalTasks,s.dailyBrowseMonth||dailyDate,now);
-    const dailyAgenda=KaizenPlanning.dailyAgenda(personalTasks,dailyDate);
-    const hourly=KaizenPlanning.hourlyDay(personalTasks,dailyDate,now);
-    const dailyAssignOptions=personalTasks.filter(t=>t.list!=='trash'&&!dailyAgenda.includes(t)).map(t=>({id:t.id,title:t.title}));
+    const dailyTasks=s.dailyResponsibleId?this.filterTasksByResponsible(s.tasks,s.dailyResponsibleId):personalTasks;
+    const daily=KaizenPlanning.dailyMonth(dailyTasks,s.dailyBrowseMonth||dailyDate,now);
+    const dailyAgenda=KaizenPlanning.dailyAgenda(dailyTasks,dailyDate);
+    const hourly=KaizenPlanning.hourlyDay(dailyTasks,dailyDate,now);
+    const dailyAssignOptions=dailyCanManage?personalTasks.filter(t=>t.list!=='trash'&&!dailyAgenda.includes(t)).map(t=>({id:t.id,title:t.title})):[];
     const dailyLabel=date=>new Date(date+'T12:00:00').toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     const hourlyTime=value=>new Date(value).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hourCycle:'h23',...(hourly.minutes!==1440?{timeZoneName:'shortOffset'}:{})});
     const creatorLabel=t=>'Creada por '+this.memberName(t._owner_id||s.auth?.id);
     const hourlyBlocks=hourly.blocks.map(({task:t,block,start,end,top,duration,lane,lanes,continuesBefore,continuesAfter})=>{
       const timeLabel=(continuesBefore?'← ':'')+hourlyTime(start)+'–'+(end===hourly.end?'24:00':hourlyTime(end))+(continuesAfter?' → día siguiente':'');
       const peopleLabel=creatorLabel(t)+' · '+this.responsibleLabel(t);
-      return {id:t.id,blockId:block.id,title:t.title,done:!!t.done,timeLabel,peopleLabel,label:t.title+'. '+timeLabel+'. '+peopleLabel+'. '+(t.done?'Hecha. ':'Pendiente. ')+'Editar bloque horario.',
+      return {id:t.id,blockId:block.id,title:t.title,done:!!t.done,timeLabel,peopleLabel,label:t.title+'. '+timeLabel+'. '+peopleLabel+'. '+(t.done?'Hecha. ':'Pendiente. ')+'Editar bloque horario.',disabled:!dailyCanManage,
         style:{top:top+'px',height:duration+'px',left:(lane/lanes*100)+'%',width:'calc('+(100/lanes)+'% - 4px)',opacity:t.done?0.65:1},onOpen:e=>this.openSlotEdit(t.id,block.id,e)};
     });
-    const hourlySlots=hourly.slots.map(slot=>({label:'Crear tarea de '+hourlyTime(slot.start)+' a '+(slot.end===hourly.end?'24:00':hourlyTime(slot.end)),style:{top:slot.top+'px',height:slot.duration+'px'},onOpen:e=>this.openSlotCreate(slot.start,slot.end,e)}));
-    const hourlyFree=hourly.free.filter(slot=>slot.minutes>=30).map(slot=>({label:hourlyTime(slot.start)+'–'+(slot.end===hourly.end?'24:00':hourlyTime(slot.end))+' · '+Math.round(slot.minutes)+' min',actionLabel:'Crear tarea en espacio libre de '+hourlyTime(slot.start)+' a '+(slot.end===hourly.end?'24:00':hourlyTime(slot.end)),onOpen:e=>this.openSlotCreate(slot.start,Math.min(slot.start+30*60000,slot.end),e)}));
+    const hourlySlots=dailyCanManage?hourly.slots.map(slot=>({label:'Crear tarea de '+hourlyTime(slot.start)+' a '+(slot.end===hourly.end?'24:00':hourlyTime(slot.end)),style:{top:slot.top+'px',height:slot.duration+'px'},onOpen:e=>this.openSlotCreate(slot.start,slot.end,e)})):[];
+    const hourlyFree=dailyCanManage?hourly.free.filter(slot=>slot.minutes>=30).map(slot=>({label:hourlyTime(slot.start)+'–'+(slot.end===hourly.end?'24:00':hourlyTime(slot.end))+' · '+Math.round(slot.minutes)+' min',actionLabel:'Crear tarea en espacio libre de '+hourlyTime(slot.start)+' a '+(slot.end===hourly.end?'24:00':hourlyTime(slot.end)),onOpen:e=>this.openSlotCreate(slot.start,Math.min(slot.start+30*60000,slot.end),e)})):[];
     const dailyRows=dailyAgenda.filter(t=>!hourly.blocks.some(block=>block.task.id===t.id)).map(t=>({
-      title:t.title,due:t.due||'',done:!!t.done,projectName:this.projName(t.project)||'Sin proyecto',creatorLabel:creatorLabel(t),responsibleLabel:this.responsibleLabel(t),
+      title:t.title,due:t.due||'',done:!!t.done,projectName:this.projName(t.project)||'Sin proyecto',creatorLabel:creatorLabel(t),responsibleLabel:this.responsibleLabel(t),editable:dailyCanManage,readOnly:!dailyCanManage,
       sourceLabel:t.due===dailyDate?'Fecha límite':t.scheduledStart&&t.scheduledEnd?'Cronograma':'Bloque en otro horario',
       titleStyle:{textDecoration:t.done?'line-through':'none',opacity:t.done?0.65:1},
       toggleLabel:t.done?'Reabrir '+t.title:'Marcar hecha '+t.title,
       hasSchedule:!!(t.scheduledStart&&t.scheduledEnd),
       onDate:e=>this.changeDailyDue(t.id,e.target.value),onToggle:()=>this.toggleTask(t.id),onOpen:()=>this.openTask(t.id),onTimeline:()=>this.openDailyTimeline(t.id)
     }));
-    const planning = KaizenPlanning.timeline(s.tasks, s.timelineProject);
+    const timelineTasks=this.filterTasksByResponsible(s.tasks,s.timelineResponsibleId);
+    const planning = KaizenPlanning.timeline(timelineTasks, s.timelineProject);
     const fmtPlan = iso => new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
     const calendar = KaizenPlanning.calendar(s.timelineMode, s.timelineAnchor ?? Date.now());
     const calendarTasks = KaizenPlanning.calendarTasks(planning.scheduled, calendar);
@@ -2873,6 +2947,8 @@ class Component extends DCLogic {
     }));
     const fmtDay = time => new Date(time).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
     const periodLabel = calendar.mode==='month' ? new Date(calendar.start).toLocaleDateString('es-MX',{month:'long',year:'numeric'}) : calendar.mode==='day' ? fmtDay(calendar.start) : fmtDay(calendar.start)+' — '+fmtDay(calendar.end-1);
+    const supervisionCreatorLabel=t=>'Creada por '+(String(t.creator_name||'').trim()||'nombre no disponible');
+    const supervisionResponsibleLabel=t=>{const names=Array.isArray(t.responsible_names)?t.responsible_names.map(name=>String(name||'').trim()).filter(Boolean):[];return names.length?(names.length===1?'Responsable: ':'Responsables: ')+names.join(', '):'Sin asignar';};
     return Object.assign({
       primaryNavItems:navItems.filter(n=>['today','inbox','projects','calendar','timeline','delegated'].includes(n.id)),secondaryNavItems:navItems.filter(n=>!['today','inbox','projects','calendar','timeline','delegated'].includes(n.id)),secondaryNavLabel:navItems.some(n=>!['today','inbox','projects','calendar','timeline','delegated'].includes(n.id)&&n.id===s.view)?'Más vistas · '+tt[0]:'Más vistas',
       syncError: s.syncError, onDiscardAndReload: () => this.discardAndReload(), onRetrySync: () => this.syncRemoteTasks(s.workspaceId,s.tasks,s.projects), onRefreshTasks: () => this.refreshTasks(),
@@ -2882,9 +2958,9 @@ class Component extends DCLogic {
       projectMemberOptions: s.workspaceMembers.map(m=>({ name:m.name||m.email, selected:memberDraft.map(Number).includes(Number(m.id)), locked:Number(m.id)===projectOwner, ownerLabel:Number(m.id)===projectOwner?'(creador)':'', onToggle:()=>{ const id=Number(m.id); if(id===projectOwner)return; this.setState({projectMemberDraft:memberDraft.map(Number).includes(id)?memberDraft.filter(x=>Number(x)!==id):[...memberDraft,id]}); } })),
       onEditProjectMembers: () => this.beginProjectMembers(), onSaveProjectMembers: () => this.saveProjectMembers(), onCancelProjectMembers: () => this.setState({projectEditId:null}),
       showNewProjectPicker: s.view !== 'project', newTaskProject: s.newTaskProject, onNewTaskProject: e => this.setState({newTaskProject:e.target.value}),
-      isDailyCalendar:s.view==='calendar',dailyMonthLabel:daily.month[0].toUpperCase()+daily.month.slice(1),dailyDayLabel:dailyLabel(dailyDate),dailyHeroLabel:dailyDate===this.dkey(now)?'Hoy':'Día seleccionado',dailyCount:dailyAgenda.length,dailyPending:dailyAgenda.filter(t=>!t.done).length,dailyEmpty:dailyRows.length===0,dailyRows,
+      isDailyCalendar:s.view==='calendar',dailyMonthLabel:daily.month[0].toUpperCase()+daily.month.slice(1),dailyDayLabel:dailyLabel(dailyDate),dailyHeroLabel:dailyDate===this.dkey(now)?'Hoy':'Día seleccionado',dailyCount:dailyAgenda.length,dailyPending:dailyAgenda.filter(t=>!t.done).length,dailyEmpty:dailyRows.length===0,dailyRows,dailyScopeLabel,dailyCanManage,dailyResponsibleId:s.dailyResponsibleId,dailyResponsibleOptions:[{id:'',label:'Mi agenda'},...personOptions,{id:'__unassigned__',label:'Sin asignar'}],onDailyResponsible:e=>this.setPersonFilter('calendar',e.target.value),dailyHourlyDescription:dailyCanManage?'Toca una hora libre para agendar una tarea nueva o existente. Los bloques son independientes de las fechas del cronograma.':'Vista de lectura por responsable. Los bloques muestran únicamente horarios de trabajo explícitos.',
       hourlyCount:hourlyBlocks.length,hourlySheetStyle:{height:hourly.minutes+'px'},hourlyTicks:hourly.ticks.map(t=>({label:t.label,style:{top:t.minute+'px'}})),hourlyBlocks,hourlySlots,
-      hourlyHasNow:hourly.nowMinute!==null,hourlyNowStyle:{top:(hourly.nowMinute??0)+'px'},hourlyFree,hourlyHasFree:hourlyFree.length>0,hourlyNoFree:hourlyFree.length===0,
+      hourlyHasNow:hourly.nowMinute!==null,hourlyNowStyle:{top:(hourly.nowMinute??0)+'px'},hourlyFree,hourlyHasFree:dailyCanManage&&hourlyFree.length>0,hourlyNoFree:dailyCanManage&&hourlyFree.length===0,
       slotCreateOpen:s.slotCreateOpen,slotTitle:s.slotTitle,slotProject:s.slotProject,slotTaskId:s.slotTaskId,slotBlockId:s.slotBlockId,slotIsNew:!s.slotTaskId,slotIsEditing:!!s.slotBlockId,slotCanChooseTask:!s.slotBlockId,slotTaskOptions:personalTasks.filter(t=>t.list!=='trash').map(t=>({id:t.id,title:t.title})),slotStartDraft:s.slotStartDraft,slotEndDraft:s.slotEndDraft,slotError:s.slotError,slotTimeLabel:s.slotTimeLabel,slotZoneLabel:'Zona horaria: '+KaizenPlanning.zone(),slotCreateStyle:{top:Math.max(0,Math.min(hourly.minutes-30,(Date.parse(s.slotStartInstant)-hourly.start)/60000||0))+'px',...(Date.parse(s.slotStartInstant)-hourly.start>=(hourly.minutes-420)*60000?{transform:'translateY(calc(-100% + 30px))'}:{})},
       onSlotTask:e=>this.setState({slotTaskId:e.target.value,slotError:''}),onSlotTitle:e=>this.setState({slotTitle:e.target.value,slotError:''}),onSlotProject:e=>this.setState({slotProject:e.target.value,slotError:''}),onSlotStart:e=>this.setState({slotStartDraft:e.target.value,slotError:''}),onSlotEnd:e=>this.setState({slotEndDraft:e.target.value,slotError:''}),onSlotCreate:e=>this.createSlotTask(e),onSlotCancel:()=>this.cancelSlotCreate(),onSlotRemove:()=>this.removeSlotBlock(),onSlotOpenTask:()=>{const id=s.slotTaskId;this.discardSlotDraft();this.openTask(id);},
       dailyDays:daily.days.map(day=>({day:day.day,selected:day.key===dailyDate,other:!day.inMonth,countLabel:day.count?(day.count===1?'1 tarea':day.count+' tareas'):'Sin tareas',label:dailyLabel(day.key)+', '+day.count+' tareas, '+day.pending+' pendientes',onClick:()=>this.selectDailyDate(day.key)})),
@@ -2892,13 +2968,13 @@ class Component extends DCLogic {
       hasDailyAssignOptions:dailyAssignOptions.length>0,dailyAssignOptions,dailyAssignId:s.dailyAssignId,dailyAssignDisabled:!dailyAssignOptions.some(t=>t.id===s.dailyAssignId),onDailyAssign:e=>this.setState({dailyAssignId:e.target.value}),onDailyAssignApply:()=>this.assignDailyTask(),
       onDailyPrevious:()=>this.setState({dailyBrowseMonth:KaizenPlanning.shiftDailyMonth(s.dailyBrowseMonth||dailyDate,-1)}),onDailyNext:()=>this.setState({dailyBrowseMonth:KaizenPlanning.shiftDailyMonth(s.dailyBrowseMonth||dailyDate,1)}),onDailyToday:()=>this.selectDailyDate(this.dkey(Date.now())),
       onDailyPreviousDay:()=>this.selectDailyDate(KaizenPlanning.shiftDailyDay(dailyDate,-1)),onDailyNextDay:()=>this.selectDailyDate(KaizenPlanning.shiftDailyDay(dailyDate,1)),
-      isTimeline: s.view === 'timeline', timelineProject: s.timelineProject, onTimelineProject: e => this.setState({timelineProject:e.target.value}), timelineRows,
+      isTimeline: s.view === 'timeline', timelineProject: s.timelineProject, onTimelineProject: e => this.setState({timelineProject:e.target.value}),timelineResponsibleId:s.timelineResponsibleId,timelinePersonOptions:[{id:'',label:'Todas las tareas visibles'},...personOptions,{id:'__unassigned__',label:'Sin asignar'}],timelineScopeLabel,onTimelineResponsible:e=>this.setPersonFilter('timeline',e.target.value), timelineRows,
       timelineMode:calendar.mode,timelineColumns,timelinePeriodLabel:periodLabel,timelineSheetStyle:{minWidth:'calc(var(--task-width) + '+calendar.width+'px)'},
       timelineVisibleCount:timelineRows.length,timelineScheduledCount:planning.scheduled.length,timelineHasToday:calendar.today!==null,timelineTodayStyle:{left:(calendar.today??0)+'%'},
       onTimelineMode:e=>this.setState({timelineMode:e.target.value}),onTimelineToday:()=>this.setState({timelineAnchor:Date.now()}),
       onTimelinePrevious:()=>this.setState({timelineAnchor:KaizenPlanning.shiftCalendar(calendar.mode,calendar.start,-1)}),onTimelineNext:()=>this.setState({timelineAnchor:KaizenPlanning.shiftCalendar(calendar.mode,calendar.start,1)}),
       hasScheduledTasks:timelineRows.length>0,noScheduledTasks:timelineRows.length===0,
-      timelineEmptyMessage:planning.scheduled.length?'No hay tareas en este periodo. Puedes navegar o localizar las tareas de la lista inferior.':'Añade inicio y fin a una tarea de la lista inferior para verla en el calendario.',
+      timelineEmptyMessage:planning.scheduled.length?'No hay '+timelineScopePhrase+' planificadas en este periodo. Puedes navegar o revisar las tareas sin planificación de la lista inferior.':'No hay '+timelineScopePhrase+' planificadas. Añade inicio y fin a una tarea visible para verla en el calendario.',
       hasOutsideTasks:calendarTasks.outside.length>0,outsideCount:calendarTasks.outside.length,outsideRows:calendarTasks.outside.map(t=>({...taskInfo(t),onLocate:()=>this.locateTimelineTask(t.id)})),
       unscheduledCount: planning.unscheduled.length, unscheduledRows: planning.unscheduled.map(t=>({ responsibleLabel:this.responsibleLabel(t),title:t.title,projectName:this.projName(t.project)||'Sin proyecto',reason:t.scheduledStart||t.scheduledEnd?'Fechas incompletas o inválidas':'Añade inicio y fin',action:t.scheduledStart||t.scheduledEnd?'Revisar fechas':'Planificar',onOpen:()=>this.openTimelineTask(t.id) })),
       scheduleZoneLabel: 'Zona horaria: '+KaizenPlanning.zone(), scheduleStartDraft:s.scheduleStartDraft, scheduleEndDraft:s.scheduleEndDraft, scheduleError:s.scheduleError,
@@ -2968,9 +3044,9 @@ class Component extends DCLogic {
       supervisionNoPeople:!s.supervisionLoading&&!s.supervisionError&&!s.supervisionPeople.length,
       supervisionNeedsPerson:!s.supervisionLoading&&!s.supervisionError&&s.supervisionPeople.length>0&&!s.supervisionPersonId,
       supervisionPersonSelected:!!this.isWorkspaceAdmin()&&!!s.supervisionPersonId,
-      supervisionTimelineRows:(()=>{const values=this.isWorkspaceAdmin()?KaizenPlanning.timeline(s.supervisionTasks).scheduled:[];return values.map(t=>({anchor:supervisionAnchor(t.id),title:t.title,project:t.project_name||'Sin proyecto',status:t.done?'Hecha':'Pendiente',start:fmtPlan(t.scheduledStart),end:fmtPlan(t.scheduledEnd),startIso:new Date(t.scheduledStart).toISOString(),endIso:new Date(t.scheduledEnd).toISOString()}));})(),
-      supervisionUnscheduledRows:(()=>{const values=this.isWorkspaceAdmin()?KaizenPlanning.timeline(s.supervisionTasks).unscheduled:[];return values.map(t=>{const start=Date.parse(t.scheduledStart),end=Date.parse(t.scheduledEnd),valid=Number.isFinite(start)&&Number.isFinite(end)&&end>start;return {anchor:supervisionAnchor(t.id),title:t.title,project:t.project_name||'Sin proyecto',status:t.done?'Hecha':'Pendiente',dateNote:(t.scheduledStart||t.scheduledEnd)&&!valid?'Revisa el rango de fechas':t.due?'Fecha límite: '+t.due:'Sin fecha límite'};});})(),
-      supervisionBlockRows:(()=>{if(!this.isWorkspaceAdmin())return [];const seen=new Set(),blocks=KaizenPlanning.hourlyDay(s.supervisionTasks,this.dkey(now),now).blocks.filter(({task,block})=>{const signature=block.id?JSON.stringify([String(task.id),String(block.id)]):JSON.stringify([String(task.id),String(block.start),String(block.end)]);if(seen.has(signature))return false;seen.add(signature);return true;});return blocks.map(({task,block,start,end,continuesBefore,continuesAfter})=>({anchor:supervisionAnchor(task.id),title:task.title,project:task.project_name||'Sin proyecto',start:new Date(start).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),end:new Date(end).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),startIso:new Date(start).toISOString(),endIso:new Date(end).toISOString(),continuation:continuesBefore&&continuesAfter?'· Continúa desde ayer y después de hoy':continuesBefore?'· Continúa desde ayer':continuesAfter?'· Continúa después de hoy':''}));})(),
+      supervisionTimelineRows:(()=>{const values=this.isWorkspaceAdmin()?KaizenPlanning.timeline(s.supervisionTasks).scheduled:[];return values.map(t=>({anchor:supervisionAnchor(t.id),title:t.title,project:t.project_name||'Sin proyecto',status:t.done?'Hecha':'Pendiente',creatorLabel:supervisionCreatorLabel(t),responsibleLabel:supervisionResponsibleLabel(t),start:fmtPlan(t.scheduledStart),end:fmtPlan(t.scheduledEnd),startIso:new Date(t.scheduledStart).toISOString(),endIso:new Date(t.scheduledEnd).toISOString()}));})(),
+      supervisionUnscheduledRows:(()=>{const values=this.isWorkspaceAdmin()?KaizenPlanning.timeline(s.supervisionTasks).unscheduled:[];return values.map(t=>{const start=Date.parse(t.scheduledStart),end=Date.parse(t.scheduledEnd),valid=Number.isFinite(start)&&Number.isFinite(end)&&end>start;return {anchor:supervisionAnchor(t.id),title:t.title,project:t.project_name||'Sin proyecto',status:t.done?'Hecha':'Pendiente',creatorLabel:supervisionCreatorLabel(t),responsibleLabel:supervisionResponsibleLabel(t),dateNote:(t.scheduledStart||t.scheduledEnd)&&!valid?'Revisa el rango de fechas':t.due?'Fecha límite: '+t.due:'Sin fecha límite'};});})(),
+      supervisionBlockRows:(()=>{if(!this.isWorkspaceAdmin())return [];const seen=new Set(),blocks=KaizenPlanning.hourlyDay(s.supervisionTasks,this.dkey(now),now).blocks.filter(({task,block})=>{const signature=block.id?JSON.stringify([String(task.id),String(block.id)]):JSON.stringify([String(task.id),String(block.start),String(block.end)]);if(seen.has(signature))return false;seen.add(signature);return true;});return blocks.map(({task,block,start,end,continuesBefore,continuesAfter})=>({anchor:supervisionAnchor(task.id),title:task.title,project:task.project_name||'Sin proyecto',creatorLabel:supervisionCreatorLabel(task),responsibleLabel:supervisionResponsibleLabel(task),start:new Date(start).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),end:new Date(end).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),startIso:new Date(start).toISOString(),endIso:new Date(end).toISOString(),continuation:continuesBefore&&continuesAfter?'· Continúa desde ayer y después de hoy':continuesBefore?'· Continúa desde ayer':continuesAfter?'· Continúa después de hoy':''}));})(),
       supervisionNoTimeline:!s.supervisionLoading&&!s.supervisionError&&!s.supervisionTasks.some(t=>t.scheduledStart&&t.scheduledEnd&&Date.parse(t.scheduledEnd)>Date.parse(t.scheduledStart)),
       supervisionHasUnscheduled:!s.supervisionLoading&&!s.supervisionError&&KaizenPlanning.timeline(s.supervisionTasks).unscheduled.length>0,
       supervisionNoBlocks:!s.supervisionLoading&&!s.supervisionError&&!KaizenPlanning.hourlyDay(s.supervisionTasks,this.dkey(now),now).blocks.length,

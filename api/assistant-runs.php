@@ -278,6 +278,11 @@ function supervisionTasks(PDO $pdo, int $workspaceId, int $personId, array $user
     $member = $pdo->prepare('SELECT 1 FROM workspace_members WHERE workspace_id=? AND user_id=?');
     $member->execute([$workspaceId,$personId]);
     if (!$member->fetchColumn()) throw new DomainException('La persona no pertenece a este espacio.',404);
+    $nameQuery=$pdo->prepare('SELECT u.id,u.name FROM workspace_members wm JOIN users u ON u.id=wm.user_id WHERE wm.workspace_id=?');
+    $nameQuery->execute([$workspaceId]);
+    $memberNames=[];
+    foreach($nameQuery as $nameRow)$memberNames[(int)$nameRow['id']]=trim((string)$nameRow['name'])?:'nombre no disponible';
+    $shares=workspaceShares($pdo,$workspaceId);
     // EXISTS keeps one row per canonical task ID without DISTINCT over the payload.
     $q = $pdo->prepare('SELECT t.id,t.owner_id,t.title,t.done,t.payload_json FROM tasks t WHERE t.workspace_id=? AND (t.owner_id=? OR EXISTS (SELECT 1 FROM task_shares ts WHERE ts.workspace_id=t.workspace_id AND ts.task_id=t.id AND ts.user_id=?)) ORDER BY t.id');
     $q->execute([$workspaceId,$personId,$personId]);
@@ -299,6 +304,8 @@ function supervisionTasks(PDO $pdo, int $workspaceId, int $personId, array $user
         $tasks[]=[
             'id'=>(string)$row['id'],'title'=>(string)$row['title'],'done'=>(bool)$row['done'],
             'due'=>(string)($payload['due']??''),'project_name'=>(string)($project['name']??'Sin proyecto'),
+            'creator_name'=>$memberNames[(int)$row['owner_id']]??'nombre no disponible',
+            'responsible_names'=>array_map(fn($id)=>$memberNames[(int)$id]??'nombre no disponible',sharedIds($shares,(string)$row['id'])),
             'scheduledStart'=>(string)($payload['scheduledStart']??''),'scheduledEnd'=>(string)($payload['scheduledEnd']??''),
             'workBlocks'=>$blocks
         ];

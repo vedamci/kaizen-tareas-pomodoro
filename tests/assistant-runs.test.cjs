@@ -352,9 +352,9 @@ test('person supervision uses one task identity for timeline and explicit hourly
   const day=new Date(),key=`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
   const from=new Date(`${key}T09:00:00`),until=new Date(`${key}T17:00:00`),blockStart=new Date(`${key}T10:00:00`),blockEnd=new Date(`${key}T11:00:00`);
   const block={id:'block-1',start:blockStart.toISOString(),end:blockEnd.toISOString(),timeZone:'UTC'};
-  const task={id:'assigned-1',title:'Synthetic scheduled task',list:'today',done:false,project_name:'Project Alpha',scheduledStart:from.toISOString(),scheduledEnd:until.toISOString(),workBlocks:[block,{...block}]};
-  const collisionA={id:'a/b',title:'Synthetic unscheduled A',done:false,project_name:'Project Alpha',scheduledStart:'',scheduledEnd:'',workBlocks:[]};
-  const collisionB={id:'a?b',title:'Synthetic unscheduled B',done:false,project_name:'Project Alpha',scheduledStart:'',scheduledEnd:'',workBlocks:[]};
+  const task={id:'assigned-1',title:'Synthetic scheduled task',list:'today',done:false,project_name:'Project Alpha',creator_name:'Synthetic Creator',responsible_names:['Synthetic Member'],scheduledStart:from.toISOString(),scheduledEnd:until.toISOString(),workBlocks:[block,{...block}]};
+  const collisionA={id:'a/b',title:'Synthetic unscheduled A',done:false,project_name:'Project Alpha',creator_name:'Synthetic Member',responsible_names:[],scheduledStart:'',scheduledEnd:'',workBlocks:[]};
+  const collisionB={id:'a?b',title:'Synthetic unscheduled B',done:false,project_name:'Project Alpha',creator_name:'Synthetic Creator',responsible_names:['Synthetic Member'],scheduledStart:'',scheduledEnd:'',workBlocks:[]};
   const calls={api:0,fetch:0,supervisionPeople:[{id:1,name:'Synthetic Admin',workspace_role:'admin'},{id:2,name:'Synthetic Member',workspace_role:'member'}],supervisionTasks:{1:[],2:[task,{...task,title:'Synthetic duplicate'},collisionA,collisionB]}};
   const c=component(calls);workspaceRole(c,'admin');c.state.view='supervision';
   await c.loadSupervisionPeople();
@@ -365,10 +365,13 @@ test('person supervision uses one task identity for timeline and explicit hourly
   assert.equal(c.state.supervisionTasks.length,3,'duplicate task IDs are removed at the API boundary');
   assert.equal(v.supervisionTimelineRows.length,1);assert.equal(v.supervisionUnscheduledRows.length,2);assert.equal(v.supervisionBlockRows.length,1,'duplicate workBlock IDs do not produce duplicate rows');
   assert.equal(v.supervisionTimelineRows[0].anchor,v.supervisionBlockRows[0].anchor,'both views link to the same canonical task');
+  assert.equal(v.supervisionTimelineRows[0].creatorLabel,'Creada por Synthetic Creator');assert.equal(v.supervisionTimelineRows[0].responsibleLabel,'Responsable: Synthetic Member','creator and assigned person remain distinct');
+  assert.equal(v.supervisionUnscheduledRows[0].responsibleLabel,'Sin asignar');assert.equal(v.supervisionUnscheduledRows[1].responsibleLabel,'Responsable: Synthetic Member');
+  assert.equal(v.supervisionBlockRows[0].creatorLabel,'Creada por Synthetic Creator');
   assert.ok(v.supervisionTimelineRows[0].start&&v.supervisionTimelineRows[0].end,'timeline keeps both full schedule bounds');
   assert.notEqual(v.supervisionUnscheduledRows[0].anchor,v.supervisionUnscheduledRows[1].anchor,'distinct task IDs cannot collide after anchor encoding');
   assert.equal(v.supervisionBlockRows[0].start.match(/\d{2}:\d{2}/)?.[0],'10:00','hourly view comes from the explicit workBlock only, independent of locale suffix');
-  assert.ok(v.supervisionTimeZone);assert.match(supervisionMarkup,/El rango completo del cronograma no se convierte en horas trabajadas/);
+  assert.ok(v.supervisionTimeZone);assert.match(supervisionMarkup,/El rango completo del cronograma no se convierte en horas trabajadas/);assert.match(supervisionMarkup,/creador y responsable se muestran por separado/);
   assert.match(supervisionMarkup,/aria-live="polite"/);assert.match(supervisionMarkup,/datetime="\{\{ t\.startIso \}\}"/);
   await v.onSupervisionPerson({target:{value:''}});v=c.renderVals();
   assert.equal(c.state.supervisionPersonId,'');assert.equal(v.supervisionNeedsPerson,true);assert.equal(v.supervisionError,'','clearing the person selection is not an error');
