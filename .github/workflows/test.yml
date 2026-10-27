@@ -2,7 +2,7 @@ name: Test Kaizen
 on:
   pull_request:
   push:
-    branches: ['feature/**']
+    branches: ['main', 'feature/**']
 permissions:
   contents: read
 jobs:
@@ -13,15 +13,23 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+      - name: Verify published page matches the editable page
+        run: cmp --silent index.html 'Gestor de Tareas.dc.html'
       - name: JavaScript and component checks
-        run: node --test tests/planning.test.cjs
+        run: node --test tests/planning.test.cjs tests/assistant-runs.test.cjs
       - name: PHP syntax and project policy
         run: |
           php -l api/index.php
           php -l api/projects.php
+          php -l api/assistant-runs.php
           php -l api/project-policy.php
           php -l api/password-reset.php
           php -l api/password-reset-worker.php
+          php -l api/mcp.php
+          php -l api/mcp-core.php
+          php -l api/mcp-oauth.php
+          php -l api/oauth.php
+          php -l tests/mcp-fixture.php
           php -l tests/projects-mysql.php
           php -l tests/password-reset-mysql.php
           php -l tests/password-race-mysql.php
@@ -31,7 +39,7 @@ jobs:
       - name: Start disposable test database
         run: |
           sudo systemctl start mysql.service
-          mysql --host=127.0.0.1 --user=root --password=root -e 'CREATE DATABASE kaizen_test_projects CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE DATABASE kaizen_test_http CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+          mysql --host=127.0.0.1 --user=root --password=root -e 'CREATE DATABASE kaizen_test_projects CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE DATABASE kaizen_test_http CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE DATABASE kaizen_test_mcp CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
       - name: MySQL persistence and authorization
         env:
           KAIZEN_TEST_DSN: mysql:host=127.0.0.1;dbname=kaizen_test_projects
@@ -62,3 +70,10 @@ jobs:
           KAIZEN_TEST_DB_USER: root
           KAIZEN_TEST_DB_PASSWORD: root # Disposable runner default.
         run: node --test tests/http.test.mjs
+
+      - name: MCP OAuth and HTTP authorization
+        env:
+          KAIZEN_TEST_DSN: mysql:host=127.0.0.1;dbname=kaizen_test_mcp
+          KAIZEN_TEST_DB_USER: root
+          KAIZEN_TEST_DB_PASSWORD: root # Disposable runner default.
+        run: node --test tests/mcp-http.test.mjs

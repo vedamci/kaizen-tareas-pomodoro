@@ -1,0 +1,215 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir,copyFile,rm,writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {execFileSync,spawn} from 'node:child_process';
+import {createHash,randomBytes} from 'node:crypto';
+
+const repo=fileURLToPath(new URL('../',import.meta.url));
+const endpoint='http://127.0.0.1:4181/api/mcp.php';
+const oauth='http://127.0.0.1:4181/api/oauth.php';
+const clientId='https://chatgpt.com/oauth/client.json';
+const redirectUri='https://chatgpt.com/connector_platform_oauth_redirect';
+const codexClientId='https://chatgpt.com/oauth/codex/client.json';
+const codexRedirectUri='http://127.0.0.1:54217/callback';
+
+test('MCP transport, scopes and existing Kaizen authorization', {timeout:90000},async()=>{
+  const scratch=await mkdtemp(path.join(tmpdir(),'kaizen-mcp-'));
+  let server,logs='';let id=0;
+  async function rpc(token,method,params={},status=200,headers={}){
+    const request={jsonrpc:'2.0',id:++id,method,params};
+    const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json, text/event-stream','MCP-Protocol-Version':'2025-11-25',...(token?{Authorization:'Bearer '+token}:{}),...headers},body:JSON.stringify(request)});
+    assert.equal(response.status,status,`${method}: ${await response.clone().text()}`);
+    return status===401||status===403?null:response.json();
+  }
+  const call=(token,name,args,status=200)=>rpc(token,'tools/call',{name,arguments:args},status);
+  const data=r=>r.result.structuredContent;
+  async function authorize(account,scope,exchange=true,client=clientId,redirect=redirectUri){
+    const login=await fetch('http://127.0.0.1:4181/api/index.php?action=login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:`fixture${account}@example.test`,password:'disposable-http-fixture'})});
+    assert.equal(login.status,200,await login.clone().text());
+    const cookie=login.headers.get('set-cookie').split(';')[0];
+    const verifier=randomBytes(32).toString('base64url');
+    const challenge=createHash('sha256').update(verifier).digest('base64url');
+    const args={response_type:'code',client_id:client,redirect_uri:redirect,resource:endpoint,scope,code_challenge:challenge,code_challenge_method:'S256',state:'fixture-state'};
+    const url=oauth+'?action=authorize&'+new URLSearchParams(args);
+    const consent=await fetch(url,{headers:{Cookie:cookie}});
+    assert.equal(consent.status,200,await consent.clone().text());
+    assert.ok(consent.headers.get('content-security-policy').includes("form-action 'self' "+new URL(redirect).origin+';'));
+    const html=await consent.text();
+    const formFields=Object.fromEntries([...html.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)].map(([,key,value])=>[key,value]));
+    assert.ok(formFields.csrf);
+    assert.equal(formFields.response_type,'code');
+    assert.equal(formFields.code_challenge_method,'S256');
+    const approval=await fetch(oauth+'?action=authorize',{method:'POST',redirect:'manual',headers:{Cookie:cookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({...formFields,decision:'approve'})});
+    assert.equal(approval.status,302,await approval.clone().text());
+    const redirected=new URL(approval.headers.get('location'));
+    assert.equal(redirected.searchParams.get('state'),'fixture-state');
+    assert.equal(redirected.searchParams.get('iss'),'http://127.0.0.1:4181');
+    const code=redirected.searchParams.get('code');assert.ok(code);
+    if (!exchange) return {code,verifier,cookie};
+    const wrongVerifier=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:client,redirect_uri:redirect,resource:endpoint,code_verifier:'x'.repeat(43)})});
+    assert.equal(wrongVerifier.status,400);
+    if (client===codexClientId) {
+      const badClientAuth=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',Authorization:'Basic '+Buffer.from(client+':not-a-secret').toString('base64')},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:client,redirect_uri:redirect,resource:endpoint,code_verifier:verifier})});
+      assert.equal(badClientAuth.status,401);
+    }
+    const tokenResponse=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',...(client===codexClientId?{Authorization:''}: {})},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:client,redirect_uri:redirect,resource:endpoint,code_verifier:verifier})});
+    assert.equal(tokenResponse.status,200,await tokenResponse.clone().text());
+    const tokens=await tokenResponse.json();
+    const replay=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,client_id:client,redirect_uri:redirect,resource:endpoint,code_verifier:verifier})});
+    assert.equal(replay.status,400);
+    return {...tokens,cookie};
+  }
+  try{
+    await mkdir(path.join(scratch,'api'));
+    for(const name of ['mcp.php','mcp-config.php','mcp-core.php','mcp-oauth.php','oauth.php','index.php','projects.php','project-policy.php','assistant-runs.php']) await copyFile(path.join(repo,'api',name),path.join(scratch,'api',name));
+    execFileSync('php',[path.join(repo,'tests/mcp-fixture.php'),scratch],{stdio:'pipe'});
+    server=spawn('php',['-S','127.0.0.1:4181','-t',scratch],{stdio:['ignore','pipe','pipe']});
+    server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);
+    let ready=false;for(let i=0;i<60;i++){try{await fetch(endpoint);ready=true;break;}catch{await new Promise(r=>setTimeout(r,100));}}
+    assert.ok(ready,'fixture HTTP server starts');
+    await rpc(null,'initialize',{},401);
+    await rpc('invalid-token-000000000001','initialize',{},401);
+    const metadata=await (await fetch(oauth+'?action=metadata')).json();
+    assert.equal(metadata.client_id_metadata_document_supported,true);
+    assert.equal(metadata.authorization_response_iss_parameter_supported,true);
+    assert.deepEqual((await (await fetch(oauth+'?action=resource-metadata')).json()).authorization_servers,['http://127.0.0.1:4181']);
+    const ownerRead=await authorize(1,'kaizen:read');
+    const ownerWrite=await authorize(1,'kaizen:read kaizen:write');
+    const codex=await authorize(1,'kaizen:read kaizen:assistant_runs:write',true,codexClientId,codexRedirectUri);
+    const member=await authorize(2,'kaizen:read');
+    const memberWrite=await authorize(2,'kaizen:read kaizen:write');
+    const admin=await authorize(4,'kaizen:read');
+    const outsider=await authorize(5,'kaizen:read');
+    const outsiderWrite=await authorize(5,'kaizen:read kaizen:write');
+    const tokens={read:ownerRead.access_token,write:ownerWrite.access_token,member:member.access_token,memberWrite:memberWrite.access_token,admin:admin.access_token,outsider:outsider.access_token,outsiderWrite:outsiderWrite.access_token};
+    const badRequest={response_type:'code',client_id:clientId,redirect_uri:redirectUri,resource:endpoint,scope:'kaizen:read',code_challenge:'x'.repeat(43),code_challenge_method:'S256',state:'fixture-state'};
+    for(const [key,value] of [['client_id','https://attacker.example/client.json'],['redirect_uri','https://attacker.example/callback'],['resource','https://attacker.example/mcp']]) {
+      const rejected=await fetch(oauth+'?action=authorize&'+new URLSearchParams({...badRequest,[key]:value}),{headers:{Cookie:ownerRead.cookie}});
+      assert.equal(rejected.status,400);
+    }
+    for(const redirect of ['http://evil.example/callback','http://127.0.0.1:54217/other','http://127.0.0.1:54217/callback?x=1']) {
+      const rejected=await fetch(oauth+'?action=authorize&'+new URLSearchParams({...badRequest,client_id:codexClientId,redirect_uri:redirect}),{headers:{Cookie:codex.cookie}});
+      assert.equal(rejected.status,400);
+    }
+    const csrfRejected=await fetch(oauth+'?action=authorize',{method:'POST',headers:{Cookie:ownerRead.cookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({...badRequest,csrf:'wrong',decision:'approve'})});
+    assert.equal(csrfRejected.status,403);
+    await rpc(tokens.read,'initialize',{},403,{Origin:'https://evil.example'});
+    const init=await rpc(tokens.read,'initialize',{});
+    assert.equal(init.result.protocolVersion,'2025-11-25');
+    const readTools=(await rpc(tokens.read,'tools/list')).result.tools;
+    assert.deepEqual(readTools.find(t=>t.name==='create_task').securitySchemes,[{type:'oauth2',scopes:['kaizen:read','kaizen:write']}]);
+    assert.deepEqual(readTools.find(t=>t.name==='day_agenda').securitySchemes,[{type:'oauth2',scopes:['kaizen:read']}]);
+    assert.deepEqual(readTools.find(t=>t.name==='assistant_runs').securitySchemes,[{type:'oauth2',scopes:['kaizen:read']}]);
+    assert.deepEqual(readTools.find(t=>t.name==='assistant_run_upsert').securitySchemes,[{type:'oauth2',scopes:['kaizen:read','kaizen:assistant_runs:write']}]);
+    assert.deepEqual(data(await call(tokens.read,'get_profile',{})),{id:'kaizen-user-1',name:'Fixture 1',email:'fixture1@example.test'});
+    assert.equal(data(await call(tokens.member,'get_profile',{})).id,'kaizen-user-2');
+    assert.equal(data(await call(tokens.read,'list_workspaces',{})).workspaces.length,1);
+    assert.equal(data(await call(tokens.read,'assistant_runs',{workspace_id:1})).runs.length,0);
+    await call(tokens.member,'assistant_runs',{workspace_id:1},403);
+    await call(tokens.memberWrite,'assistant_runs',{workspace_id:1},403);
+    await call(tokens.outsider,'assistant_runs',{workspace_id:1},403);
+    await call(tokens.outsider,'list_tasks',{workspace_id:1},403);
+    await call(tokens.member,'list_tasks',{workspace_id:1,scope:'team'},403);
+    const upgrade=await call(tokens.read,'create_task',{workspace_id:1,client_id:'c1',title:'No'});
+    assert.equal(upgrade.result.isError,true);
+    assert.match(upgrade.result._meta['mcp/www_authenticate'][0],/insufficient_scope/);
+    const assistantPayload={workspace_id:1,source:'mcp-test',external_id:'fixture-assistant-1',idempotency_key:'mcp-http-idempotency-0001',title:'Synthetic assistant run',status:'blocked',progress:'Synthetic verified progress',blocker:'Synthetic blocker',next_step:'Synthetic next step',deliverables:['Synthetic deliverable'],delegated_at:'2026-10-16T10:00:00.000Z'};
+    const assistantUpgrade=await call(tokens.read,'assistant_run_upsert',assistantPayload);
+    assert.equal(assistantUpgrade.result.isError,true);
+    assert.match(assistantUpgrade.result._meta['mcp/www_authenticate'][0],/insufficient_scope/);
+    assert.match(assistantUpgrade.result._meta['mcp/www_authenticate'][0],/kaizen:assistant_runs:write/);
+    const codexTaskWrite=await call(codex.access_token,'create_task',{workspace_id:1,client_id:'codex-not-allowed',title:'No'});
+    assert.equal(codexTaskWrite.result.isError,true);
+    const codexSaved=data(await call(codex.access_token,'assistant_run_upsert',{...assistantPayload,external_id:'codex-run',idempotency_key:'mcp-http-idempotency-codex'}));
+    assert.equal(codexSaved.run.external_id,'codex-run');
+    await call(tokens.memberWrite,'assistant_run_upsert',{...assistantPayload,external_id:'member-run'},403);
+    await call(tokens.outsiderWrite,'assistant_run_upsert',{...assistantPayload,external_id:'outsider-run'},403);
+    const assistantSaved=data(await call(tokens.write,'assistant_run_upsert',assistantPayload));
+    assert.equal(assistantSaved.duplicate,false);
+    assert.equal(assistantSaved.run.kind,'assistant_run');
+    assert.ok(assistantSaved.run.events.some(e=>e.type==='progress_note'&&e.summary==='Synthetic verified progress'));
+    assert.ok(assistantSaved.run.events.some(e=>e.type==='blocker_set'&&e.summary==='Synthetic blocker'));
+    assert.equal('notes' in assistantSaved.run,false);
+    assert.equal('payload_json' in assistantSaved.run,false);
+    assert.equal('history' in assistantSaved.run,false);
+    const assistantDuplicate=data(await call(tokens.write,'assistant_run_upsert',assistantPayload));
+    assert.equal(assistantDuplicate.duplicate,true);
+    assert.equal(assistantDuplicate.run.id,assistantSaved.run.id);
+    const assistantConflict=await call(tokens.write,'assistant_run_upsert',{...assistantPayload,title:'Different synthetic title'},409);
+    assert.equal(assistantConflict.result.isError,true);
+    const created=data(await call(tokens.write,'create_task',{workspace_id:1,client_id:'c1',title:'A'})).task;
+    assert.equal(created.title,'A');
+    assert.equal(data(await call(tokens.write,'create_task',{workspace_id:1,client_id:'c1',title:'A'})).task.id,created.id);
+    const denied=await call(tokens.write,'create_task',{workspace_id:1,client_id:'c1',title:'Different'},409);
+    assert.equal(denied.result.isError,true);
+    await call(tokens.member,'get_task',{workspace_id:1,task_id:created.id},403);
+    const updated=data(await call(tokens.write,'set_task_done',{workspace_id:1,task_id:created.id,revision:created._revision,done:true})).task;
+    assert.equal(updated.done,true);
+    assert.equal(data(await call(tokens.write,'set_task_done',{workspace_id:1,task_id:created.id,revision:created._revision,done:true})).task.done,true);
+    const block=data(await call(tokens.write,'set_work_block',{workspace_id:1,task_id:created.id,revision:updated._revision,block_id:'b1',start:'2026-10-14T15:00:00.000Z',end:'2026-10-14T16:00:00.000Z',time_zone:'America/Mexico_City'})).task;
+    assert.equal(block.workBlocks.length,1);
+    assert.equal(data(await call(tokens.read,'day_agenda',{workspace_id:1,date:'2026-10-14'})).blocks[0].task_id,created.id);
+    const edited=data(await call(tokens.write,'update_task',{workspace_id:1,task_id:created.id,revision:block._revision,changes:{title:'Edited',due:'2026-10-14'}})).task;
+    assert.equal(edited.title,'Edited');
+    const stale=await call(tokens.write,'update_task',{workspace_id:1,task_id:created.id,revision:block._revision,changes:{title:'Stale'}},409);
+    assert.equal(stale.result.isError,true);
+    const invalidEdit=await call(tokens.write,'update_task',{workspace_id:1,task_id:created.id,revision:edited._revision,changes:{_owner_id:2}},200);
+    assert.equal(invalidEdit.result.isError,true);
+    const removed=data(await call(tokens.write,'remove_work_block',{workspace_id:1,task_id:created.id,revision:edited._revision,block_id:'b1'})).task;
+    assert.equal(removed.workBlocks.length,0);
+    assert.equal(data(await call(tokens.write,'remove_work_block',{workspace_id:1,task_id:created.id,revision:edited._revision,block_id:'b1'})).task.workBlocks.length,0);
+    assert.equal(data(await call(tokens.admin,'list_tasks',{workspace_id:1,scope:'team'})).tasks.length,1);
+    const project=data(await call(tokens.write,'save_project',{workspace_id:1,client_id:'p1',name:'Proyecto',member_ids:[2]})).project;
+    assert.deepEqual(project.member_ids,[1,2]);
+    assert.equal(data(await call(tokens.member,'list_projects',{workspace_id:1})).projects[0].id,project.id);
+    await call(tokens.memberWrite,'save_project',{workspace_id:1,project_id:project.id,name:'Hijack',member_ids:[2]},403);
+    const refresh=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:ownerRead.refresh_token,client_id:clientId,resource:endpoint})});
+    assert.equal(refresh.status,200,await refresh.clone().text());
+    const rotated=await refresh.json();
+    assert.ok((await rpc(rotated.access_token,'tools/list')).result.tools.length);
+    const replay=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:ownerRead.refresh_token,client_id:clientId,resource:endpoint})});
+    assert.equal(replay.status,400);
+    await rpc(rotated.access_token,'tools/list',{},401);
+    const revoke=await fetch(oauth+'?action=connections',{method:'POST',headers:{Cookie:ownerRead.cookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf:(await (await fetch(oauth+'?action=connections',{headers:{Cookie:ownerRead.cookie}})).text()).match(/name="csrf" value="([^"]+)"/)?.[1]})});
+    assert.equal(revoke.status,200);
+    await rpc(tokens.write,'tools/list',{},401);
+    const limitedRead=await authorize(1,'kaizen:read');
+    const limitedWrite=await authorize(1,'kaizen:read kaizen:write');
+    const pendingMember=await authorize(2,'kaizen:read',false);
+    await writeFile(path.join(scratch,'test-policy.json'),JSON.stringify({mcp_allowed_user_ids:[1],mcp_max_scope:'kaizen:read'}));
+    assert.deepEqual((await (await fetch(oauth+'?action=metadata')).json()).scopes_supported,['kaizen:read','kaizen:assistant_runs:write']);
+    assert.deepEqual((await (await fetch(oauth+'?action=resource-metadata')).json()).scopes_supported,['kaizen:read','kaizen:assistant_runs:write']);
+    await rpc(tokens.member,'tools/list',{},401);
+    await rpc(limitedWrite.access_token,'tools/list',{},401);
+    const limitedTools=(await rpc(limitedRead.access_token,'tools/list')).result.tools.map(t=>t.name);
+    assert.ok(limitedTools.includes('list_tasks')&&!limitedTools.includes('create_task'));
+    assert.ok(limitedTools.includes('assistant_runs')&&limitedTools.includes('assistant_run_upsert'));
+    const limitedCodex=await authorize(1,'kaizen:read kaizen:assistant_runs:write',true,codexClientId,codexRedirectUri);
+    const limitedCodexTools=(await rpc(limitedCodex.access_token,'tools/list')).result.tools.map(t=>t.name);
+    assert.ok(limitedCodexTools.includes('assistant_run_upsert')&&!limitedCodexTools.includes('create_task'));
+    assert.equal(data(await call(limitedCodex.access_token,'assistant_run_upsert',{
+      ...assistantPayload,external_id:'codex-limited',idempotency_key:'mcp-http-idempotency-limited'
+    })).run.external_id,'codex-limited');
+    const limitedTaskWrite=await call(limitedCodex.access_token,'create_task',{workspace_id:1,client_id:'forbidden',title:'No'});
+    assert.equal(limitedTaskWrite.error.code,-32601);
+    const blockedWrite=await call(limitedRead.access_token,'create_task',{workspace_id:1,client_id:'blocked',title:'No'});
+    assert.equal(blockedWrite.error.code,-32601);
+    const otherUser=await fetch(oauth+'?action=authorize&'+new URLSearchParams(badRequest),{headers:{Cookie:member.cookie}});
+    assert.equal(otherUser.status,403);
+    const writeScope=await fetch(oauth+'?action=authorize&'+new URLSearchParams({...badRequest,scope:'kaizen:read kaizen:write'}),{headers:{Cookie:limitedRead.cookie}});
+    assert.equal(writeScope.status,400);
+    const blockedRefresh=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:limitedWrite.refresh_token,client_id:clientId,resource:endpoint})});
+    assert.equal(blockedRefresh.status,400);
+    const removedCode=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code:pendingMember.code,client_id:clientId,redirect_uri:redirectUri,resource:endpoint,code_verifier:pendingMember.verifier})});
+    assert.equal(removedCode.status,400);
+    const removedRefresh=await fetch(oauth+'?action=token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:member.refresh_token,client_id:clientId,resource:endpoint})});
+    assert.equal(removedRefresh.status,400);
+  }finally{
+    if(server){server.kill();await new Promise(resolve=>server.once('exit',resolve));}
+    await rm(scratch,{recursive:true,force:true});
+    if(logs.includes('Fatal error')) console.error(logs);
+  }
+});

@@ -471,15 +471,15 @@ test('team overview is permission-gated and its tasks never enter personal lists
   c.state.workspaces[0].member_role='admin';const before=JSON.stringify(c.state.tasks);
   c.api=async(action)=>{assert.equal(action,'team_tasks');calls++;return {ok:true,tasks:[{...c.state.tasks[0],id:'peer',_owner_id:2}],projects:[]};};
   await c.loadTeamTasks();assert.equal(calls,1);assert.equal(c.state.teamTasks[0].id,'peer');assert.equal(JSON.stringify(c.state.tasks),before);
-  c.state.view='team';assert.equal(c.renderVals().isTeamView,true);assert.equal(c.renderVals().teamRows.length,1);
+  c.state.view='team';const teamView=c.renderVals();assert.equal(teamView.isTeamView,true);assert.equal(teamView.teamGroups.flatMap(group=>group.tasks).length,1);
   c.state.view='inbox';assert.equal(c.renderVals().listTasks.length,0);
-  c.state.auth.role='user';c.state.workspaces[0].member_role='member';c.state.view='team';assert.equal(c.renderVals().isTeamView,false);assert.equal(c.renderVals().teamRows.length,0);
+  c.state.auth.role='user';c.state.workspaces[0].member_role='member';c.state.view='team';const memberView=c.renderVals();assert.equal(memberView.isTeamView,false);assert.equal(memberView.teamGroups.flatMap(group=>group.tasks).length,0);
 });
 test('late team responses cannot reveal data after switching user or workspace',async()=>{
   const c=delegationFixture();c.state.workspaces=[{id:1,member_role:'admin'}];let finish;
   c.api=()=>new Promise(resolve=>{finish=resolve;});const loading=c.loadTeamTasks();
   c.state.auth={id:2,role:'user'};c.state.workspaces[0].member_role='member';finish({ok:true,tasks:[{id:'private',title:'Private'}],projects:[]});await loading;
-  assert.equal(c.state.teamTasks.length,0);assert.equal(c.renderVals().teamRows.length,0);
+  assert.equal(c.state.teamTasks.length,0);assert.equal(c.renderVals().teamGroups.flatMap(group=>group.tasks).length,0);
 });
 test('late collaboration reads cannot replace tasks after an identity switch',async()=>{
   const c=delegationFixture();let finish;c.api=()=>new Promise(resolve=>{finish=resolve;});
@@ -494,8 +494,9 @@ test('team navigation count follows loaded rows and refreshes without changing p
   c.api=async action=>{assert.equal(action,'team_tasks');return {ok:true,tasks:fixture,projects:[]};};
   const count=v=>v.navItems.find(n=>n.id==='team')?.count;
   assert.equal(count(c.renderVals()),0);await c.loadTeamTasks();
-  let v=c.renderVals();assert.equal(v.teamRows.length,4);assert.equal(count(v),4);assert.equal(v.listTasks.length,1);assert.equal(v.navItems.find(n=>n.id==='inbox').count,1);
-  fixture=fixture.slice(0,2);await c.loadTeamTasks();v=c.renderVals();assert.equal(v.teamRows.length,2);assert.equal(count(v),2);assert.equal(v.listTasks.length,1);
+  let v=c.renderVals();assert.equal(v.teamGroups.flatMap(group=>group.tasks).length,3);assert.equal(count(v),4);assert.equal(v.listTasks.length,1);assert.equal(v.navItems.find(n=>n.id==='inbox').count,1);
+  c.state.teamStatusFilter='trash';assert.equal(c.renderVals().teamGroups.flatMap(group=>group.tasks).length,1);c.state.teamStatusFilter='all';
+  fixture=fixture.slice(0,2);await c.loadTeamTasks();v=c.renderVals();assert.equal(v.teamGroups.flatMap(group=>group.tasks).length,2);assert.equal(count(v),2);assert.equal(v.listTasks.length,1);
   fixture=[];await c.loadTeamTasks();assert.equal(count(c.renderVals()),0);
   c.state.workspaces[0].member_role='member';assert.equal(count(c.renderVals()),undefined);
 });

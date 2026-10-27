@@ -1,4 +1,4 @@
 Options -Indexes
-<FilesMatch "^(config|config\.example|schema)\.php$">
+<FilesMatch "^(config|config\.example|schema|mcp-config|mcp-local)\.php$">
   Require all denied
 </FilesMatch>

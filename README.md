@@ -41,6 +41,42 @@ cuadrícula desplegable permite un desplazamiento horizontal propio para conserv
 de día de al menos 44 px; la agenda permanece primero. La vista previa local usa
 datos ficticios y nunca debe conectarse a la API publicada.
 
+## Tareas delegadas al asistente
+
+**Asistente** (en Más vistas) sigue las ejecuciones delegadas a Luna según
+[la especificación](docs/delegated-assistant-tasks-spec.md). Muestra resumen por
+estado, búsqueda, tarjetas con estado, antigüedad, último avance, bloqueo, próximo
+paso y entregables, y un detalle con la cronología de eventos de la más reciente
+a la más antigua. Los filtros no modifican ninguna ejecución.
+
+La rama implementa registros privados mediante `assistant_runs` y
+`assistant_run_upsert`. La carga en vivo requiere seleccionar **Servidor ·
+registros privados** una vez por usuario y espacio; esa preferencia se conserva
+en el navegador y la vista vuelve a cargar los registros del servidor al
+recargar. Solo se guarda la preferencia, nunca el contenido privado. Los
+fixtures de `assistant-runs-demo.js` requieren una selección explícita y muestran siempre
+**DEMO · datos ficticios**. Nunca se mezclan con registros reales. La lógica de
+presentación está en `assistant-runs.js`:
+
+Solo el administrador del espacio activo, su creador o un superadministrador puede
+ver la sección. La comprobación protege navegación, vista directa, modelo de
+renderizado y carga; al perder acceso, descarta la selección y los datos en
+memoria. Las rutas de sesión y herramientas MCP de rama vuelven a comprobar el
+administrador, creador o superadministrador en servidor. MCP publica la lectura
+con `kaizen:read` y el upsert solo cuando ya está permitido `kaizen:write`; no
+añade scopes ni crea credenciales. La integración no programa ejecuciones.
+
+- Una ejecución solo existe con `kind: "assistant_run"`, asistente y evento
+  `delegated`. `done`, propietario, `sharedWith`, `_delegated_at`, `scope: team`,
+  Pomodoros, `seconds`, `pomos` y `_revision` nunca crean ni miden una ejecución.
+- Antigüedad = ahora − `delegated_at`; tiempo de resolución = `completed_at` −
+  `delegated_at`, solo con estado y evento `completed`. Las canceladas no cuentan
+  como resueltas. Marcas ausentes, inválidas o contradictorias se leen **Sin dato**.
+- El tiempo activo es **Sin registro** salvo con pares explícitos
+  `work_started`/`work_paused`; se ignoran intervalos abiertos, invertidos,
+  duplicados o sin pareja, y el detalle avisa de ellos.
+- El selector «Probar estados de la demo» muestra carga, vacío y error.
+
 ## Uso
 
 - En **Proyectos**, crear un proyecto y elegir miembros del equipo existente.
@@ -145,7 +181,12 @@ mete las tareas de los compañeros en Hoy/Bandeja/Futuro. La vista **Tareas del
 equipo**, en Más vistas y Supervisión, permite al administrador del espacio
 consultar todas las tareas de ese espacio, con creador y responsables separados.
 Es de solo lectura y su colección no entra en listas, sincronización ni caché
-persistida personal. No se cambian usuarios ni roles.
+persistida personal. Ahora incluye un resumen clicable de pendientes, atrasadas,
+hechas y sin responsable; búsqueda por tarea, persona o proyecto; filtros de
+estado; y agrupación por responsable, proyecto o estado. Dentro de cada grupo,
+las tareas atrasadas y las fechas más próximas aparecen primero. Las tarjetas
+muestran el creador, responsables confirmados, proyecto, fecha límite, rango de
+planificación y tiempo Pomodoro registrado. No se cambian usuarios ni roles.
 
 Protección en API (identidad y rol proceden de sesión/DB, no del payload):
 
@@ -277,8 +318,16 @@ loopback `kaizen_test_http` y configurar `KAIZEN_TEST_DSN`, `KAIZEN_TEST_DB_USER
 ya prepara esa infraestructura con credenciales desechables del runner.
 
 Límite: la prueba HTTP usa el servidor integrado de PHP; no valida la configuración
-Apache/cPanel/HTTPS de producción ni la entrega de notificaciones push. La vista
-previa en Chrome sigue usando datos ficticios. No se probó ni publicó en producción.
+Apache/HTTPS de producción ni la entrega de notificaciones push. La vista previa
+en Chrome sigue usando datos ficticios.
+
+Al fusionar cambios a `main`, GitHub envía el evento `push` al webhook de
+publicación que ya está configurado para este repositorio. El sitio se publica
+desde `Gestor de Tareas.dc.html`; `index.html` debe conservar el mismo contenido
+para que la vista previa y la página publicada no se separen. El workflow
+comprueba que ambos archivos coincidan antes de pasar las pruebas. No hay que
+cargar archivos ni configurar secretos FTP para cada cambio. Ver
+[docs/github-deploy.md](docs/github-deploy.md).
 
 El calendario horario anterior llegó a `main` el 12 de octubre de 2026. La
 separación de bloques y cronograma está en `feature/daily-work-blocks` para revisión;
