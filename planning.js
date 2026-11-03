@@ -122,7 +122,7 @@
   }
   // Use elapsed minutes between local midnights. This keeps skipped and
   // repeated daylight-saving hours honest and clips overnight tasks at the day.
-  function hourlyDay(tasks, key, now = Date.now()) {
+  function hourlyDay(tasks, key, now = Date.now(), options = {}) {
     if (!validDateKey(key)) return { ticks: [], blocks: [], free: [], slots: [], minutes: 0, nowMinute: null };
     const [year, month, day] = key.split('-').map(Number);
     const start = +new Date(year, month - 1, day);
@@ -136,13 +136,22 @@
       ticks.push({ minute: (time - start) / 60000,
         label: date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', ...(repeated ? { timeZoneName: 'shortOffset' } : {}) }) });
     }
-    const blocks = tasks.filter(t => t.list !== 'trash').flatMap(task =>
-      (Array.isArray(task.workBlocks) ? task.workBlocks : []).map(block => {
+    const blocks = tasks.filter(t => t.list !== 'trash').flatMap(task => {
+      const explicit = (Array.isArray(task.workBlocks) ? task.workBlocks : []).filter(block => {
+        const from=Date.parse(block.start),to=Date.parse(block.end);
+        return Number.isFinite(from)&&Number.isFinite(to)&&to>from;
+      });
+      // A schedule is a planning fallback, never a recorded work interval.
+      // Explicit blocks take precedence across all days, avoiding duplication
+      // and preventing a long project range from hiding actual free hours.
+      const source=explicit.length?'workBlock':'schedule';
+      const intervals=explicit.length?explicit:options.includeSchedule?[{id:'__schedule__',start:task.scheduledStart,end:task.scheduledEnd,timeZone:task.scheduleTimeZone}]:[];
+      return intervals.map(block => {
         const from = Date.parse(block.start), to = Date.parse(block.end);
         if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to <= start || from >= end) return null;
-        return { task, block, start: Math.max(from, start), end: Math.min(to, end), continuesBefore: from < start, continuesAfter: to > end };
-      }).filter(Boolean)
-    ).sort((a, b) => a.start - b.start || b.end - a.end || String(a.task.id).localeCompare(String(b.task.id)) || String(a.block.id).localeCompare(String(b.block.id)));
+        return { task, block, source, start: Math.max(from, start), end: Math.min(to, end), continuesBefore: from < start, continuesAfter: to > end };
+      }).filter(Boolean);
+    }).sort((a, b) => a.start - b.start || b.end - a.end || String(a.task.id).localeCompare(String(b.task.id)) || String(a.block.id).localeCompare(String(b.block.id)));
     // Connected overlapping intervals share a lane count; touching intervals do not.
     for (let i = 0; i < blocks.length;) {
       let j = i, groupEnd = blocks[i].end;

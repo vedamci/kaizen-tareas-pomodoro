@@ -203,8 +203,11 @@ test('one task can receive multiple daily blocks and edits leave its timeline an
     const c=component();c.state.view='calendar';c.state.dailyDate='2026-10-05';
     c.state.tasks=[{id:'range',title:'Project range',list:'future',scheduledStart:'2026-10-04T08:00:00Z',scheduledEnd:'2026-10-08T18:00:00Z',seconds:120}];
     const original={start:c.state.tasks[0].scheduledStart,end:c.state.tasks[0].scheduledEnd};
-    let slot=c.renderVals().hourlySlots.find(x=>x.label.startsWith('Crear tarea de 09:00'));
-    slot.onOpen();c.renderVals().onSlotTask({target:{value:'range'}});c.createSlotTask({preventDefault(){}});
+    const fallback=c.renderVals().hourlyBlocks.find(x=>x.id==='range');
+    assert.equal(fallback.canAddBlock,true);fallback.onAddBlock();
+    assert.equal(c.state.slotTaskId,'range');assert.equal(c.state.slotStartDraft,'2026-10-05T09:00');
+    c.createSlotTask({preventDefault(){}});
+    let slot;
     assert.equal(c.state.tasks.length,1);assert.equal(c.state.tasks[0].workBlocks.length,1);
     assert.equal(c.state.tasks[0].scheduledStart,original.start);assert.equal(c.state.tasks[0].scheduledEnd,original.end);
     slot=c.renderVals().hourlySlots.find(x=>x.label.startsWith('Crear tarea de 14:00'));
@@ -254,7 +257,7 @@ test('timezone changes preserve the planned instant; DST gaps fail',()=>{
 test('timeline filters by project or none, keeps undated and completed tasks, excludes trash',()=>{
   const tasks=[{id:'a',title:'A',project:'p',scheduledStart:'2026-10-05T10:00:00.000Z',scheduledEnd:'2026-10-05T11:00:00.000Z',done:true},{id:'b',title:'B',project:'p'},{id:'c',title:'C',project:''},{id:'d',title:'D',project:'p',list:'trash'}];assert.equal(planning.timeline(tasks,'p').scheduled.length,1);assert.equal(planning.timeline(tasks,'p').unscheduled[0].id,'b');assert.equal(planning.timeline(tasks,'__none__').unscheduled[0].id,'c');assert.equal(planning.timeline(tasks).unscheduled.length,2);
 });
-test('timeline responsibility selection filters by confirmed assignments, never creator',()=>{
+test('timeline person selection includes creator or confirmed assignments without team-cache access',()=>{
   const previous=process.env.TZ;process.env.TZ='UTC';
   try {
     const c=component();Object.assign(c.state,c.seed());c.state.auth={id:1,role:'user'};c.state.workspaceId=10;c.state.view='timeline';c.state.timelineMode='day';c.state.timelineAnchor=Date.parse('2026-10-05T12:00:00.000Z');
@@ -264,13 +267,13 @@ test('timeline responsibility selection filters by confirmed assignments, never 
     c.state.teamTasks=[planned('team-only',4,[2])];
     let view=c.renderVals();assert.deepEqual(view.timelineRows.map(row=>row.title).sort(),['assigned-three','assigned-two','created-by-two','unassigned']);
     view.onTimelineResponsible({target:{value:'2'}});view=c.renderVals();
-    assert.deepEqual(view.timelineRows.map(row=>row.title),['assigned-two']);assert.equal(view.unscheduledRows.length,1);assert.equal(view.unscheduledRows[0].title,'unscheduled-two');
-    assert.equal(view.timelineScheduledCount,1);assert.equal(view.timelineScopeLabel,'Responsable: Assigned Two');
-    assert.ok(!view.timelineRows.some(row=>row.title==='created-by-two'||row.title==='team-only'));
+    assert.deepEqual(view.timelineRows.map(row=>row.title),['assigned-three','assigned-two','created-by-two']);assert.equal(view.unscheduledRows.length,1);assert.equal(view.unscheduledRows[0].title,'unscheduled-two');
+    assert.equal(view.timelineScheduledCount,3);assert.equal(view.timelineScopeLabel,'Persona: Assigned Two');
+    assert.ok(view.timelineRows.some(row=>row.title==='created-by-two'));assert.ok(!view.timelineRows.some(row=>row.title==='team-only'));
     view.onTimelineResponsible({target:{value:'__unassigned__'}});view=c.renderVals();
     assert.deepEqual(view.timelineRows.map(row=>row.title).sort(),['created-by-two','unassigned']);
     view.onTimelineResponsible({target:{value:'1'}});view=c.renderVals();
-    assert.equal(view.timelineRows.length,0);assert.equal(view.unscheduledRows.length,0);assert.match(view.timelineEmptyMessage,/No hay tareas asignadas a Owner/);
+    assert.equal(view.timelineRows.length,1);assert.equal(view.timelineRows[0].title,'assigned-two');assert.equal(view.unscheduledRows.length,1);assert.ok(view.timelineRows.every(row=>row.disabled),'person views remain read-only');
     view.onTimelineResponsible({target:{value:''}});assert.equal(c.renderVals().timelineRows.length,4,'clearing restores all currently accessible tasks');
   } finally {if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous;}
 });
@@ -596,7 +599,7 @@ test('today-first navigation keeps the agenda separate from month browsing and r
   assert.match(html,/dailyDate:s\.dailyDate/);
   assert.match(html,/KaizenPlanning\.validDateKey\(base\.dailyDate/);
 });
-test('daily person filters keep the personal default, separate responsibility from creator, and never read team-only data',()=>{
+test('daily person filters include creator or direct assignments within authorized tasks, without team-cache access',()=>{
   const previous=process.env.TZ;process.env.TZ='UTC';
   try {
     const c=component();c.state.auth={id:1,role:'user'};c.state.workspaceId=7;c.state.workspaceMembers=[{id:1,name:'One'},{id:2,name:'Two'},{id:3,name:'Three'}];c.state.view='calendar';c.state.dailyDate='2026-10-07';
@@ -616,9 +619,9 @@ test('daily person filters keep the personal default, separate responsibility fr
     assert.match(view.dailyScopeLabel,/creadas por ti o asignadas directamente a ti/);
     view.hourlySlots[0].onOpen();assert.equal(c.state.slotCreateOpen,true);
     view.onDailyResponsible({target:{value:'2'}});assert.equal(c.state.slotCreateOpen,false,'changing the person discards a personal slot draft');view=c.renderVals();
-    assert.equal(view.dailyCount,1);assert.deepEqual(view.hourlyBlocks.map(row=>row.title),['Assigned to Two']);
+    assert.equal(view.dailyCount,2);assert.deepEqual(view.hourlyBlocks.map(row=>row.title),['Assigned to Two']);
     assert.equal(view.dailyCanManage,false);assert.equal(view.hourlySlots.length,0);assert.equal(view.hourlyFree.length,0);assert.equal(view.dailyAssignOptions.length,0);
-    assert.deepEqual(view.dailyRows.map(row=>row.title),[],'tasks placed in explicit hour blocks are not duplicated as daily cards');
+    assert.deepEqual(view.dailyRows.map(row=>row.title),['Created by Two'],'creator-only tasks appear without duplicating timed cards');
     assert.ok(!view.hourlyBlocks.some(row=>row.title==='Created by Two'||row.title==='team-only'));
     c.state.dailyTitle='Must not become a task for another person';c.addDailyTask();assert.equal(c.state.tasks.length,6);
     view.onDailyResponsible({target:{value:'__unassigned__'}});view=c.renderVals();
@@ -644,3 +647,4 @@ test('person filters persist per identity and workspace only',()=>{
   assert.equal(c.state.timelineResponsibleId,'');assert.equal(c.state.dailyResponsibleId,'','another workspace does not inherit saved filters');
   c.state.workspaceId=3;c.setPersonFilter('timeline','999');assert.equal(c.state.timelineResponsibleId,'','unknown people cannot be selected');
 });
+
