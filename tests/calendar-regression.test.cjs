@@ -136,7 +136,7 @@ test('Mover a Hoy is outside the collapsed menu and moves a task with one action
  const list=html.slice(html.indexOf('<sc-if value="{{ isList }}"'),html.indexOf('<sc-if value="{{ isMatrix }}"'));
  const menu=list.match(/<details class="row-options">[\s\S]*?<\/details>/)[0];
  assert.ok(!menu.includes('onSendToday'));assert.ok(list.indexOf('onClick="{{ item.onSendToday }}"')<list.indexOf('<details class="row-options">'));
- const {app}=makeApp(),task=app.state.tasks[0],row=app.taskRow(task);assert.equal(row.showMove,true);const before=JSON.stringify({...task,list:'today'});
+ const {app}=makeApp(),task=app.state.tasks[0],row=app.taskRow(task);assert.equal(row.showMove,true);const before=JSON.stringify({...task,list:'today',due:app.dkey(Date.now())});
  row.onSendToday();assert.equal(JSON.stringify(app.state.tasks[0]),before);assert.equal(app.state.selId,null);assert.equal(app.state.activeId,null);assert.equal(app.taskRow(app.state.tasks[0]).showMove,false);
  for(const list of ['done','trash'])assert.equal(app.taskRow({...task,list}).showMove,false);
 });
@@ -176,12 +176,12 @@ function pointerFixture(surface='timeline'){
  const handle=Object.assign(surface==='timeline'?bar:{style:{}},{closest:selector=>selector.endsWith('scroll')?scroller:element,addEventListener(){},removeEventListener(){},setPointerCapture(){},hasPointerCapture(){return false}});
  context.document={addEventListener:(type,fn)=>listeners.set(type,fn),removeEventListener:type=>listeners.delete(type)};context.window.addEventListener=(type,fn)=>windowListeners.set(type,fn);context.window.removeEventListener=type=>windowListeners.delete(type);
  const event=(x=100,y=100)=>({pointerType:'touch',pointerId:1,button:0,isPrimary:true,clientX:x,clientY:y,currentTarget:handle,preventDefault(){},stopPropagation(){}});
- return {...fixture,listeners,windowListeners,element,bar,line,event};
+ return {...fixture,listeners,windowListeners,element,bar,line,scroller,event};
 }
 test('touch timeline drag includes scroll, snaps to 15 minutes and commits once on release',()=>{
- const {app,listeners,event,bar}=pointerFixture();app.beginHourlyResize('a','__schedule__','schedule',event(),'timeline',true);
- listeners.get('pointermove')(event(162,100));assert.equal(app.state.tasks[0].scheduledStart,plan.scheduledStart);assert.equal(bar.style.transform,'translateX(60px)');
- listeners.get('pointerup')(event(162,100));assert.equal(app.state.tasks[0].scheduledStart,'2026-11-03T10:00:00.000Z');assert.equal(app.state.tasks[0].scheduledEnd,'2026-11-03T11:00:00.000Z');assert.equal(bar.style.transform,'');assert.equal(listeners.size,0);assert.equal(app.hourlyResize,null);
+ const {app,listeners,event,bar,scroller}=pointerFixture();app.beginHourlyResize('a','__schedule__','schedule',event(),'timeline',true);
+ scroller.scrollLeft=15;listeners.get('pointermove')(event(147,100));assert.equal(app.state.tasks[0].scheduledStart,plan.scheduledStart);assert.equal(bar.style.transform,'translateX(60px)');
+ listeners.get('pointerup')(event(147,100));assert.equal(app.state.tasks[0].scheduledStart,'2026-11-03T10:00:00.000Z');assert.equal(app.state.tasks[0].scheduledEnd,'2026-11-03T11:00:00.000Z');assert.equal(bar.style.transform,'');assert.equal(listeners.size,0);assert.equal(app.hourlyResize,null);
 });
 test('touch calendar drag uses vertical hours and preserves duration',()=>{
  const {app,listeners,event}=pointerFixture('calendar');app.beginHourlyResize('a','__schedule__','schedule',event(),'calendar',true);listeners.get('pointerup')(event(100,160));assert.equal(app.state.tasks[0].scheduledStart,'2026-11-03T10:00:00.000Z');assert.equal(app.state.tasks[0].scheduledEnd,'2026-11-03T11:00:00.000Z');

@@ -17,6 +17,21 @@ jobs:
         run: cmp --silent index.html 'Gestor de Tareas.dc.html'
       - name: JavaScript and component checks
         run: node --test tests/planning.test.cjs tests/assistant-runs.test.cjs tests/calendar-regression.test.cjs tests/calendar-timezones.test.cjs
+      - name: Install isolated browser QA tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/kaizen-browser" --no-save playwright@1.56.1
+          "$RUNNER_TEMP/kaizen-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Desktop and touch browser interactions using synthetic preview data
+        env:
+          NODE_PATH: ${{ runner.temp }}/kaizen-browser/node_modules
+        run: node tests/browser-interactions.cjs
+      - name: Save browser QA screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kaizen-browser-qa
+          path: test-results/
+          if-no-files-found: ignore
       - name: PHP syntax and project policy
         run: |
           php -l api/index.php
@@ -77,3 +92,15 @@ jobs:
           KAIZEN_TEST_DB_USER: root
           KAIZEN_TEST_DB_PASSWORD: root # Disposable runner default.
         run: node --test tests/mcp-http.test.mjs
+
+  verify-publication:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify the public page and planning module match the merged source
+        run: node tools/verify-publication.cjs

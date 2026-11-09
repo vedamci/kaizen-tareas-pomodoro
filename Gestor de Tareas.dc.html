@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="./kaizen-icon-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
 <script src="./support.js?v=b3aae4f45716"></script>
-<script src="./planning.js?v=agenda-person-resize-2"></script>
+<script src="./planning.js?v=hour-blocks-drag-1"></script>
 <script src="./assistant-runs.js?v=assistant-runs-1"></script>
 <script src="./assistant-runs-demo.js?v=assistant-runs-1"></script>
 </head>
@@ -58,7 +58,6 @@
   .timeline-now { position:absolute; top:0; bottom:0; width:2px; background:var(--color-accent); z-index:2; pointer-events:none; }
   .timeline-bar { position:absolute; top:27px; height:44px; border:0; border-radius:5px; cursor:pointer; background:color-mix(in srgb,var(--color-accent) 14%,var(--color-bg)); color:var(--color-text); padding:0 6px; z-index:2; overflow:hidden; text-align:left; font:700 11px var(--font-body); white-space:nowrap; }
   .timeline-bar { touch-action:pan-y; cursor:grab; }
-  .hourly-block-open { touch-action:pan-x; cursor:grab; }
   [data-moving="true"] { cursor:grabbing; }
   .timeline-bar:hover { background:color-mix(in srgb,var(--color-accent) 24%,var(--color-bg)); }
   .timeline-resize-handle { position:absolute; z-index:2; top:27px; height:44px; width:14px; padding:0; border:0; border-left:3px solid var(--color-accent-700); border-right:3px solid var(--color-accent-700); border-radius:2px; background:var(--color-surface); cursor:ew-resize; touch-action:none; }
@@ -127,11 +126,11 @@
   .hourly-block strong, .hourly-block small { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .hourly-block small { font-size:10px; }
   .hourly-block { padding:0; }
-  .hourly-block-open { display:block; width:100%; height:100%; border:0; padding:2px 5px 12px; overflow:hidden; color:inherit; background:transparent; text-align:left; font:inherit; cursor:pointer; }
+  .hourly-block-open { display:block; width:100%; height:100%; border:0; padding:2px 5px 12px; overflow:hidden; color:inherit; background:transparent; text-align:left; font:inherit; cursor:grab; touch-action:pan-x; }
   .hourly-block-open:disabled, .timeline-task:disabled, .timeline-bar:disabled { cursor:default; opacity:1; }
   .hourly-resize-handle { position:absolute; bottom:0; left:0; width:100%; height:12px; min-height:0; border:0; border-top:2px solid currentColor; padding:0; background:color-mix(in srgb,var(--color-accent) 35%,var(--color-bg)); color:var(--color-accent-700); cursor:ns-resize; touch-action:none; }
   .hourly-resize-handle:focus-visible { outline:3px solid var(--color-accent-700); outline-offset:-3px; }
-  .hourly-block[data-resizing="true"] { z-index:5; outline:2px solid var(--color-accent-700); }
+  .hourly-block[data-resizing="true"], .hourly-block[data-moving="true"] { z-index:5; outline:2px solid var(--color-accent-700); }
   .hourly-now { position:absolute; left:0; right:0; height:2px; background:var(--color-accent-700); pointer-events:none; z-index:3; }
   .hourly-now::before { content:""; position:absolute; left:-4px; top:-4px; width:10px; height:10px; border-radius:50%; background:var(--color-accent-700); }
   .hourly-free { margin-top:14px; font-size:12px; }
@@ -3186,7 +3185,7 @@ class Component extends DCLogic {
       projectMemberOptions: s.workspaceMembers.map(m=>({ name:m.name||m.email, selected:memberDraft.map(Number).includes(Number(m.id)), locked:Number(m.id)===projectOwner, ownerLabel:Number(m.id)===projectOwner?'(creador)':'', onToggle:()=>{ const id=Number(m.id); if(id===projectOwner)return; this.setState({projectMemberDraft:memberDraft.map(Number).includes(id)?memberDraft.filter(x=>Number(x)!==id):[...memberDraft,id]}); } })),
       onEditProjectMembers: () => this.beginProjectMembers(), onSaveProjectMembers: () => this.saveProjectMembers(), onCancelProjectMembers: () => this.setState({projectEditId:null}),
       showNewProjectPicker: s.view !== 'project', newTaskProject: s.newTaskProject, onNewTaskProject: e => this.setState({newTaskProject:e.target.value}),
-      isDailyCalendar:s.view==='calendar',dailyMonthLabel:daily.month[0].toUpperCase()+daily.month.slice(1),dailyDayLabel:dailyLabel(dailyDate),dailyHeroLabel:dailyDate===this.dkey(now)?'Hoy':'Día seleccionado',dailyCount:dailyAgenda.length,dailyPending:dailyAgenda.filter(t=>!t.done).length,dailyEmpty:dailyRows.length===0,dailyRows,dailyScopeLabel,dailyCanManage,dailyResponsibleId:s.dailyResponsibleId,dailyResponsibleOptions:[{id:'',label:'Mi agenda'},...personOptions,{id:'__unassigned__',label:'Sin asignar'}],onDailyResponsible:e=>this.setPersonFilter('calendar',e.target.value),dailyHourlyDescription:dailyCanManage?'Toca una hora libre para agendar. Arrastra el borde inferior para ajustar la duración, o usa las flechas del teclado. Sin bloques explícitos, se muestra el cronograma; «Crear bloque horario» permite planificar sesiones sin cambiar ese rango. No cuenta como tiempo trabajado.':'Vista de solo lectura: tareas creadas por o asignadas a la persona. Se muestran bloques explícitos o, si no existen, el rango del cronograma; no es tiempo trabajado.',
+      isDailyCalendar:s.view==='calendar',dailyMonthLabel:daily.month[0].toUpperCase()+daily.month.slice(1),dailyDayLabel:dailyLabel(dailyDate),dailyHeroLabel:dailyDate===this.dkey(now)?'Hoy':'Día seleccionado',dailyCount:dailyAgenda.length,dailyPending:dailyAgenda.filter(t=>!t.done).length,dailyEmpty:dailyRows.length===0,dailyRows,dailyScopeLabel,dailyCanManage,dailyResponsibleId:s.dailyResponsibleId,dailyResponsibleOptions:[{id:'',label:'Mi agenda'},...personOptions,{id:'__unassigned__',label:'Sin asignar'}],onDailyResponsible:e=>this.setPersonFilter('calendar',e.target.value),dailyHourlyDescription:dailyCanManage?'Toca una hora libre para agendar un bloque de una hora. Arrastra el bloque para cambiar su horario, o su borde inferior para ajustar la duración. Alt + flechas mueve 15 minutos. Sin bloques explícitos, se muestra el cronograma; «Crear bloque horario» permite planificar sesiones sin cambiar ese rango. No cuenta como tiempo trabajado.':'Vista de solo lectura: tareas creadas por o asignadas a la persona. Se muestran bloques explícitos o, si no existen, el rango del cronograma; no es tiempo trabajado.',
       hourlyCount:hourlyBlocks.length,hourlySheetStyle:{height:hourly.minutes+'px'},hourlyTicks:hourly.ticks.map(t=>({label:t.label,style:{top:t.minute+'px'}})),hourlyBlocks,hourlySlots,
       hourlyHasNow:hourly.nowMinute!==null,hourlyNowStyle:{top:(hourly.nowMinute??0)+'px'},hourlyFree,hourlyHasFree:dailyCanManage&&hourlyFree.length>0,hourlyNoFree:dailyCanManage&&hourlyFree.length===0,
       slotCreateOpen:s.slotCreateOpen,slotTitle:s.slotTitle,slotProject:s.slotProject,slotTaskId:s.slotTaskId,slotBlockId:s.slotBlockId,slotIsNew:!s.slotTaskId,slotIsEditing:!!s.slotBlockId,slotCanChooseTask:!s.slotBlockId,slotTaskOptions:personalTasks.filter(t=>t.list!=='trash').map(t=>({id:t.id,title:t.title})),slotStartDraft:s.slotStartDraft,slotEndDraft:s.slotEndDraft,slotError:s.slotError,slotTimeLabel:s.slotTimeLabel,slotZoneLabel:'Zona horaria: '+KaizenPlanning.zone(),slotCreateStyle:{top:Math.max(0,Math.min(hourly.minutes-30,(Date.parse(s.slotStartInstant)-hourly.start)/60000||0))+'px',...(Date.parse(s.slotStartInstant)-hourly.start>=(hourly.minutes-420)*60000?{transform:'translateY(calc(-100% + 30px))'}:{})},
