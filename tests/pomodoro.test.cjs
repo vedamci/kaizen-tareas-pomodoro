@@ -34,8 +34,8 @@ test('granted notifications use service worker and stay silent when the five-sec
  assert.equal(f.shown.length,1);assert.equal(f.shown[0].options.tag,'job-a');assert.equal(f.shown[0].options.silent,true);assert.equal(f.requests(),0);
  f.app.notify('Fin','Ciclo terminado','job-a');await flush();assert.equal(f.shown.length,1);
 });
-test('an already delivered push is not sounded and displayed again',async()=>{
- const f=fixture();f.permission('granted');f.registration.getNotifications=async()=>[{}];await f.app.prepareAlertSound();f.app.notify('Fin','Ciclo terminado','job-a');await flush();assert.equal(f.shown.length,0);assert.equal(f.sounds[0].oscillators,undefined);assert.ok(f.app.state.timerNotice);
+test('an already delivered push keeps the required app sound without a second system notification',async()=>{
+ const f=fixture();f.permission('granted');f.registration.getNotifications=async()=>[{}];await f.app.prepareAlertSound();f.app.notify('Fin','Ciclo terminado','job-a');await flush();assert.equal(f.shown.length,0);assert.equal(f.sounds[0].oscillators.length,6);assert.ok(f.app.state.timerNotice);
 });
 test('25/5 cycles repeat until stopped and duplicate ticks do not credit twice',()=>{
  const f=fixture();f.app.notify=()=>{};f.app.startTaskTimer('a');

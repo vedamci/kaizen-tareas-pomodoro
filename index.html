@@ -1647,12 +1647,13 @@ class Component extends DCLogic {
     try{new Notification(title,options);return true;}catch(e){return false;}
   }
   async deliverTimerNotice(title,body,tag) {
-    let reg=null;
+    let reg=null,alreadyDelivered=false;
     if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
       reg=await this.readyNotificationWorker();
-      try{if(reg?.getNotifications&&(await reg.getNotifications({tag})).length)return;}catch(e){}
+      try{alreadyDelivered=!!(reg?.getNotifications&&(await reg.getNotifications({tag})).length);}catch(e){}
     }
     const sounded=await this.playAlertSound();
+    if(alreadyDelivered)return;
     const shown=await this.showSystemNotification(title,{body,tag,renotify:false,requireInteraction:true,silent:sounded,timestamp:Date.now(),data:{url:'./'}},reg);
     if(!sounded&&!shown)this.setState({alertSoundError:'El aviso queda aquí. Pulsa Probar aviso y sonido para preparar el audio.'});
   }
