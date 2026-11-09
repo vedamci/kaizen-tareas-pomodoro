@@ -10,8 +10,14 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function ready(){for(let i=0;i<40;i++){try{if((await fetch(url)).ok)return;}catch{}await pause(100);}throw Error('Preview did not start');}
 async function drag(page,locator,dx,dy,touch){
  await locator.scrollIntoViewIfNeeded();
+ // Keep the task clear of the timeline's sticky name column on narrow screens.
+ await locator.evaluate(node=>{
+  const scroller=node.closest('.timeline-scroll');
+  if(scroller){const sheet=node.closest('.timeline-sheet'),labelWidth=parseFloat(getComputedStyle(sheet).getPropertyValue('--task-width'));scroller.scrollLeft+=node.getBoundingClientRect().left-(scroller.getBoundingClientRect().left+labelWidth+12);}
+ });
  const box=await locator.boundingBox();assert.ok(box);
- const x=box.x+Math.min(box.width/2,24),y=box.y+Math.min(box.height/2,24);
+ const x=box.x+Math.min(box.width/2,12),y=box.y+Math.min(box.height/2,24);
+ assert.equal(await locator.evaluate((node,{x,y})=>node.contains(document.elementFromPoint(x,y)),{x,y}),true,'The drag must start on the visible task, clear of sticky labels');
  if(touch){
   const client=await page.context().newCDPSession(page);
   await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
@@ -55,6 +61,7 @@ async function drag(page,locator,dx,dy,touch){
    const bar=page.locator('.timeline-bar');await bar.waitFor();
    const laneWidth=await page.locator('.timeline-lane').evaluate(node=>node.getBoundingClientRect().width);
    await drag(page,bar,laneWidth/24,0,touch);
+   console.log(JSON.stringify({viewport:width,afterTimeline:await page.evaluate(()=>({start:window.__kaizenQA.state.tasks[0].scheduledStart,end:window.__kaizenQA.state.tasks[0].scheduledEnd}))}));
    await page.waitForFunction(key=>window.__kaizenQA.state.tasks[0].scheduledStart===key+'T10:00:00.000Z',key);
    assert.equal(await page.evaluate(()=>window.__kaizenQA.state.tasks[0].scheduledEnd),key+'T11:00:00.000Z');
    await page.evaluate(key=>window.__kaizenQA.setState({view:'calendar',dailyDate:key,selId:null}),key);
