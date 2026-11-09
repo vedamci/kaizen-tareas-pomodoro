@@ -59,8 +59,14 @@ async function waitNative(client,session,fn){
  for(let n=0;n<300;n++){if(await client.evaluate(session,fn))return;await sleep(100);}throw Error('Native Chrome readiness timed out');
 }
 async function clickNative(client,session,selector){
- const point=await client.evaluate(session,selector=>{const r=document.querySelector(selector).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};},selector);
- await client.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point},session);await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point},session);
+ await sleep(200);
+ const point=await client.evaluate(session,selector=>{
+  const button=document.querySelector(selector),r=button.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;
+  return {x:Math.round(screenX+(outerWidth-innerWidth)/2+x),y:Math.round(screenY+(outerHeight-innerHeight)+y),hit:button.contains(document.elementFromPoint(x,y)),focus:document.hasFocus(),title:document.title};
+ },selector);
+ assert.equal(point.hit,true,'Start button must be exposed');
+ console.log(JSON.stringify({stage:'native-click',...point}));
+ run('xdotool',['mousemove','--sync',String(point.x),String(point.y)]);run('xdotool',['click','1']);
 }
 
 (async()=>{
@@ -84,13 +90,14 @@ async function clickNative(client,session,selector){
     document.querySelector('[aria-label="Usuario de demostración"]').parentElement.style.display='none';
    });
    await client.evaluate(session,seconds=>{
-    const app=window.__kaizenQA;window.__ticks=[];window.__notices=[];window.__visibility=[];
+    const app=window.__kaizenQA;document.title='Kaizen background audio test';window.__ticks=[];window.__notices=[];window.__visibility=[];
     const tick=app.tick.bind(app);app.tick=()=>{window.__ticks.push(Date.now());return tick();};
     const notify=app.notify.bind(app);app.notify=(...args)=>{window.__notices.push({at:Date.now(),visibility:document.visibilityState,focus:document.hasFocus(),audio:app.alertAudio?.state,title:args[0]});return notify(...args);};
     document.addEventListener('visibilitychange',()=>window.__visibility.push({at:Date.now(),state:document.visibilityState}));
     app.setState({activeId:'bg-qa',tasks:[{id:'bg-qa',title:'Prueba local de segundo plano',list:'today',due:app.dkey(Date.now()),project:'',quadrant:'q2',tags:[],subtasks:[],done:false,seconds:0,pomos:0,estPomos:1,_owner_id:1,_shared_user_ids:[]}],log:{},pomo:{mode:'focus',remaining:seconds,running:false,accountedAt:null,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
    },WAIT_SECONDS);
    await client.send('Target.activateTarget',{targetId:target.targetId});await clickNative(client,session,'.app-header > .btn-primary');
+   await sleep(300);console.log(JSON.stringify({stage:'audio-after-click',kind,state:await client.evaluate(session,()=>({running:window.__kaizenQA.state.pomo.running,ready:window.__kaizenQA.state.alertSoundReady,error:window.__kaizenQA.state.alertSoundError,audio:window.__kaizenQA.alertAudio?.state,activated:navigator.userActivation.hasBeenActive,focus:document.hasFocus()}))}));
    await waitNative(client,session,()=>window.__kaizenQA.state.alertSoundReady);
    const state=await client.evaluate(session,()=>({fireAt:window.__kaizenQA.state.pomo.endsAt,audio:window.__kaizenQA.alertAudio.state,alarms:window.__kaizenQA.bellAlarms?.size||0}));cap.fireAt=state.fireAt;
    const appWindow=(await client.send('Browser.getWindowForTarget',{targetId:target.targetId})).windowId;
