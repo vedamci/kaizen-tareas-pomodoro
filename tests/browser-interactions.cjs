@@ -15,9 +15,15 @@ async function drag(page,locator,dx,dy,touch){
   const scroller=node.closest('.timeline-scroll');
   if(scroller){const sheet=node.closest('.timeline-sheet'),labelWidth=parseFloat(getComputedStyle(sheet).getPropertyValue('--task-width'));scroller.scrollLeft+=node.getBoundingClientRect().left-(scroller.getBoundingClientRect().left+labelWidth+12);}
  });
- const box=await locator.boundingBox();assert.ok(box);
- const x=box.x+Math.min(box.width/2,12),y=box.y+Math.min(box.height/2,24);
- assert.equal(await locator.evaluate((node,{x,y})=>node.contains(document.elementFromPoint(x,y)),{x,y}),true,'The drag must start on the visible task, clear of sticky labels');
+ const point=await locator.evaluate((node,{dx,dy})=>{
+  const box=node.getBoundingClientRect(),scroller=node.closest('.timeline-scroll,.hourly-scroll')?.getBoundingClientRect();
+  const left=Math.max(box.left,scroller?.left||0,0)+8,right=Math.min(box.right,scroller?.right||innerWidth,innerWidth)-4;
+  const top=Math.max(box.top,scroller?.top||0,0)+8,bottom=Math.min(box.bottom,scroller?.bottom||innerHeight,innerHeight)-4;
+  for(let y=top;y<bottom;y+=8)for(let x=left;x<right;x+=8)if(x+dx>4&&x+dx<innerWidth-4&&y+dy>4&&y+dy<innerHeight-4&&node.contains(document.elementFromPoint(x,y)))return {x,y};
+  return null;
+ },{dx,dy});
+ assert.ok(point,'The drag must start on a visible task surface and end inside the viewport');
+ const {x,y}=point;
  if(touch){
   const client=await page.context().newCDPSession(page);
   await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
