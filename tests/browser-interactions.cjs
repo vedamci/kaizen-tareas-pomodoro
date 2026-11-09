@@ -22,6 +22,10 @@ async function drag(page,locator,dx,dy,touch){
   for(let y=top;y<bottom;y+=8)for(let x=left;x<right;x+=8)if(x+dx>4&&x+dx<innerWidth-4&&y+dy>4&&y+dy<innerHeight-4&&node.contains(document.elementFromPoint(x,y)))return {x,y};
   return null;
  },{dx,dy});
+ if(!point){
+  console.log(JSON.stringify(await locator.evaluate(node=>{const rect=node.getBoundingClientRect(),s=node.closest('.timeline-scroll,.hourly-scroll');return {missingTarget:true,rect:rect.toJSON(),scroll:s?.getBoundingClientRect().toJSON(),scrollTop:s?.scrollTop,scrollLeft:s?.scrollLeft,viewport:{width:innerWidth,height:innerHeight},samples:Array.from({length:5},(_,i)=>{const x=Math.max(1,Math.min(innerWidth-1,rect.left+rect.width*(i+1)/6)),y=Math.max(1,Math.min(innerHeight-1,rect.top+20));return{x,y,hit:document.elementFromPoint(x,y)?.outerHTML.slice(0,300)}})}})));
+  await page.screenshot({path:path.join('test-results','drag-failure-'+page.viewportSize().width+'.png'),fullPage:true});
+ }
  assert.ok(point,'The drag must start on a visible task surface and end inside the viewport');
  const {x,y}=point;
  if(touch){
