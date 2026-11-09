@@ -178,10 +178,10 @@
     }
     if (cursor < end) free.push({ start: cursor, end, minutes: (end - cursor) / 60000 });
     const slots = [];
-    const step = 30 * 60000;
+    const step = 60 * 60000;
     for (const gap of free) {
       for (let time = gap.start; time + step <= gap.end; time += step) {
-        slots.push({ start: time, end: time + step, top: (time - start) / 60000, duration: 30 });
+        slots.push({ start: time, end: time + step, top: (time - start) / 60000, duration: 60 });
       }
     }
     return { start, end, ticks, blocks, free, slots, minutes, nowMinute: now >= start && now < end ? (now - start) / 60000 : null };
