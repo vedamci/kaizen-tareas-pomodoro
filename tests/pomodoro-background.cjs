@@ -1,6 +1,6 @@
 // Headful Chromium, normal background policies, real elapsed time and PulseAudio output.
 // Data and API are disposable local fixtures; no Mac or production setting is changed.
-const assert=require('node:assert/strict'),fs=require('node:fs/promises'),http=require('node:http'),path=require('node:path');
+const assert=require('node:assert/strict'),fs=require('node:fs/promises'),http=require('node:http'),path=require('node:path'),os=require('node:os');
 const {spawn,execFileSync}=require('node:child_process'),{chromium}=require('playwright');
 const BASE='ca331b8d0c3ce900201367fa35b8b50b6fc60312',RATE=48000,WAIT_SECONDS=377;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms)),children=[],servers=[],browsers=[],recorders=[];
@@ -39,6 +39,30 @@ function capture(sink){
 async function saveWav(name,chunks){
  const pcm=Buffer.concat(chunks),header=Buffer.alloc(44);header.write('RIFF',0);header.writeUInt32LE(36+pcm.length,4);header.write('WAVEfmt ',8);header.writeUInt32LE(16,16);header.writeUInt16LE(1,20);header.writeUInt16LE(1,22);header.writeUInt32LE(RATE,24);header.writeUInt32LE(RATE*2,28);header.writeUInt16LE(2,32);header.writeUInt16LE(16,34);header.write('data',36);header.writeUInt32LE(pcm.length,40);await fs.writeFile(name,Buffer.concat([header,pcm]));
 }
+class CDP{
+ constructor(ws){this.ws=ws;this.id=0;this.pending=new Map();ws.addEventListener('message',event=>{const data=JSON.parse(String(event.data));if(data.id){const task=this.pending.get(data.id);if(task){this.pending.delete(data.id);data.error?task.reject(Error(JSON.stringify(data.error))):task.resolve(data.result);}}});}
+ send(method,params={},sessionId){const id=++this.id;return new Promise((resolve,reject)=>{this.pending.set(id,{resolve,reject});this.ws.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));});}
+ async evaluate(sessionId,fn,arg){const expression='('+fn.toString()+')('+JSON.stringify(arg)+')',r=await this.send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true},sessionId);if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;}
+ async attach(targetId){const {sessionId}=await this.send('Target.attachToTarget',{targetId,flatten:true});await this.send('Page.enable',{},sessionId);await this.send('Runtime.enable',{},sessionId);return sessionId;}
+}
+async function launchNative(sink){
+ const profile=await fs.mkdtemp(path.join(os.tmpdir(),'kaizen-background-'));
+ const proc=spawn(chromium.executablePath(),['--remote-debugging-port=0','--user-data-dir='+profile,'--no-sandbox','--disable-dev-shm-usage','--enable-automation','--no-first-run','--no-default-browser-check','--window-size=1280,900','about:blank'],{env:{...process.env,PULSE_SINK:sink},stdio:'ignore'});children.push(proc);
+ let portFile;
+ for(let n=0;n<100;n++){try{portFile=(await fs.readFile(path.join(profile,'DevToolsActivePort'),'utf8')).trim().split('\n');break;}catch{}await sleep(100);}
+ assert.ok(portFile,'Native Chrome did not start');
+ const ws=new WebSocket('ws://127.0.0.1:'+portFile[0]+portFile[1]);await new Promise((resolve,reject)=>{ws.addEventListener('open',resolve,{once:true});ws.addEventListener('error',reject,{once:true});});
+ const client=new CDP(ws),browser={client,async close(){await Promise.race([client.send('Browser.close').catch(()=>{}),sleep(1500)]);ws.close();proc.kill();}};
+ browsers.push(browser);return browser;
+}
+async function waitNative(client,session,fn){
+ for(let n=0;n<300;n++){if(await client.evaluate(session,fn))return;await sleep(100);}throw Error('Native Chrome readiness timed out');
+}
+async function clickNative(client,session,selector){
+ const point=await client.evaluate(session,selector=>{const r=document.querySelector(selector).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};},selector);
+ await client.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point},session);await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point},session);
+}
+
 (async()=>{
  try{
   await fs.mkdir('test-results',{recursive:true});
@@ -50,38 +74,39 @@ async function saveWav(name,chunks){
   for(const [kind,port,scenario] of [['baseline',4194,'inactive_tab'],['fixed',4195,'minimized_window']]){
    const sink='kaizen_'+kind;run('pactl',['load-module','module-null-sink','sink_name='+sink,'sink_properties=device.description='+sink]);run('pactl',['set-sink-volume',sink,'100%']);
    const cap=capture(sink),url=await startServer(port,kind==='baseline');
-   const browser=await chromium.launch({headless:false,env:{...process.env,PULSE_SINK:sink},ignoreDefaultArgs:['--disable-background-networking','--disable-background-timer-throttling','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--mute-audio'],args:['--window-size=1280,900']});browsers.push(browser);
-   const session=await browser.newBrowserCDPSession(),command=await session.send('Browser.getBrowserCommandLine');
-   const relevant=command.arguments.filter(arg=>/background|headless|mute|autoplay|intensive/i.test(arg));
+   const browser=await launchNative(sink),client=browser.client;
+   const command=await client.send('Browser.getBrowserCommandLine'),relevant=command.arguments.filter(arg=>/background|headless|mute|autoplay|intensive/i.test(arg));
    assert.ok(!command.arguments.some(arg=>/^--(headless|mute-audio|disable-background-timer-throttling|disable-backgrounding-occluded-windows|disable-renderer-backgrounding)(=|$)/.test(arg)),JSON.stringify(relevant));
-   const context=await browser.newContext({viewport:{width:1100,height:780},timezoneId:'UTC'});await context.grantPermissions(['notifications'],{origin:url});
-   const page=await context.newPage();page.setDefaultTimeout(30000);await page.goto(url);
-   await page.waitForFunction(()=>window.__kaizenQA?.state.auth&&!window.__kaizenQA.timerRestoring&&window.__kaizenQA.state.tasks.length);
-   await page.locator('[aria-label="Usuario de demostración"]').evaluate(node=>node.parentElement.style.display='none');
-   await page.evaluate(seconds=>{
+   await client.send('Browser.grantPermissions',{origin:url,permissions:['notifications']});
+   const target=await client.send('Target.createTarget',{url,newWindow:true,background:false}),session=await client.attach(target.targetId);
+   await waitNative(client,session,()=>window.__kaizenQA?.state.auth&&!window.__kaizenQA.timerRestoring&&window.__kaizenQA.state.tasks.length);
+   await client.evaluate(session,()=>{
+    document.querySelector('[aria-label="Usuario de demostración"]').parentElement.style.display='none';
+   });
+   await client.evaluate(session,seconds=>{
     const app=window.__kaizenQA;window.__ticks=[];window.__notices=[];window.__visibility=[];
     const tick=app.tick.bind(app);app.tick=()=>{window.__ticks.push(Date.now());return tick();};
     const notify=app.notify.bind(app);app.notify=(...args)=>{window.__notices.push({at:Date.now(),visibility:document.visibilityState,focus:document.hasFocus(),audio:app.alertAudio?.state,title:args[0]});return notify(...args);};
     document.addEventListener('visibilitychange',()=>window.__visibility.push({at:Date.now(),state:document.visibilityState}));
     app.setState({activeId:'bg-qa',tasks:[{id:'bg-qa',title:'Prueba local de segundo plano',list:'today',due:app.dkey(Date.now()),project:'',quadrant:'q2',tags:[],subtasks:[],done:false,seconds:0,pomos:0,estPomos:1,_owner_id:1,_shared_user_ids:[]}],log:{},pomo:{mode:'focus',remaining:seconds,running:false,accountedAt:null,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
    },WAIT_SECONDS);
-   await page.bringToFront();await page.locator('.app-header > .btn-primary').click();await page.waitForFunction(()=>window.__kaizenQA.state.alertSoundReady);
-   const state=await page.evaluate(()=>({fireAt:window.__kaizenQA.state.pomo.endsAt,audio:window.__kaizenQA.alertAudio.state,alarms:window.__kaizenQA.bellAlarms?.size||0}));cap.fireAt=state.fireAt;
-   const appSession=await context.newCDPSession(page);await appSession.send('Emulation.setFocusEmulationEnabled',{enabled:false});
-   const target=(await appSession.send('Target.getTargetInfo')).targetInfo;
-   const appWindow=(await session.send('Browser.getWindowForTarget',{targetId:target.targetId})).windowId;
-   if(scenario==='inactive_tab')await session.send('Target.createTarget',{url:'about:blank',browserContextId:target.browserContextId,newWindow:false,background:false});
-   await session.send('Browser.setWindowBounds',{windowId:appWindow,bounds:{windowState:'minimized'}});
-   cases.push({kind,scenario,browser,context,page,cap,appWindow,relevant,initial:state});
+   await client.send('Target.activateTarget',{targetId:target.targetId});await clickNative(client,session,'.app-header > .btn-primary');
+   await waitNative(client,session,()=>window.__kaizenQA.state.alertSoundReady);
+   const state=await client.evaluate(session,()=>({fireAt:window.__kaizenQA.state.pomo.endsAt,audio:window.__kaizenQA.alertAudio.state,alarms:window.__kaizenQA.bellAlarms?.size||0}));cap.fireAt=state.fireAt;
+   const appWindow=(await client.send('Browser.getWindowForTarget',{targetId:target.targetId})).windowId;
+   if(scenario==='inactive_tab'){const tab=await client.send('Target.createTarget',{url:'about:blank',newWindow:false,background:false});await client.send('Target.activateTarget',{targetId:tab.targetId});}
+   await client.send('Browser.setWindowBounds',{windowId:appWindow,bounds:{windowState:'minimized'}});
+   cases.push({kind,scenario,browser,client,session,cap,appWindow,relevant,initial:state});
   }
-  const coverContext=await cases[1].browser.newContext({viewport:{width:1200,height:820}}),cover=await coverContext.newPage();await cover.setContent('<title>Otra ventana de Chrome</title><h1>Otra ventana de Chrome activa durante toda la prueba</h1>');await cover.bringToFront();
-  const coverSession=await coverContext.newCDPSession(cover);await coverSession.send('Emulation.setFocusEmulationEnabled',{enabled:false});const coverTarget=(await coverSession.send('Target.getTargetInfo')).targetInfo;const browserSession=await cases[1].browser.newBrowserCDPSession();const coverWindow=(await browserSession.send('Browser.getWindowForTarget',{targetId:coverTarget.targetId})).windowId;assert.notEqual(coverWindow,cases[1].appWindow);await sleep(300);
-  for(const item of cases){item.hidden=await item.page.evaluate(()=>({at:Date.now(),visibility:document.visibilityState,focus:document.hasFocus()}));console.log(JSON.stringify({stage:'visibility-check',kind:item.kind,...item.hidden}));assert.equal(item.hidden.visibility,'hidden');assert.equal(item.hidden.focus,false);console.log(JSON.stringify({stage:'background-start',kind:item.kind,scenario:item.scenario,hidden:item.hidden,initial:item.initial,normalBackgroundFlags:item.relevant,anotherChromeWindow:coverWindow!==item.appWindow}));}
+  const client=cases[1].client,coverTarget=await client.send('Target.createTarget',{url:'about:blank',newWindow:true,background:false}),coverSession=await client.attach(coverTarget.targetId);
+  await client.evaluate(coverSession,()=>{document.title='Otra ventana de Chrome';document.body.innerHTML='<h1>Otra ventana de Chrome activa durante toda la prueba</h1>';});
+  await client.send('Target.activateTarget',{targetId:coverTarget.targetId});const coverWindow=(await client.send('Browser.getWindowForTarget',{targetId:coverTarget.targetId})).windowId;assert.notEqual(coverWindow,cases[1].appWindow);await sleep(300);
+  for(const item of cases){item.hidden=await item.client.evaluate(item.session,()=>({at:Date.now(),visibility:document.visibilityState,focus:document.hasFocus()}));console.log(JSON.stringify({stage:'visibility-check',kind:item.kind,...item.hidden}));assert.equal(item.hidden.visibility,'hidden');assert.equal(item.hidden.focus,false);console.log(JSON.stringify({stage:'background-start',kind:item.kind,scenario:item.scenario,hidden:item.hidden,initial:item.initial,normalBackgroundFlags:item.relevant,focusEmulation:'not enabled; native Chrome controlled directly',anotherChromeWindow:coverWindow!==item.appWindow}));}
   const deadline=Math.max(...cases.map(item=>item.cap.fireAt))+65000;
   while(Date.now()<deadline){console.log(JSON.stringify({stage:'waiting-with-other-chrome-window-active',remainingSeconds:Math.ceil((deadline-Date.now())/1000)}));await sleep(Math.min(30000,deadline-Date.now()));}
   const results=[];
   for(const item of cases){
-   const beforeFront=await item.page.evaluate(()=>({visibility:document.visibilityState,focus:document.hasFocus(),audio:window.__kaizenQA.alertAudio.state,ticks:window.__ticks,notices:window.__notices,changes:window.__visibility,pomo:window.__kaizenQA.state.pomo}));
+   const beforeFront=await item.client.evaluate(item.session,()=>({visibility:document.visibilityState,focus:document.hasFocus(),audio:window.__kaizenQA.alertAudio.state,ticks:window.__ticks,notices:window.__notices,changes:window.__visibility,pomo:window.__kaizenQA.state.pomo}));
    const loud=item.cap.blocks.filter(b=>b.at>=item.cap.fireAt-1000&&b.at<=item.cap.fireAt+65000&&b.rms>0.0015);
    const first=loud[0]?.at??null,last=loud.at(-1)?loud.at(-1).at+20:null;
    const gaps=beforeFront.ticks.slice(1).map((at,i)=>at-beforeFront.ticks[i]),result={kind:item.kind,scenario:item.scenario,hiddenForSeconds:(Date.now()-item.hidden.at)/1000,visibility:beforeFront.visibility,focus:beforeFront.focus,audioState:beforeFront.audio,scheduledAlarms:item.initial.alarms,firstOutputDelayMs:first===null?null:first-item.cap.fireAt,outputSpanMs:first===null?0:last-first,maxOutputRms:Math.max(0,...loud.map(b=>b.rms)),maxJavaScriptTickGapMs:Math.max(0,...gaps),notices:beforeFront.notices,baselineSource:item.kind==='baseline'?BASE:null};
