@@ -16,15 +16,17 @@ jobs:
       - name: Verify published page matches the editable page
         run: cmp --silent index.html 'Gestor de Tareas.dc.html'
       - name: JavaScript and component checks
-        run: node --test tests/planning.test.cjs tests/assistant-runs.test.cjs tests/calendar-regression.test.cjs tests/calendar-timezones.test.cjs
+        run: node --test tests/planning.test.cjs tests/assistant-runs.test.cjs tests/calendar-regression.test.cjs tests/calendar-timezones.test.cjs tests/pomodoro.test.cjs
       - name: Install isolated browser QA tools
         run: |
           npm install --prefix "$RUNNER_TEMP/kaizen-browser" --no-save playwright@1.56.1
-          "$RUNNER_TEMP/kaizen-browser/node_modules/.bin/playwright" install --with-deps chromium
+          "$RUNNER_TEMP/kaizen-browser/node_modules/.bin/playwright" install --with-deps chromium webkit
       - name: Desktop and touch browser interactions using synthetic preview data
         env:
           NODE_PATH: ${{ runner.temp }}/kaizen-browser/node_modules
-        run: node tests/browser-interactions.cjs
+        run: |
+          node tests/browser-interactions.cjs
+          node tests/pomodoro-browser.cjs
       - name: Save browser QA screenshots
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

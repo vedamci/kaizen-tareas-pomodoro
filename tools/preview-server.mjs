@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const port = Number(process.env.KAIZEN_PREVIEW_PORT || 4178);
-const allowed = new Set(['support.js','planning.js','preview/mock-api.js','kaizen-icon.svg','manifest.webmanifest','_ds/modernist-454c18dc-45af-4299-9be2-71360d2b9a90/styles.css','_ds/modernist-454c18dc-45af-4299-9be2-71360d2b9a90/_ds_bundle.js']);
+const allowed = new Set(['sw.js','support.js','planning.js','preview/mock-api.js','kaizen-icon.svg','manifest.webmanifest','_ds/modernist-454c18dc-45af-4299-9be2-71360d2b9a90/styles.css','_ds/modernist-454c18dc-45af-4299-9be2-71360d2b9a90/_ds_bundle.js']);
 http.createServer(async(req,res)=>{
   try{
     const pathname=new URL(req.url,'http://127.0.0.1').pathname;
