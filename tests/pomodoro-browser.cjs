@@ -12,7 +12,7 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    browser=await type.launch();const context=await browser.newContext({viewport:{width:1280,height:900},timezoneId:'UTC'}),page=await context.newPage();page.setDefaultTimeout(20000);
    await context.route(url+'/',async route=>{const response=await route.fetch(),body=(await response.text()).replace('class Component extends DCLogic {','class Component extends DCLogic { constructor(...args){super(...args);window.__kaizenQA=this;}');await route.fulfill({response,body});});
    await page.addInitScript(()=>{window.__permissionRequests=0;if(window.Notification){const native=Notification.requestPermission.bind(Notification);Notification.requestPermission=(...args)=>{window.__permissionRequests++;return native(...args);};}});
-   await page.goto(url);await page.waitForFunction(()=>window.__kaizenQA?.state.auth&&window.__kaizenQA.state.tasks.length>0);
+   await page.goto(url);await page.waitForFunction(()=>window.__kaizenQA?.state.auth&&!window.__kaizenQA.timerRestoring&&window.__kaizenQA.state.tasks.length>0);
    await page.locator('[aria-label="Usuario de demostración"]').evaluate(node=>node.parentElement.style.display='none');
    await page.evaluate(()=>{
     const app=window.__kaizenQA;
@@ -30,11 +30,12 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     }
     return {first,last,span:first!==null&&last!==null?last-first:0,maxRms,permissionRequests:window.__permissionRequests,notice:app.state.timerNotice?.title,phase:app.state.pomo.mode,running:app.state.pomo.running,seconds:app.state.tasks[0].seconds};
    });
+   console.log(JSON.stringify({engine,audioAndTimer:stats}));
    assert.equal(stats.permissionRequests,0);assert.ok(stats.maxRms>0.01,engine+' renders an audible signal');assert.ok(stats.span>=5000,engine+' signal span >=5s: '+stats.span);
    assert.equal(stats.notice,'Pomodoro terminado');assert.equal(stats.phase,'break');assert.equal(stats.running,true);assert.equal(stats.seconds,1);
    assert.equal(await page.locator('.pomodoro-notice').isVisible(),true);assert.match(await page.locator('.today-focus-strip').innerText(),/Enfoque de prueba local/);
    await page.screenshot({path:'test-results/pomodoro-'+engine+'.png',fullPage:true});await page.getByRole('button',{name:'Entendido',exact:true}).click();
-   await page.reload();await page.waitForFunction(()=>window.__kaizenQA?.state.auth&&window.__kaizenQA.state.tasks.some(t=>t.id==='notify-qa'));
+   await page.reload();await page.waitForFunction(()=>window.__kaizenQA?.state.auth&&!window.__kaizenQA.timerRestoring&&window.__kaizenQA.state.tasks.some(t=>t.id==='notify-qa'));
    assert.equal(await page.evaluate(()=>window.__kaizenQA.state.tasks.find(t=>t.id==='notify-qa').seconds),1);assert.equal(await page.evaluate(()=>window.__kaizenQA.state.pomo.running),true);assert.equal(await page.evaluate(()=>window.__kaizenQA.state.pomo.mode),'break');
    let systemNotification='not available in this test engine';
    if(engine==='chromium'){

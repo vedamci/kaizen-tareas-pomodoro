@@ -1398,7 +1398,7 @@ class Component extends DCLogic {
     const fireAt=Date.now()+s.pomo.remaining*1000/speed,jobId=this.uid(),task=s.tasks.find(t=>t.id===s.activeId);
     if(s.pomo.mode==='focus'){
       const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/speed;
-      this.setState({timerSpeed:speed,pomo:{...s.pomo,accountedAt:Date.now(),timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
+      this.setState({timerSpeed:speed,pomo:{...s.pomo,accountedAt:fireAt-s.pomo.remaining*1000/speed,timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
       this.scheduleFocusCycle(fireAt,jobId,breakEndsAt,breakPushJobId,task?.title||'');
     }else{
       this.setState({timerSpeed:speed,pomo:{...s.pomo,endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null}});
@@ -1502,10 +1502,10 @@ class Component extends DCLogic {
     const jobId=this.uid(), fireAt=Date.now()+s.pomo.remaining*1000/s.timerSpeed, task=s.tasks.find(t=>t.id===s.activeId);
     if(s.pomo.mode==='focus'){
       const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/s.timerSpeed;
-      this.setState({pomo:{...s.pomo,running:true,accountedAt:Date.now(),timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId},stopwatch:false});
+      this.setState({pomo:{...s.pomo,running:true,accountedAt:fireAt-s.pomo.remaining*1000/s.timerSpeed,timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId},stopwatch:false});
       this.scheduleFocusCycle(fireAt,jobId,breakEndsAt,breakPushJobId,task?.title||'');
     }else{
-      this.setState({pomo:{...s.pomo,running:true,accountedAt:Date.now(),timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null},stopwatch:false});
+      this.setState({pomo:{...s.pomo,running:true,accountedAt:fireAt-s.pomo.remaining*1000/s.timerSpeed,timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null},stopwatch:false});
       this.schedulePush(fireAt,jobId,task?.title||'','break');
     }
   }
@@ -1534,10 +1534,10 @@ class Component extends DCLogic {
     const jobId=this.uid(),fireAt=Date.now()+remaining*1000/s.timerSpeed;
     if(mode==='focus'){
       const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/s.timerSpeed;
-      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,accountedAt:Date.now(),timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
+      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,accountedAt:fireAt-remaining*1000/s.timerSpeed,timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
       this.scheduleFocusCycle(fireAt,jobId,breakEndsAt,breakPushJobId,task.title||'');
     }else{
-      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,accountedAt:Date.now(),timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null}});
+      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,accountedAt:fireAt-remaining*1000/s.timerSpeed,timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null}});
       this.schedulePush(fireAt,jobId,task.title||'',mode);
     }
   }
