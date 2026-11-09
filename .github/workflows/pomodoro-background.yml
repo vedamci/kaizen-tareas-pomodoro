@@ -1,0 +1,36 @@
+name: Background Pomodoro audio
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'Gestor de Tareas.dc.html'
+      - 'tests/pomodoro-background.cjs'
+      - '.github/workflows/pomodoro-background.yml'
+permissions:
+  contents: read
+jobs:
+  background-audio:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install headful browser and virtual audio output
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pulseaudio pulseaudio-utils openbox xdotool xvfb
+          npm install --prefix "$RUNNER_TEMP/kaizen-background" --no-save playwright@1.56.1
+          "$RUNNER_TEMP/kaizen-background/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Inactive tab and minimized Chrome window for more than six real minutes
+        env:
+          NODE_PATH: ${{ runner.temp }}/kaizen-background/node_modules
+        run: node tests/pomodoro-background.cjs
+      - name: Save captured speaker output and diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kaizen-background-audio
+          path: test-results/
+          if-no-files-found: ignore
