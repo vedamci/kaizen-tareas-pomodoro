@@ -6,7 +6,7 @@ const baseTask=(id='a')=>({id,title:'Tarea '+id,list:'inbox',due:'',project:'',t
 function fixture(at='2026-11-09T09:00:00Z'){
  let now=Date.parse(at),requests=0,permission='default';const sounds=[],shown=[],cancelled=[],scheduled=[];
  class Clock extends Date{constructor(...args){super(...(args.length?args:[now]))}static now(){return now}}
- class Audio{state='suspended';currentTime=10;destination={};constructor(){sounds.push(this)}resume(){this.state='running';return Promise.resolve()}close(){this.state='closed';return Promise.resolve()}createOscillator(){const o={frequency:{setValueAtTime(value){o.frequencyValue=value}},connect(){},disconnect(){},start(at){o.startAt=at},stop(at){o.stopAt=at}};(this.oscillators||=[]).push(o);return o}createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){}},connect(){},disconnect(){}}}}
+ class Audio{state='suspended';currentTime=10;destination={};constructor(){sounds.push(this)}resume(){this.state='running';return Promise.resolve()}close(){this.state='closed';return Promise.resolve()}createOscillator(){const o={frequency:{setValueAtTime(value){o.frequencyValue=value}},connect(){},disconnect(){},start(at){o.startAt=at},stop(at){o.stopAt=at}};(this.oscillators||=[]).push(o);return o}createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}}}}
  const registration={showNotification:async(title,options)=>shown.push({title,options}),getNotifications:async()=>[],pushManager:{getSubscription:async()=>null}};
  const Notification={get permission(){return permission},async requestPermission(){requests++;permission='granted';return permission}};
  const context={DCLogic:class{props={};setState(u){this.state={...this.state,...(typeof u==='function'?u(this.state):u)}}},KaizenPlanning:P,KaizenAssistantRuns:A,Date:Clock,Intl,console,Notification,window:{AudioContext:Audio,Notification,addEventListener(){},removeEventListener(){}},navigator:{serviceWorker:{ready:Promise.resolve(registration)},userAgent:'Macintosh'},document:{removeEventListener(){}},setTimeout:()=>1,clearTimeout(){},clearInterval(){},localStorage:{getItem(){return null},setItem(){},removeItem(){}}};
@@ -26,7 +26,7 @@ test('only explicit activation asks for permission; denied stays denied',async()
 });
 test('test notification is local without prompting; sound spans at least five seconds',async()=>{
  const f=fixture();await f.app.testNotification();await flush();assert.equal(f.requests(),0);assert.equal(f.sounds.length,1);
- const oscillators=f.sounds[0].oscillators;assert.equal(oscillators.length,6);const duration=oscillators.at(-1).stopAt-oscillators[0].startAt;assert.ok(duration>=5&&duration<6);assert.ok(Math.abs(duration-5.4)<1e-9);
+ const oscillators=f.sounds[0].oscillators;assert.equal(oscillators.length,12);const duration=Math.max(...oscillators.map(o=>o.stopAt))-Math.min(...oscillators.map(o=>o.startAt));assert.ok(duration>=5&&duration<6);assert.ok(Math.abs(duration-5.4)<1e-9);
  assert.equal(f.app.state.alertSoundPlaying,true);f.app.stopAlertSound();assert.equal(f.sounds[0].state,'closed');
 });
 test('granted notifications use service worker and stay silent when the five-second sound plays',async()=>{
@@ -35,7 +35,7 @@ test('granted notifications use service worker and stay silent when the five-sec
  f.app.notify('Fin','Ciclo terminado','job-a');await flush();assert.equal(f.shown.length,1);
 });
 test('an already delivered push keeps the required app sound without a second system notification',async()=>{
- const f=fixture();f.permission('granted');f.registration.getNotifications=async()=>[{}];await f.app.prepareAlertSound();f.app.notify('Fin','Ciclo terminado','job-a');await flush();assert.equal(f.shown.length,0);assert.equal(f.sounds[0].oscillators.length,6);assert.ok(f.app.state.timerNotice);
+ const f=fixture();f.permission('granted');f.registration.getNotifications=async()=>[{}];await f.app.prepareAlertSound();f.app.notify('Fin','Ciclo terminado','job-a');await flush();assert.equal(f.shown.length,0);assert.equal(f.sounds[0].oscillators.length,12);assert.ok(f.app.state.timerNotice);
 });
 test('25/5 cycles repeat until stopped and duplicate ticks do not credit twice',()=>{
  const f=fixture();f.app.notify=()=>{};f.app.startTaskTimer('a');

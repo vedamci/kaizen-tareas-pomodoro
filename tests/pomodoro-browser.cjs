@@ -20,18 +20,21 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    });
    await page.locator('.app-header > .btn-primary').click();await page.waitForFunction(()=>window.__kaizenQA.state.alertSoundReady);
    const stats=await page.evaluate(async()=>{
-    const app=window.__kaizenQA,c=app.alertAudio,analyser=c.createAnalyser();analyser.fftSize=1024;
+    const app=window.__kaizenQA,c=app.alertAudio,analyser=c.createAnalyser();analyser.fftSize=2048;
     const gain=c.createGain.bind(c);c.createGain=()=>{const g=gain();g.connect(analyser);return g;};
-    const data=new Float32Array(analyser.fftSize),started=performance.now();let first=null,last=null,maxRms=0;
+    const data=new Float32Array(analyser.fftSize),spectrum=new Float32Array(analyser.frequencyBinCount),started=performance.now();let first=null,last=null,maxRms=0,earlyRms=0,decayedRms=0,fundamentalDb=-Infinity,partialDb=-Infinity;
+    const band=(low,high)=>{let value=-Infinity;for(let i=Math.floor(low*c.sampleRate**-1*analyser.fftSize);i<=Math.ceil(high*c.sampleRate**-1*analyser.fftSize);i++)value=Math.max(value,spectrum[i]??-Infinity);return value;};
     while(performance.now()-started<7200){
      analyser.getFloatTimeDomainData(data);const rms=Math.sqrt(data.reduce((sum,value)=>sum+value*value,0)/data.length);maxRms=Math.max(maxRms,rms);
      if(rms>0.002){first??=performance.now();last=performance.now();}
+     if(first!==null){const elapsed=performance.now()-first;if(elapsed<250){earlyRms=Math.max(earlyRms,rms);analyser.getFloatFrequencyData(spectrum);fundamentalDb=Math.max(fundamentalDb,band(480,570));partialDb=Math.max(partialDb,band(1380,1510));}if(elapsed>850&&elapsed<1050)decayedRms=Math.max(decayedRms,rms);}
      await new Promise(resolve=>setTimeout(resolve,20));
     }
-    return {first,last,span:first!==null&&last!==null?last-first:0,maxRms,permissionRequests:window.__permissionRequests,notice:app.state.timerNotice?.title,phase:app.state.pomo.mode,running:app.state.pomo.running,seconds:app.state.tasks[0].seconds};
+    return {earlyRms,decayedRms,fundamentalDb,partialDb,first,last,span:first!==null&&last!==null?last-first:0,maxRms,permissionRequests:window.__permissionRequests,notice:app.state.timerNotice?.title,phase:app.state.pomo.mode,running:app.state.pomo.running,seconds:app.state.tasks[0].seconds};
    });
    console.log(JSON.stringify({engine,audioAndTimer:stats}));
    assert.equal(stats.permissionRequests,0);assert.ok(stats.maxRms>0.01,engine+' renders an audible signal');assert.ok(stats.span>=5000,engine+' signal span >=5s: '+stats.span);
+   assert.ok(stats.fundamentalDb>-45,engine+' bell fundamental is present');assert.ok(stats.partialDb>-55,engine+' bell overtone is present');assert.ok(stats.earlyRms>stats.decayedRms*1.5,engine+' bell naturally decays after the strike');
    assert.equal(stats.notice,'Pomodoro terminado');assert.equal(stats.phase,'break');assert.equal(stats.running,true);assert.equal(stats.seconds,1);
    assert.equal(await page.locator('.pomodoro-notice').isVisible(),true);assert.match(await page.locator('.today-focus-strip').innerText(),/Enfoque de prueba local/);
    await page.screenshot({path:'test-results/pomodoro-'+engine+'.png',fullPage:true});await page.getByRole('button',{name:'Entendido',exact:true}).click();
