@@ -103,3 +103,21 @@ test('a running cycle cannot credit a different user or workspace',()=>{
 test('a restored timer waits for identity and tasks to finish loading before reconciling',()=>{
  const f=fixture();f.app.startTaskTimer('a');f.app.timerRestoring=true;f.advance(60000);f.app.tick();assert.equal(f.app.state.tasks[0].seconds,0);f.app.timerRestoring=false;f.app.tick();assert.equal(f.app.state.tasks[0].seconds,60);
 });
+
+test('future focus and break bells are placed on the audio clock before their deadlines',async()=>{
+ const f=fixture();f.app.startTaskTimer('a');await flush();f.app.syncPomodoroAudio();const alarms=[...f.app.bellAlarms.values()];assert.equal(alarms.length,2);
+ assert.equal(alarms[0].audioAt-f.sounds[0].currentTime,1500);assert.equal(alarms[1].audioAt-f.sounds[0].currentTime,1800);assert.equal(alarms[0].nodes.length,12);assert.ok(Math.abs(Math.max(...alarms[0].nodes.map(o=>o.stopAt))-alarms[0].audioAt-5.4)<1e-9);
+ f.app.togglePomo();assert.equal(f.app.bellAlarms.size,0);assert.ok(alarms[0].nodes.every(o=>o.onended===null));
+});
+test('a scheduled bell is not generated again when a delayed JS tick catches up',async()=>{
+ const f=fixture();f.app.startTaskTimer('a');await flush();f.app.syncPomodoroAudio();const alarm=[...f.app.bellAlarms.values()][0],count=f.sounds[0].oscillators.length;
+ f.advance(1500000);f.sounds[0].currentTime=alarm.audioAt+1;await f.app.deliverTimerNotice('Fin','Enfoque terminado',alarm.tag);assert.equal(f.sounds[0].oscillators.length,count);
+});
+test('the system notification remains audible when the tab is hidden or another window has focus',async()=>{
+ for(const state of [{visibilityState:'hidden',hasFocus:()=>false},{visibilityState:'visible',hasFocus:()=>false}]){
+  const f=fixture();f.permission('granted');Object.assign(f.context.document,state);await f.app.prepareAlertSound();await f.app.deliverTimerNotice('Fin','Enfoque terminado','bg');assert.equal(f.shown[0].options.silent,false);assert.equal(f.requests(),0);
+ }
+});
+test('the ten-second background test is explicit and never asks for system permission',async()=>{
+ const f=fixture();await f.app.testBackgroundBells();const alarm=[...f.app.bellAlarms.values()][0];assert.equal(alarm.fireAt-f.now(),10000);assert.equal(alarm.manual,true);assert.equal(f.app.state.backgroundBellTestPending,true);assert.equal(f.requests(),0);assert.equal(f.app.state.pomo.running,false);
+});

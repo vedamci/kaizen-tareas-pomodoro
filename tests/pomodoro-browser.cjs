@@ -11,7 +11,7 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   for(const [engine,type] of [['chromium',chromium],['webkit',webkit]]){
    browser=await type.launch();const context=await browser.newContext({viewport:{width:1280,height:900},timezoneId:'UTC'}),page=await context.newPage();page.setDefaultTimeout(20000);
    await context.route(url+'/',async route=>{const response=await route.fetch(),body=(await response.text()).replace('class Component extends DCLogic {','class Component extends DCLogic { constructor(...args){super(...args);window.__kaizenQA=this;}');await route.fulfill({response,body});});
-   await page.addInitScript(()=>{window.__permissionRequests=0;if(window.Notification){const native=Notification.requestPermission.bind(Notification);Notification.requestPermission=(...args)=>{window.__permissionRequests++;return native(...args);};}});
+   await page.addInitScript(()=>{const Native=window.AudioContext||window.webkitAudioContext;if(Native)window.AudioContext=class extends Native{constructor(...args){super(...args);this.__qaAnalyser=this.createAnalyser();this.__qaAnalyser.fftSize=2048;const gain=this.createGain.bind(this);this.createGain=()=>{const g=gain();g.connect(this.__qaAnalyser);return g;};}};window.__permissionRequests=0;if(window.Notification){const native=Notification.requestPermission.bind(Notification);Notification.requestPermission=(...args)=>{window.__permissionRequests++;return native(...args);};}});
    await page.goto(url);await page.waitForFunction(()=>window.__kaizenQA?.state.auth&&!window.__kaizenQA.timerRestoring&&window.__kaizenQA.state.tasks.length>0);
    await page.locator('[aria-label="Usuario de demostración"]').evaluate(node=>node.parentElement.style.display='none');
    await page.evaluate(()=>{
@@ -20,8 +20,7 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    });
    await page.locator('.app-header > .btn-primary').click();await page.waitForFunction(()=>window.__kaizenQA.state.alertSoundReady);
    const stats=await page.evaluate(async()=>{
-    const app=window.__kaizenQA,c=app.alertAudio,analyser=c.createAnalyser();analyser.fftSize=2048;
-    const gain=c.createGain.bind(c);c.createGain=()=>{const g=gain();g.connect(analyser);return g;};
+    const app=window.__kaizenQA,c=app.alertAudio,analyser=c.__qaAnalyser;
     const data=new Float32Array(analyser.fftSize),spectrum=new Float32Array(analyser.frequencyBinCount),started=performance.now();let first=null,last=null,maxRms=0,earlyRms=0,decayedRms=0,fundamentalDb=-Infinity,partialDb=-Infinity;
     const band=(low,high)=>{let value=-Infinity;for(let i=Math.floor(low*c.sampleRate**-1*analyser.fftSize);i<=Math.ceil(high*c.sampleRate**-1*analyser.fftSize);i++)value=Math.max(value,spectrum[i]??-Infinity);return value;};
     while(performance.now()-started<7200){

@@ -564,6 +564,7 @@
           <button class="btn btn-secondary" disabled="{{ notificationBusy }}" onClick="{{ onEnableNotifications }}">{{ notificationLabel }}</button>
           <p class="panel-help">{{ pushPromptText }}</p>
           <button class="btn btn-secondary" disabled="{{ alertSoundPlaying }}" onClick="{{ onTestNotification }}">Probar aviso y sonido de 5 segundos</button>
+          <button class="btn btn-secondary" disabled="{{ backgroundBellTestPending }}" onClick="{{ onTestBackgroundBells }}">Probar campanas en 10 segundos</button>
           <details class="nested-options"><summary>Avisos en segundo plano</summary><p class="panel-help">Con Kaizen abierta, el sonido dura 5,4 segundos y los ciclos siguen: 25 minutos de enfoque y 5 de descanso, hasta que los pauses o detengas. Con la app cerrada, los avisos dependen de la conexión y del servicio de entrega; macOS decide el sonido. Revisa Notificaciones, volumen y Concentración en Ajustes del Sistema.</p><button class="btn btn-secondary" onClick="{{ onTestPushNotification }}">Probar aviso en segundo plano</button></details>
           <button class="btn btn-secondary" onClick="{{ onRefreshPage }}">Actualizar página</button>
           <button class="btn btn-secondary" onClick="{{ onOpenIdeas }}">Enviar sugerencia</button>
@@ -1394,7 +1395,7 @@ class Component extends DCLogic {
     if(this.state.pomo.running||this.state.stopwatch)this.tick();
     const speed=[1,10,60].includes(Number(value))?Number(value):1,s=this.state;
     if(!s.pomo.running){this.setState({timerSpeed:speed});return;}
-    this.cancelPushJobs(s.pomo);
+    this.cancelScheduledBells();this.cancelPushJobs(s.pomo);
     const fireAt=Date.now()+s.pomo.remaining*1000/speed,jobId=this.uid(),task=s.tasks.find(t=>t.id===s.activeId);
     if(s.pomo.mode==='focus'){
       const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/speed;
@@ -1474,30 +1475,30 @@ class Component extends DCLogic {
   cancelPushJobs(pomo=this.state.pomo) { [pomo?.pushJobId,pomo?.breakPushJobId].filter(Boolean).forEach(id=>this.cancelPush(id)); }
   selectTimerMode(mode) {
     if(this.state.pomo.running||this.state.stopwatch)this.tick();
-    this.cancelPushJobs(this.state.pomo);
+    this.cancelScheduledBells();this.cancelPushJobs(this.state.pomo);
     this.setState({timerMode:mode,stopwatch:false,watchSecs:0,watchStartedAt:null,pomo:{mode:'focus',running:false,remaining:this.focusSecs(),endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
   }
   resetPomo() {
     if(this.state.pomo.running||this.state.stopwatch)this.tick();
-    const s=this.state;this.cancelPushJobs(s.pomo);
+    const s=this.state;this.cancelScheduledBells();this.cancelPushJobs(s.pomo);
     if(s.timerMode==='watch')this.setState({watchSecs:0,stopwatch:false,watchStartedAt:null});
     else this.setState({pomo:{mode:'focus',running:false,accountedAt:null,remaining:this.focusSecs(),endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
   }
   stopPomo() {
     if(this.state.pomo.running||this.state.stopwatch)this.tick();
     this.cancelPushJobs(this.state.pomo);this.stopAlertSound();
-    this.setState({stopwatch:false,watchStartedAt:null,watchAccountedAt:null,alertSoundReady:false,alertSoundPlaying:false,pomo:{mode:'focus',remaining:this.focusSecs(),running:false,accountedAt:null,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
+    this.setState({stopwatch:false,watchStartedAt:null,watchAccountedAt:null,alertSoundReady:false,alertSoundPlaying:false,backgroundBellTestPending:false,pomo:{mode:'focus',remaining:this.focusSecs(),running:false,accountedAt:null,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
   }
   skipPomo() {
     if(this.state.pomo.running||this.state.stopwatch)this.tick();
-    const s=this.state;this.cancelPushJobs(s.pomo);const mode=s.pomo.mode==='focus'?'break':'focus';
+    const s=this.state;this.cancelScheduledBells();this.cancelPushJobs(s.pomo);const mode=s.pomo.mode==='focus'?'break':'focus';
     this.setState({pomo:{mode,running:false,remaining:mode==='focus'?this.focusSecs():this.breakSecs(),endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
   }
   togglePomo() {
     if(this.state.pomo.running||this.state.stopwatch)this.tick();
     const s=this.state;
     if(s.timerMode==='watch'){const next=!s.stopwatch;this.setState({stopwatch:next,watchStartedAt:next?Date.now()-s.watchSecs*1000:null,watchAccountedAt:next?Date.now():null});return;}
-    if(s.pomo.running){this.cancelPushJobs(s.pomo);this.setState({pomo:{...s.pomo,running:false,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});return;}
+    if(s.pomo.running){this.cancelScheduledBells();this.cancelPushJobs(s.pomo);this.setState({pomo:{...s.pomo,running:false,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});return;}
     this.prepareAlertSound();this.setState({timerNotice:null});
     const jobId=this.uid(), fireAt=Date.now()+s.pomo.remaining*1000/s.timerSpeed, task=s.tasks.find(t=>t.id===s.activeId);
     if(s.pomo.mode==='focus'){
@@ -1512,7 +1513,7 @@ class Component extends DCLogic {
   toggleTaskFocus(id) {
     if(this.state.pomo.running||this.state.stopwatch)this.tick();
     const s=this.state,same=s.activeId===id,running=same&&(s.stopwatch||s.pomo.running),task=s.tasks.find(t=>t.id===id); if(!task||task.done||task.list==='trash')return; if(s.timerMode==='watch'){const next=!running;const taskSecs=same?s.watchSecs:0;this.setState({activeId:id,stopwatch:next,watchSecs:taskSecs,watchStartedAt:next?Date.now()-taskSecs*1000:null,watchAccountedAt:next?Date.now():null,pomo:{...s.pomo,running:false,endsAt:null}});return;}
-    if(running){this.cancelPushJobs(s.pomo);this.setState({activeId:id,stopwatch:false,pomo:{...s.pomo,running:false,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});return;}
+    if(running){this.cancelScheduledBells();this.cancelPushJobs(s.pomo);this.setState({activeId:id,stopwatch:false,pomo:{...s.pomo,running:false,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});return;}
     this.startTaskTimer(id);
   }
   startTaskTimer(id) {
@@ -1520,7 +1521,7 @@ class Component extends DCLogic {
     const s=this.state, task=s.tasks.find(t=>t.id===id); if(!task||task.done||task.list==='trash')return;
     const sameTask=s.activeId===id;
     if(sameTask&&(s.stopwatch||s.pomo.running))return;
-    if(s.pomo.running)this.cancelPushJobs(s.pomo);
+    if(s.pomo.running){this.cancelScheduledBells();this.cancelPushJobs(s.pomo);}
     if(s.timerMode==='watch'){
       const taskSecs=sameTask?Math.max(0,Number(s.watchSecs)||0):0;
       this.setState({activeId:id,stopwatch:true,watchSecs:taskSecs,watchStartedAt:Date.now()-taskSecs*1000,watchAccountedAt:Date.now(),pomo:{...s.pomo,running:false,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
@@ -1609,17 +1610,12 @@ class Component extends DCLogic {
       if(this.alertAudio.state!=='running')await this.alertAudio.resume();
       const ready=this.alertAudio.state==='running';
       this.setState({alertSoundReady:ready,alertSoundError:ready?'':'Pulsa Probar aviso para habilitar el sonido.'});
+      if(ready)this.syncPomodoroAudio();
       return ready;
     }catch(e){this.setState({alertSoundReady:false,alertSoundError:'No se pudo activar el sonido. Revisa el volumen y prueba el aviso.'});return false;}
   }
-  async playAlertSound() {
-    const c=this.alertAudio;
-    if(!c||c.state==='closed'){this.setState({alertSoundReady:false});return false;}
-    try{
-      if(c.state!=='running')await c.resume();
-      if(c.state!=='running'){this.setState({alertSoundReady:false});return false;}
-      if(this.state.alertSoundPlaying)return true;
-      const start=c.currentTime,oscillators=[];
+  createBellVoices(c,start,onStrikeEnd,onComplete) {
+    const oscillators=[];
       // Four softly struck bells. Inharmonic partials decay independently;
       // the final bell fades out at 5.4 seconds without a hard cutoff.
       const notes=[523.25,659.25,783.99,1046.5];
@@ -1629,15 +1625,75 @@ class Component extends DCLogic {
         o.type='sine';o.frequency.setValueAtTime(note*partial.ratio,at);
         g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(partial.gain,at+0.008);
         g.gain.exponentialRampToValueAtTime(j?0.0001:0.003,end-0.04);g.gain.linearRampToValueAtTime(0,end);
-        o.connect(g);g.connect(c.destination);o.onended=()=>{o.disconnect();g.disconnect();if(i===3&&j===0){this.alertOscillators=[];this.setState({alertSoundPlaying:false});}};
+        o.connect(g);g.connect(c.destination);o.kaizenGain=g;o.onended=()=>{o.disconnect();g.disconnect();if(i===0&&j===2)onStrikeEnd?.();if(i===3&&j===0)onComplete?.();};
         o.start(at);o.stop(end);oscillators.push(o);
       }));
-      this.alertOscillators=oscillators;
+
+    return oscillators;
+  }
+  cancelBellAlarm(alarm) {
+    for(const o of alarm?.nodes||[])try{o.onended=null;o.stop();o.disconnect();o.kaizenGain?.disconnect();}catch(e){}
+  }
+  cancelScheduledBells(includeTest=false) {
+    for(const [tag,alarm] of this.bellAlarms||[])if(includeTest||!alarm.manual){this.cancelBellAlarm(alarm);this.bellAlarms.delete(tag);}
+  }
+  scheduleBellAt(tag,fireAt,manual=false) {
+    const c=this.alertAudio;if(!c||c.state!=='running'||!Number.isFinite(fireAt)||fireAt<=Date.now())return false;
+    this.bellAlarms||=new Map();if(this.bellAlarms.has(tag))return true;
+    const alarm={tag,fireAt,audioAt:c.currentTime+(fireAt-Date.now())/1000,manual,nodes:[]};
+    this.bellAlarms.set(tag,alarm);
+    alarm.nodes=this.createBellVoices(c,alarm.audioAt,()=>{
+      if(this.bellAlarms?.get(tag)!==alarm)return;
+      if(manual)this.notify('Prueba de campanas en segundo plano','Esta prueba no modifica tu Pomodoro.',''+tag);
+      else this.tick();
+    },()=>{
+      if(manual)this.setState({backgroundBellTestPending:false});
+      this.playedBellTags||=new Set();this.playedBellTags.add(tag);
+      while(this.playedBellTags.size>128)this.playedBellTags.delete(this.playedBellTags.values().next().value);
+    });
+    return true;
+  }
+  syncPomodoroAudio() {
+    const c=this.alertAudio,p=this.state.pomo,now=Date.now(),wanted=new Map();
+    if(c?.state==='running'&&this.state.timerMode==='pomo'&&p.running&&(!p.timerIdentity||p.timerIdentity===this.focusDailyKey())){
+      if(p.pushJobId&&p.endsAt>now)wanted.set('kaizen-'+p.pushJobId,p.endsAt);
+      if(p.mode==='focus'&&p.breakPushJobId&&p.breakEndsAt>now)wanted.set('kaizen-'+p.breakPushJobId,p.breakEndsAt);
+    }
+    for(const [tag,alarm] of this.bellAlarms||[]){
+      if(alarm.manual&&now<alarm.fireAt+8000)continue;
+      const drift=c&&Math.abs((alarm.fireAt-now)/1000-(alarm.audioAt-c.currentTime))>0.75;
+      const expired=now>alarm.fireAt+8000;
+      const cancelled=!alarm.manual&&(!p.running||this.state.timerMode!=='pomo'||(alarm.fireAt>now&&(!wanted.has(tag)||drift)));
+      if(expired||cancelled){
+        if(c&&c.currentTime>=alarm.audioAt+5.4){this.playedBellTags||=new Set();this.playedBellTags.add(tag);}
+        this.cancelBellAlarm(alarm);this.bellAlarms.delete(tag);
+      }
+    }
+    for(const [tag,at] of wanted)this.scheduleBellAt(tag,at);
+  }
+  async testBackgroundBells() {
+    if(this.state.backgroundBellTestPending)return;
+    if(!await this.prepareAlertSound())return;
+    const tag='kaizen-background-test-'+Date.now();
+    if(this.scheduleBellAt(tag,Date.now()+10000,true))this.setState({backgroundBellTestPending:true,toast:'Campanas programadas para dentro de 10 segundos. Cambia ahora a otra ventana de Chrome.'});
+  }
+  async playAlertSound(tag='') {
+    const c=this.alertAudio;
+    if(!c||c.state==='closed'){this.setState({alertSoundReady:false});return false;}
+    try{
+      if(c.state!=='running')await c.resume();
+      if(c.state!=='running'){this.setState({alertSoundReady:false});return false;}
+      const scheduled=tag&&this.bellAlarms?.get(tag);
+      if(tag&&(this.playedBellTags?.has(tag)||(scheduled&&c.currentTime>=scheduled.audioAt-0.02)))return true;
+      if(scheduled){this.cancelBellAlarm(scheduled);this.bellAlarms.delete(tag);}
+      if(this.state.alertSoundPlaying)return true;
+      this.alertOscillators=this.createBellVoices(c,c.currentTime,null,()=>{this.alertOscillators=[];this.setState({alertSoundPlaying:false});});
       this.setState({alertSoundReady:true,alertSoundPlaying:true,alertSoundError:''});
       return true;
     }catch(e){this.setState({alertSoundReady:false,alertSoundError:'No se pudo reproducir el aviso. Prueba el sonido desde Más.'});return false;}
   }
   stopAlertSound() {
+    this.cancelScheduledBells(true);
     for(const o of this.alertOscillators||[])try{o.onended=null;o.stop();o.disconnect();}catch(e){}
     this.alertOscillators=[];
     if(this.alertAudio){try{this.alertAudio.close()?.catch?.(()=>{});}catch(e){}this.alertAudio=null;}
@@ -1656,9 +1712,9 @@ class Component extends DCLogic {
       reg=await this.readyNotificationWorker();
       try{alreadyDelivered=!!(reg?.getNotifications&&(await reg.getNotifications({tag})).length);}catch(e){}
     }
-    const sounded=await this.playAlertSound();
+    const sounded=await this.playAlertSound(tag);
     if(alreadyDelivered)return;
-    const shown=await this.showSystemNotification(title,{body,tag,renotify:false,requireInteraction:true,silent:sounded,timestamp:Date.now(),data:{url:'./'}},reg);
+    const shown=await this.showSystemNotification(title,{body,tag,renotify:false,requireInteraction:true,silent:sounded&&(typeof document==='undefined'||(document.visibilityState!=='hidden'&&document.hasFocus?.()!==false)),timestamp:Date.now(),data:{url:'./'}},reg);
     if(!sounded&&!shown)this.setState({alertSoundError:'El aviso queda aquí. Pulsa Probar aviso y sonido para preparar el audio.'});
   }
   notify(title,body,tag='tareas-pomodoro-'+Date.now()) {
@@ -1940,6 +1996,7 @@ class Component extends DCLogic {
   componentDidUpdate() {
     const s = this.state;
     this.updateCalendarReadContext();
+    this.syncPomodoroAudio();
     if(this.hourlyResize&&!this.hourlyResizeStillValid(this.hourlyResize))this.cancelHourlyResize();
     const canSeeAssistant = this.isWorkspaceAdmin();
     if (!canSeeAssistant) {
@@ -3368,7 +3425,7 @@ class Component extends DCLogic {
       onRefreshPage: () => this.refreshPage(),
       todayFocusTotal,todayFocusRows,todayFocusEmpty:todayFocusRows.length===0,
       timerCanStop:!!(s.pomo.running||s.stopwatch||s.pomo.remaining!==this.focusSecs()||s.pomo.mode==='break'),onStopPomo:()=>this.stopPomo(),
-      onTestNotification: () => this.testNotification(),onTestPushNotification:()=>this.testPushNotification(),notificationBusy:s.notificationBusy,alertSoundPlaying:s.alertSoundPlaying,alertSoundLabel:s.alertSoundError||(s.alertSoundReady?'Campanas de 5,4 segundos preparadas':'El sonido se prepara al iniciar o probar el Pomodoro'),notificationContextLabel:(typeof window!=='undefined'&&(window.matchMedia?.('(display-mode: standalone)')?.matches||(typeof navigator!=='undefined'&&navigator.standalone)))?'Kaizen abierta como app':'Kaizen abierta en el navegador',hasTimerNotice:!!s.timerNotice,timerNoticeTitle:s.timerNotice?.title||'',timerNoticeBody:s.timerNotice?.body||'',onDismissTimerNotice:()=>this.setState({timerNotice:null}),
+      onTestNotification: () => this.testNotification(),onTestPushNotification:()=>this.testPushNotification(),onTestBackgroundBells:()=>this.testBackgroundBells(),backgroundBellTestPending:!!s.backgroundBellTestPending,notificationBusy:s.notificationBusy,alertSoundPlaying:s.alertSoundPlaying,alertSoundLabel:s.alertSoundError||(s.alertSoundReady?'Campanas de 5,4 segundos preparadas':'El sonido se prepara al iniciar o probar el Pomodoro'),notificationContextLabel:(typeof window!=='undefined'&&(window.matchMedia?.('(display-mode: standalone)')?.matches||(typeof navigator!=='undefined'&&navigator.standalone)))?'Kaizen abierta como app':'Kaizen abierta en el navegador',hasTimerNotice:!!s.timerNotice,timerNoticeTitle:s.timerNotice?.title||'',timerNoticeBody:s.timerNotice?.body||'',onDismissTimerNotice:()=>this.setState({timerNotice:null}),
       onOpenIdeas: () => this.setState({ view: 'ideas', projFilter: null, selId: null, delegatingId: null, mobileNavOpen: false }),
       toast: s.toast, onEnableNotifications: () => this.enableNotifications(), showPushPrompt: true, pushPromptText: s.notificationState === 'denied' ? 'Las notificaciones están bloqueadas. Permite Kaizen en el navegador o en Ajustes del Sistema > Notificaciones. El sonido y el aviso dentro de la app siguen disponibles.' : s.pushReady ? 'Avisos en segundo plano registrados en este dispositivo. Puedes probarlos aquí.' : s.notificationState === 'granted' ? 'Notificaciones permitidas. Activa y prueba la entrega en segundo plano para este dispositivo.' : 'Activar avisos solicita tu permiso. Iniciar el Pomodoro no abre solicitudes de permisos.',
       notificationLabel: s.notificationBusy?'Activando avisos…':s.pushReady ? 'Avisos activos' : s.notificationState === 'denied' ? 'Avisos bloqueados' : s.notificationState === 'unsupported' ? 'Avisos no disponibles' : 'Activar avisos',
