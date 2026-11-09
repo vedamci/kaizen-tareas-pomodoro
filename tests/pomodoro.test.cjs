@@ -94,3 +94,12 @@ test('DST repeat and skipped hours credit only elapsed focus seconds',()=>{
   }
  }finally{process.env.TZ=previous;}
 });
+
+test('a running cycle cannot credit a different user or workspace',()=>{
+ for(const change of [{auth:{id:2}},{workspaceId:2}]){
+  const f=fixture();f.app.startTaskTimer('a');f.advance(60000);f.app.setState(change);f.app.tick();assert.equal(f.app.state.tasks[0].seconds,0);assert.equal(f.app.state.pomo.running,false);
+ }
+});
+test('a restored timer waits for identity and tasks to finish loading before reconciling',()=>{
+ const f=fixture();f.app.startTaskTimer('a');f.app.timerRestoring=true;f.advance(60000);f.app.tick();assert.equal(f.app.state.tasks[0].seconds,0);f.app.timerRestoring=false;f.app.tick();assert.equal(f.app.state.tasks[0].seconds,60);
+});

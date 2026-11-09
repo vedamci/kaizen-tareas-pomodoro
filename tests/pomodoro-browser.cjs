@@ -34,6 +34,8 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    assert.equal(stats.notice,'Pomodoro terminado');assert.equal(stats.phase,'break');assert.equal(stats.running,true);assert.equal(stats.seconds,1);
    assert.equal(await page.locator('.pomodoro-notice').isVisible(),true);assert.match(await page.locator('.today-focus-strip').innerText(),/Enfoque de prueba local/);
    await page.screenshot({path:'test-results/pomodoro-'+engine+'.png',fullPage:true});await page.getByRole('button',{name:'Entendido',exact:true}).click();
+   await page.reload();await page.waitForFunction(()=>window.__kaizenQA?.state.auth&&window.__kaizenQA.state.tasks.some(t=>t.id==='notify-qa'));
+   assert.equal(await page.evaluate(()=>window.__kaizenQA.state.tasks.find(t=>t.id==='notify-qa').seconds),1);assert.equal(await page.evaluate(()=>window.__kaizenQA.state.pomo.running),true);assert.equal(await page.evaluate(()=>window.__kaizenQA.state.pomo.mode),'break');
    let systemNotification='not available in this test engine';
    if(engine==='chromium'){
     await context.grantPermissions(['notifications'],{origin:url});

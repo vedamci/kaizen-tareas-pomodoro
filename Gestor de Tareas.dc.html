@@ -1398,7 +1398,7 @@ class Component extends DCLogic {
     const fireAt=Date.now()+s.pomo.remaining*1000/speed,jobId=this.uid(),task=s.tasks.find(t=>t.id===s.activeId);
     if(s.pomo.mode==='focus'){
       const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/speed;
-      this.setState({timerSpeed:speed,pomo:{...s.pomo,accountedAt:Date.now(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
+      this.setState({timerSpeed:speed,pomo:{...s.pomo,accountedAt:Date.now(),timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
       this.scheduleFocusCycle(fireAt,jobId,breakEndsAt,breakPushJobId,task?.title||'');
     }else{
       this.setState({timerSpeed:speed,pomo:{...s.pomo,endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null}});
@@ -1502,10 +1502,10 @@ class Component extends DCLogic {
     const jobId=this.uid(), fireAt=Date.now()+s.pomo.remaining*1000/s.timerSpeed, task=s.tasks.find(t=>t.id===s.activeId);
     if(s.pomo.mode==='focus'){
       const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/s.timerSpeed;
-      this.setState({pomo:{...s.pomo,running:true,accountedAt:Date.now(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId},stopwatch:false});
+      this.setState({pomo:{...s.pomo,running:true,accountedAt:Date.now(),timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId},stopwatch:false});
       this.scheduleFocusCycle(fireAt,jobId,breakEndsAt,breakPushJobId,task?.title||'');
     }else{
-      this.setState({pomo:{...s.pomo,running:true,accountedAt:Date.now(),endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null},stopwatch:false});
+      this.setState({pomo:{...s.pomo,running:true,accountedAt:Date.now(),timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null},stopwatch:false});
       this.schedulePush(fireAt,jobId,task?.title||'','break');
     }
   }
@@ -1534,10 +1534,10 @@ class Component extends DCLogic {
     const jobId=this.uid(),fireAt=Date.now()+remaining*1000/s.timerSpeed;
     if(mode==='focus'){
       const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/s.timerSpeed;
-      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,accountedAt:Date.now(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
+      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,accountedAt:Date.now(),timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
       this.scheduleFocusCycle(fireAt,jobId,breakEndsAt,breakPushJobId,task.title||'');
     }else{
-      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,accountedAt:Date.now(),endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null}});
+      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,accountedAt:Date.now(),timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null}});
       this.schedulePush(fireAt,jobId,task.title||'',mode);
     }
   }
@@ -2004,6 +2004,7 @@ class Component extends DCLogic {
     return (workspaces || []).find(w => Number(w.id) === remembered)?.id || (workspaces || [])[0]?.id || null;
   }
   async bootstrapAuth() {
+    this.timerRestoring=true;
     this.discardSlotDraft();
     this.remoteSaved = {};
     try {
@@ -2015,7 +2016,7 @@ class Component extends DCLogic {
         this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', assistantRuns:[],assistantStatus:'idle',assistantError:'',assistantSelId:null,assistantDemoState:'none', supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'',timelineResponsibleId:'',dailyResponsibleId:'',improvementChecklist: [] });
         if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); const members=await this.loadWorkspaceMembers(workspaceId); this.restorePersonFilters(r.user.id,workspaceId,members); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
       }
-    } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
+    } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); } finally { this.timerRestoring=false; }
   }
   async loadRemoteTasks(workspaceId, options = {}) {
     const request=this.taskLoadRequestId=(this.taskLoadRequestId||0)+1,userId=Number(this.state.auth?.id||0);
@@ -2292,6 +2293,8 @@ class Component extends DCLogic {
   focusDuration(value) { const seconds=Math.max(0,Math.floor(Number(value)||0)); if(!seconds)return '0 min'; if(seconds<60)return seconds+' s'; const minutes=Math.floor(seconds/60); return minutes<60?minutes+' min':Math.floor(minutes/60)+' h'+(minutes%60?' '+minutes%60+' min':''); }
   focusDailyKey() { return String(this.state.auth?.id||'local')+':'+String(this.state.workspaceId||'local'); }
   tick() {
+    if(!this.state.auth||this.timerRestoring)return;
+    if(this.state.pomo.running&&this.state.pomo.timerIdentity&&this.state.pomo.timerIdentity!==this.focusDailyKey()){this.setState({pomo:{...this.state.pomo,running:false,endsAt:null,accountedAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});return;}
     const now=Date.now(),previous=this.state.pomo;
     let latest=null,phaseChanged=false;
     this.setState(s=>{
