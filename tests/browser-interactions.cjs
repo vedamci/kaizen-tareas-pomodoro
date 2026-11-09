@@ -10,6 +10,7 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function ready(){for(let i=0;i<40;i++){try{if((await fetch(url)).ok)return;}catch{}await pause(100);}throw Error('Preview did not start');}
 async function drag(page,locator,dx,dy,touch){
  await locator.scrollIntoViewIfNeeded();
+ await locator.evaluate(node=>node.scrollIntoView({block:'center',inline:'nearest'}));
  // Keep the task clear of the timeline's sticky name column on narrow screens.
  await locator.evaluate(node=>{
   const scroller=node.closest('.timeline-scroll');
@@ -51,6 +52,8 @@ async function drag(page,locator,dx,dy,touch){
    const page=await context.newPage();page.setDefaultTimeout(15000);
    page.on('pageerror',error=>console.log('Browser error: '+error.message));
    await page.goto(url);await page.waitForFunction(()=>window.__kaizenQA?.state.auth&&window.__kaizenQA.state.tasks.length>0);
+   // The preview-only account toolbar is absent in production and otherwise covers tasks on small screens.
+   await page.locator('[aria-label="Usuario de demostración"]').evaluate(node=>node.parentElement.style.display='none');
    const menu=page.locator('.header-menus > details').first();await menu.locator(':scope > summary').click();assert.equal(await menu.evaluate(node=>node.open),true);
    if(touch)await page.locator('.app-brand').tap();else await page.locator('.app-brand').click();
    assert.equal(await menu.evaluate(node=>node.open),false);
