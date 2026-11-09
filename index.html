@@ -175,6 +175,16 @@
   a { color: var(--color-accent); }
   a:hover { color: var(--color-accent-700); }
   .mobile-nav-toggle, .mobile-nav-panel { display: none; }
+  .today-focus-strip { padding:8px 20px; border-bottom:1px solid var(--color-divider); background:var(--color-surface); display:flex; align-items:center; flex-wrap:wrap; gap:6px 16px; font-size:12px; flex:none; }
+  .today-focus-strip > strong { white-space:nowrap; }
+  .today-focus-tasks { display:flex; gap:6px 12px; min-width:0; overflow:auto; max-width:100%; }
+  .today-focus-chip { max-width:240px; flex:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  @media(max-width:600px) { .today-focus-strip { padding:8px 12px; } .today-focus-chip { max-width:190px; } }
+  .pomodoro-notice { position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:125; width:min(580px,calc(100vw - 24px)); box-sizing:border-box; padding:16px; border:2px solid var(--color-accent-700); border-radius:10px; background:var(--color-bg); color:var(--color-text); box-shadow:0 8px 28px #0003; display:flex; align-items:center; gap:14px; }
+  .pomodoro-notice > div { min-width:0; flex:1; }
+  .pomodoro-notice p { margin:6px 0 0; overflow-wrap:anywhere; }
+  .pomodoro-notice .btn { min-height:44px; flex:none; }
+  @media(max-width:400px) { .pomodoro-notice { flex-wrap:wrap; } }
   .toast-message { display: block; position: fixed; z-index: 120; right: 20px; bottom: 20px; max-width: min(520px, calc(100vw - 40px)); padding: 12px 14px; background: var(--color-text); color: var(--color-bg); font-size: 12px; line-height: 1.35; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
   html[data-theme="night"] { --color-bg: #17202b; --color-surface: #202c3a; --color-text: #f2f5f7; --color-divider: #415064; --color-accent: #63d6c2; --color-accent-700: #8ce8d7; --color-neutral-500: #9aaabd; --color-neutral-600: #b4c0ce; --color-neutral-800: #e0e8ef; }
   html[data-theme="sunset"] { --color-bg: #fff8f2; --color-surface: #fff0e5; --color-text: #44251d; --color-divider: #e4c8b8; --color-accent: #e05a3f; --color-accent-700: #b93d2b; --color-neutral-500: #9d7668; --color-neutral-600: #765146; --color-neutral-800: #3e241d; }
@@ -531,7 +541,7 @@
   <header class="app-header">
     <strong class="app-brand">Kaizen</strong>
     <div class="header-clock"><strong>{{ pomoClock }}</strong><small>{{ pomoModeLabel }}</small></div>
-    <button class="btn btn-primary" onClick="{{ onPomoToggle }}">{{ pomoBtnLabel }}</button>
+    <button class="btn btn-primary" onClick="{{ onPomoToggle }}">{{ pomoBtnLabel }}</button><sc-if value="{{ timerCanStop }}"><button class="btn btn-ghost" onClick="{{ onStopPomo }}">Detener</button></sc-if>
     <span class="header-task" title="{{ activeLabel }}">{{ activeLabel }}</span>
     <button class="btn btn-secondary mobile-nav-toggle" onClick="{{ onToggleMobileNav }}">Menú</button>
     <div class="header-menus">
@@ -549,9 +559,12 @@
         <div class="header-panel">
           <strong class="panel-label">Preferencias</strong>
           <button class="btn btn-secondary" onClick="{{ onCycleTheme }}">Tema: {{ themeLabel }}</button>
-          <button class="btn btn-secondary" onClick="{{ onEnableNotifications }}">{{ notificationLabel }}</button>
-          <sc-if value="{{ showPushPrompt }}"><p class="panel-help">{{ pushPromptText }}</p></sc-if>
-          <details class="nested-options"><summary>Probar notificaciones</summary><button class="btn btn-secondary" onClick="{{ onTestNotification }}">Enviar aviso de prueba</button></details>
+          <strong class="panel-label">Avisos del Pomodoro</strong>
+          <p class="panel-help" role="status">{{ notificationContextLabel }} · {{ alertSoundLabel }}</p>
+          <button class="btn btn-secondary" disabled="{{ notificationBusy }}" onClick="{{ onEnableNotifications }}">{{ notificationLabel }}</button>
+          <p class="panel-help">{{ pushPromptText }}</p>
+          <button class="btn btn-secondary" disabled="{{ alertSoundPlaying }}" onClick="{{ onTestNotification }}">Probar aviso y sonido de 5 segundos</button>
+          <details class="nested-options"><summary>Avisos en segundo plano</summary><p class="panel-help">Con Kaizen abierta, el sonido dura 5,4 segundos y los ciclos siguen: 25 minutos de enfoque y 5 de descanso, hasta que los pauses o detengas. Con la app cerrada, los avisos dependen de la conexión y del servicio de entrega; macOS decide el sonido. Revisa Notificaciones, volumen y Concentración en Ajustes del Sistema.</p><button class="btn btn-secondary" onClick="{{ onTestPushNotification }}">Probar aviso en segundo plano</button></details>
           <button class="btn btn-secondary" onClick="{{ onRefreshPage }}">Actualizar página</button>
           <button class="btn btn-secondary" onClick="{{ onOpenIdeas }}">Enviar sugerencia</button>
           <sc-if value="{{ hasAuth }}">
@@ -565,6 +578,7 @@
       </details>
     </div>
   </header>
+  <sc-if value="{{ hasAuth }}"><section class="today-focus-strip" aria-label="Enfoque registrado hoy"><strong>Hoy · {{ todayFocusTotal }} de enfoque</strong><div class="today-focus-tasks"><sc-for list="{{ todayFocusRows }}" as="item"><span class="today-focus-chip" title="{{ item.label }}">{{ item.label }}</span></sc-for><sc-if value="{{ todayFocusEmpty }}"><span>Aún no hay enfoque por tarea registrado hoy.</span></sc-if></div></section></sc-if>
 
   <sc-if value="{{ mobileNavOpen }}" hint-placeholder-val="{{ false }}">
     <div class="mobile-nav-panel">
@@ -575,6 +589,7 @@
       </sc-for></details>
     </div>
   </sc-if>
+  <sc-if value="{{ hasTimerNotice }}"><section class="pomodoro-notice" role="status" aria-live="polite"><div><strong>{{ timerNoticeTitle }}</strong><p>{{ timerNoticeBody }}</p></div><button class="btn btn-secondary" onClick="{{ onDismissTimerNotice }}">Entendido</button></section></sc-if>
   <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}"><div class="toast-message">{{ toast }}</div></sc-if>
 
 
@@ -1243,10 +1258,10 @@ class Component extends DCLogic {
     dailyDate: '', dailyBrowseMonth: '', dailyTitle: '', dailyProject: '', dailyAssignId: '', dailyResponsibleId: '',
     slotCreateOpen:false, slotDay:'', slotTitle:'', slotProject:'', slotTaskId:'', slotBlockId:'', slotStartDraft:'', slotEndDraft:'', slotStartInstant:'', slotEndInstant:'', slotOwnerId:null, slotWorkspaceId:null, slotTimeLabel:'', slotError:'',
     projectEditId: null, projectMemberDraft: [], projectBusy: false, scheduleEditId: null, scheduleStartDraft: '', scheduleEndDraft: '', scheduleError: '', syncError: '',
-    pomo: { mode: 'focus', remaining: 1500, running: false, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null },
+    pomo: { mode: 'focus', remaining: 1500, running: false, accountedAt:null, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null },
     timerSpeed: 1,
-    pushReady: false,
-    activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, full: false,
+    pushReady: false, alertSoundReady:false, alertSoundPlaying:false, alertSoundError:'', notificationBusy:false, timerNotice:null,
+    activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, watchAccountedAt:null, full: false,
     teamTasks:[], teamProjects:[], teamLoading:false, teamError:'', teamQuery:'', teamStatusFilter:'all', teamGroupBy:'responsible',
     supervisionPeople:[], supervisionPersonId:'', supervisionTasks:[], supervisionLoading:false, supervisionError:'',
     assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantFilter:'all', assistantQuery:'', assistantSelId:null, assistantDemoState:'none', assistantActionBusy:false, assistantActionMessage:'', assistantActionRole:'status',
@@ -1376,13 +1391,14 @@ class Component extends DCLogic {
   focusSecs() { return Math.max(1, this.props.focusMinutes ?? 25) * 60; }
   breakSecs() { return Math.max(1, this.props.breakMinutes ?? 5) * 60; }
   changeTimerSpeed(value) {
+    if(this.state.pomo.running||this.state.stopwatch)this.tick();
     const speed=[1,10,60].includes(Number(value))?Number(value):1,s=this.state;
     if(!s.pomo.running){this.setState({timerSpeed:speed});return;}
     this.cancelPushJobs(s.pomo);
     const fireAt=Date.now()+s.pomo.remaining*1000/speed,jobId=this.uid(),task=s.tasks.find(t=>t.id===s.activeId);
     if(s.pomo.mode==='focus'){
       const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/speed;
-      this.setState({timerSpeed:speed,pomo:{...s.pomo,endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
+      this.setState({timerSpeed:speed,pomo:{...s.pomo,accountedAt:fireAt-s.pomo.remaining*1000/speed,timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
       this.scheduleFocusCycle(fireAt,jobId,breakEndsAt,breakPushJobId,task?.title||'');
     }else{
       this.setState({timerSpeed:speed,pomo:{...s.pomo,endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null}});
@@ -1390,84 +1406,127 @@ class Component extends DCLogic {
     }
   }
   refreshPage() { try { window.location.reload(); } catch (e) { location.reload(); } }
-  async requestNotifications(silent=false) {
+  async requestNotifications(silent=false,ask=false) {
     if (!('Notification' in window)) { this.setState({ notificationState: 'unsupported', toast: 'Este navegador no permite avisos web.' }); return 'unsupported'; }
     let permission = Notification.permission;
-    if (permission === 'default') { try { permission = await Notification.requestPermission(); } catch (e) { permission = 'denied'; } }
+    if (permission === 'default' && ask) { try { permission = await Notification.requestPermission(); } catch (e) { permission = 'denied'; } }
     this.setState(s => ({ notificationState: permission, ...(silent ? {} : { toast: permission === 'granted' ? 'Avisos activados.' : permission === 'denied' ? 'Avisos bloqueados: actívalos en Ajustes del navegador.' : 'Activa los avisos para recibir el Pomodoro.' }) }));
-    if (permission === 'granted' && navigator.serviceWorker?.ready) { try { this.swRegistration = await navigator.serviceWorker.ready; } catch (e) {} }
+    // Reading the current permission never prompts; only Activar avisos passes ask=true.
     return permission;
   }
   pushKey(value) { const padding='='.repeat((4-value.length%4)%4); const raw=atob((value+padding).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from(raw,c=>c.charCodeAt(0)); }
   deviceLabel() { const ua=navigator.userAgent||''; if(/iPhone/i.test(ua))return 'iPhone'; if(/iPad/i.test(ua))return 'iPad'; if(/Macintosh|Mac OS X/i.test(ua))return 'Mac'; if(/Android/i.test(ua))return 'Android'; return 'Chrome'; }
   async ensurePushSubscription(silent=false) {
-    const permission=await this.requestNotifications(silent); if(permission!=='granted')return false;
-    if(!('serviceWorker' in navigator)||!('PushManager' in window)){this.setState({toast:'Este dispositivo no permite push web en este modo.'});return false;}
+    const permission=await this.requestNotifications(true); if(permission!=='granted')return false;
+    if(!('serviceWorker' in navigator)||!('PushManager' in window)){if(!silent)this.setState({toast:'Los avisos con la app cerrada no están disponibles en este modo.'});return false;}
     try {
-      const reg=this.swRegistration||await navigator.serviceWorker.ready; this.swRegistration=reg; const cfg=await this.api('push_config'); if(!cfg.ok||!cfg.public_key)throw new Error('Sin clave push');
+      const reg=this.swRegistration||await this.readyNotificationWorker(); if(!reg)return false; this.swRegistration=reg; const cfg=await this.api('push_config'); if(!cfg.ok||!cfg.public_key)throw new Error('Sin clave push');
       let sub=await reg.pushManager.getSubscription(); if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:this.pushKey(cfg.public_key)});
       const json=sub.toJSON(); const saved=await this.api('push_subscribe',{endpoint:sub.endpoint,keys:json.keys||{},expirationTime:sub.expirationTime,device_label:this.deviceLabel()}); if(!saved.ok||!saved.subscription_hash)throw new Error(saved.error||'No se pudo identificar este dispositivo');
       this.pushSubscriptionHash=saved.subscription_hash; try { localStorage.setItem(this.KEY+':push-hash',saved.subscription_hash); } catch(e) {}
       this.setState(s => ({pushReady:true, ...(silent ? {} : {toast:'Push activado en este dispositivo.'})})); return true;
     } catch(e) { if(!silent)this.setState({toast:'No se pudo activar el push: '+(e?.message||'revisa los permisos del sitio')+'.'}); return false; }
   }
-  async testNotification() { const ready=await this.ensurePushSubscription(); if(ready){const r=await this.api('push_test',{subscription_hash:this.pushSubscriptionHash});if(r.ok)this.setState({toast:'Aviso enviado únicamente a este '+this.deviceLabel()+'.'});else this.setState({pushReady:false,toast:r.error||'No se pudo enviar el push.'});} }
+  async enableNotifications() {
+    if(this.state.notificationBusy)return;
+    this.prepareAlertSound();
+    this.setState({notificationBusy:true});
+    try {
+      const permission=await this.requestNotifications(false,true);
+      if(permission!=='granted')return;
+      const ready=await this.ensurePushSubscription(true);
+      this.setState({toast:ready?'Avisos activados para este dispositivo. Usa Probar aviso y sonido.':'Notificaciones permitidas. El aviso con la app cerrada aún no está confirmado; el aviso dentro de Kaizen sigue disponible.'});
+      const p=this.state.pomo,task=this.state.tasks.find(t=>t.id===this.state.activeId);
+      if(ready&&p.running&&p.endsAt>Date.now()){
+        if(p.mode==='focus')this.scheduleFocusCycle(p.endsAt,p.pushJobId,p.breakEndsAt,p.breakPushJobId,task?.title||'');
+        else this.schedulePush(p.endsAt,p.pushJobId,task?.title||'','break');
+      }
+    }finally{this.setState({notificationBusy:false});}
+  }
+  async testNotification() {
+    await this.prepareAlertSound();
+    this.notify('Aviso de prueba de Kaizen','Este es el aviso de fin de Pomodoro. El sonido dura 5,4 segundos.','kaizen-test-'+Date.now());
+  }
+  async testPushNotification() {
+    if(typeof Notification==='undefined'||Notification.permission!=='granted'){this.setState({toast:'Pulsa Activar avisos para autorizar las notificaciones antes de probar el aviso en segundo plano.'});return false;}
+    const ready=await this.ensurePushSubscription();
+    if(ready){const r=await this.api('push_test',{subscription_hash:this.pushSubscriptionHash});this.setState({pushReady:!!r.ok,toast:r.ok?'Aviso enviado a este dispositivo. La entrega y el sonido dependen del sistema.':r.error||'No se pudo enviar el aviso en segundo plano.'});return !!r.ok;}
+    return false;
+  }
   async schedulePush(fireAt,jobId,taskTitle,mode='focus',ensure=true) {
-    if(ensure&&!await this.ensurePushSubscription())return false;
+    if(ensure&&!await this.ensurePushSubscription(true))return false;
     if(!this.pushSubscriptionHash)return false;
+    const current=this.state.pomo;
+    if(!current.running||![current.pushJobId,current.breakPushJobId].includes(jobId)||fireAt<=Date.now())return false;
+    const identity=[this.state.auth?.id,this.state.workspaceId];
     const isBreak=mode==='break';
-    const r=await this.api('push_schedule',{subscription_hash:this.pushSubscriptionHash,job_id:jobId,fire_at:Math.ceil(fireAt/1000),title:isBreak?'Descanso terminado':'Pomodoro terminado',body:isBreak?(taskTitle?'Terminó tu descanso. Puedes volver a enfocarte en «'+taskTitle+'».':'Terminó tu descanso. Puedes volver a enfocarte.'): (taskTitle?'Terminaste un ciclo de enfoque en «'+taskTitle+'». Empieza tu descanso de '+this.fmtClock(this.breakSecs())+'.':'Terminaste un ciclo de enfoque. Empieza tu descanso de '+this.fmtClock(this.breakSecs())+'.')});
+    let r;try{r=await this.api('push_schedule',{subscription_hash:this.pushSubscriptionHash,job_id:jobId,fire_at:Math.ceil(fireAt/1000),title:isBreak?'Descanso terminado':'Pomodoro terminado',body:isBreak?(taskTitle?'Terminó tu descanso. Puedes volver a enfocarte en «'+taskTitle+'».':'Terminó tu descanso. Puedes volver a enfocarte.'): (taskTitle?'Terminaste un ciclo de enfoque en «'+taskTitle+'». Empieza tu descanso de '+this.fmtClock(this.breakSecs())+'.':'Terminaste un ciclo de enfoque. Empieza tu descanso de '+this.fmtClock(this.breakSecs())+'.')});
+    }catch(e){return false;}
+    if(identity[0]!==this.state.auth?.id||identity[1]!==this.state.workspaceId||!this.state.pomo.running||![this.state.pomo.pushJobId,this.state.pomo.breakPushJobId].includes(jobId)){this.cancelPush(jobId);return false;}
     return !!r.ok;
   }
   async scheduleFocusCycle(focusFireAt,focusJobId,breakFireAt,breakJobId,taskTitle) {
-    if(!await this.ensurePushSubscription())return;
+    if(!await this.ensurePushSubscription(true))return;
     await Promise.all([this.schedulePush(focusFireAt,focusJobId,taskTitle,'focus',false),this.schedulePush(breakFireAt,breakJobId,taskTitle,'break',false)]);
   }
   currentPushHash() { if(this.pushSubscriptionHash)return this.pushSubscriptionHash; try { return localStorage.getItem(this.KEY+':push-hash')||''; } catch(e) { return ''; } }
   async cancelPush(jobId) { const subscriptionHash=this.currentPushHash(); if(jobId&&subscriptionHash)await this.api('push_cancel',{subscription_hash:subscriptionHash,job_id:jobId}); }
   cancelPushJobs(pomo=this.state.pomo) { [pomo?.pushJobId,pomo?.breakPushJobId].filter(Boolean).forEach(id=>this.cancelPush(id)); }
   selectTimerMode(mode) {
+    if(this.state.pomo.running||this.state.stopwatch)this.tick();
     this.cancelPushJobs(this.state.pomo);
     this.setState({timerMode:mode,stopwatch:false,watchSecs:0,watchStartedAt:null,pomo:{mode:'focus',running:false,remaining:this.focusSecs(),endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
   }
   resetPomo() {
+    if(this.state.pomo.running||this.state.stopwatch)this.tick();
     const s=this.state;this.cancelPushJobs(s.pomo);
     if(s.timerMode==='watch')this.setState({watchSecs:0,stopwatch:false,watchStartedAt:null});
-    else this.setState({pomo:{mode:s.pomo.mode,running:false,remaining:s.pomo.mode==='focus'?this.focusSecs():this.breakSecs(),endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
+    else this.setState({pomo:{mode:'focus',running:false,accountedAt:null,remaining:this.focusSecs(),endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
+  }
+  stopPomo() {
+    if(this.state.pomo.running||this.state.stopwatch)this.tick();
+    this.cancelPushJobs(this.state.pomo);this.stopAlertSound();
+    this.setState({stopwatch:false,watchStartedAt:null,watchAccountedAt:null,alertSoundReady:false,alertSoundPlaying:false,pomo:{mode:'focus',remaining:this.focusSecs(),running:false,accountedAt:null,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
   }
   skipPomo() {
+    if(this.state.pomo.running||this.state.stopwatch)this.tick();
     const s=this.state;this.cancelPushJobs(s.pomo);const mode=s.pomo.mode==='focus'?'break':'focus';
     this.setState({pomo:{mode,running:false,remaining:mode==='focus'?this.focusSecs():this.breakSecs(),endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
   }
   togglePomo() {
+    if(this.state.pomo.running||this.state.stopwatch)this.tick();
     const s=this.state;
-    if(s.timerMode==='watch'){this.requestNotifications();const next=!s.stopwatch;this.setState({stopwatch:next,watchStartedAt:next?Date.now()-s.watchSecs*1000:null});return;}
+    if(s.timerMode==='watch'){const next=!s.stopwatch;this.setState({stopwatch:next,watchStartedAt:next?Date.now()-s.watchSecs*1000:null,watchAccountedAt:next?Date.now():null});return;}
     if(s.pomo.running){this.cancelPushJobs(s.pomo);this.setState({pomo:{...s.pomo,running:false,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});return;}
+    this.prepareAlertSound();this.setState({timerNotice:null});
     const jobId=this.uid(), fireAt=Date.now()+s.pomo.remaining*1000/s.timerSpeed, task=s.tasks.find(t=>t.id===s.activeId);
     if(s.pomo.mode==='focus'){
       const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/s.timerSpeed;
-      this.setState({pomo:{...s.pomo,running:true,endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId},stopwatch:false});
+      this.setState({pomo:{...s.pomo,running:true,accountedAt:fireAt-s.pomo.remaining*1000/s.timerSpeed,timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId},stopwatch:false});
       this.scheduleFocusCycle(fireAt,jobId,breakEndsAt,breakPushJobId,task?.title||'');
     }else{
-      this.setState({pomo:{...s.pomo,running:true,endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null},stopwatch:false});
+      this.setState({pomo:{...s.pomo,running:true,accountedAt:fireAt-s.pomo.remaining*1000/s.timerSpeed,timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null},stopwatch:false});
       this.schedulePush(fireAt,jobId,task?.title||'','break');
     }
   }
   toggleTaskFocus(id) {
-    const s=this.state,same=s.activeId===id,running=same&&(s.stopwatch||s.pomo.running),task=s.tasks.find(t=>t.id===id); if(!task||task.done||task.list==='trash')return; if(s.timerMode==='watch'){this.requestNotifications();const next=!running;const taskSecs=same?s.watchSecs:0;this.setState({activeId:id,stopwatch:next,watchSecs:taskSecs,watchStartedAt:next?Date.now()-taskSecs*1000:null,pomo:{...s.pomo,running:false,endsAt:null}});return;}
+    if(this.state.pomo.running||this.state.stopwatch)this.tick();
+    const s=this.state,same=s.activeId===id,running=same&&(s.stopwatch||s.pomo.running),task=s.tasks.find(t=>t.id===id); if(!task||task.done||task.list==='trash')return; if(s.timerMode==='watch'){const next=!running;const taskSecs=same?s.watchSecs:0;this.setState({activeId:id,stopwatch:next,watchSecs:taskSecs,watchStartedAt:next?Date.now()-taskSecs*1000:null,watchAccountedAt:next?Date.now():null,pomo:{...s.pomo,running:false,endsAt:null}});return;}
     if(running){this.cancelPushJobs(s.pomo);this.setState({activeId:id,stopwatch:false,pomo:{...s.pomo,running:false,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});return;}
     this.startTaskTimer(id);
   }
   startTaskTimer(id) {
+    if(this.state.pomo.running||this.state.stopwatch)this.tick();
     const s=this.state, task=s.tasks.find(t=>t.id===id); if(!task||task.done||task.list==='trash')return;
     const sameTask=s.activeId===id;
     if(sameTask&&(s.stopwatch||s.pomo.running))return;
     if(s.pomo.running)this.cancelPushJobs(s.pomo);
     if(s.timerMode==='watch'){
       const taskSecs=sameTask?Math.max(0,Number(s.watchSecs)||0):0;
-      this.setState({activeId:id,stopwatch:true,watchSecs:taskSecs,watchStartedAt:Date.now()-taskSecs*1000,pomo:{...s.pomo,running:false,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
+      this.setState({activeId:id,stopwatch:true,watchSecs:taskSecs,watchStartedAt:Date.now()-taskSecs*1000,watchAccountedAt:Date.now(),pomo:{...s.pomo,running:false,endsAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});
       return;
     }
+    this.prepareAlertSound();this.setState({timerNotice:null});
     // Al cambiar de tarea siempre comienza un Pomodoro de enfoque nuevo.
     // Si se retoma la misma tarea pausada, conserva su tiempo restante.
     const mode=sameTask?s.pomo.mode:'focus';
@@ -1475,10 +1534,10 @@ class Component extends DCLogic {
     const jobId=this.uid(),fireAt=Date.now()+remaining*1000/s.timerSpeed;
     if(mode==='focus'){
       const breakPushJobId=this.uid(),breakEndsAt=fireAt+this.breakSecs()*1000/s.timerSpeed;
-      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
+      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,accountedAt:fireAt-remaining*1000/s.timerSpeed,timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt,pushJobId:jobId,breakPushJobId}});
       this.scheduleFocusCycle(fireAt,jobId,breakEndsAt,breakPushJobId,task.title||'');
     }else{
-      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null}});
+      this.setState({activeId:id,stopwatch:false,pomo:{mode,remaining,running:true,accountedAt:fireAt-remaining*1000/s.timerSpeed,timerIdentity:this.focusDailyKey(),endsAt:fireAt,breakEndsAt:fireAt,pushJobId:jobId,breakPushJobId:null}});
       this.schedulePush(fireAt,jobId,task.title||'',mode);
     }
   }
@@ -1535,30 +1594,75 @@ class Component extends DCLogic {
     if(!this.delegationCandidates(task).some(m=>Number(m.id)===id))return;
     this.setState(s=>({delegationDraft:s.delegationDraft.includes(id)?s.delegationDraft.filter(x=>x!==id):[...s.delegationDraft,id],delegationError:''}));
   }
-  async showSystemNotification(title,options) {
-    // Safari/macOS no permite de forma fiable `new Notification(...)` desde
-    // una aplicación web. La vía compatible es el Service Worker, igual que
-    // en iOS. El constructor queda únicamente como respaldo.
-    try {
-      if('serviceWorker' in navigator){
-        const reg=this.swRegistration||await navigator.serviceWorker.ready;
-        this.swRegistration=reg;
-        await reg.showNotification(title,options);
-        return true;
-      }
-    } catch(e) {}
-    try { new Notification(title,options); return true; } catch(e) { return false; }
+  async readyNotificationWorker() {
+    if(typeof navigator==='undefined'||!navigator.serviceWorker)return null;
+    if(this.swRegistration)return this.swRegistration;
+    let timeout;
+    try{return await Promise.race([navigator.serviceWorker.ready,new Promise(resolve=>timeout=setTimeout(()=>resolve(null),2000))]);}
+    catch(e){return null;}finally{clearTimeout(timeout);}
   }
-  notify(title, body, tag='tareas-pomodoro-'+Date.now()) {
-    this.setState({ toast: title + ' · ' + body });
-    clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => this.setState({ toast: '' }), 7000);
-    try {
-      if ('Notification' in window && Notification.permission === 'granted') {
-        const options = { body, tag, renotify: true, requireInteraction: true, silent: false, timestamp: Date.now() };
-        this.showSystemNotification(title,options);
+  async prepareAlertSound() {
+    try{
+      const C=window.AudioContext||window.webkitAudioContext;
+      if(!C)throw Error('Este navegador no ofrece sonido para el temporizador.');
+      if(!this.alertAudio||this.alertAudio.state==='closed')this.alertAudio=new C();
+      if(this.alertAudio.state!=='running')await this.alertAudio.resume();
+      const ready=this.alertAudio.state==='running';
+      this.setState({alertSoundReady:ready,alertSoundError:ready?'':'Pulsa Probar aviso para habilitar el sonido.'});
+      return ready;
+    }catch(e){this.setState({alertSoundReady:false,alertSoundError:'No se pudo activar el sonido. Revisa el volumen y prueba el aviso.'});return false;}
+  }
+  async playAlertSound() {
+    const c=this.alertAudio;
+    if(!c||c.state==='closed'){this.setState({alertSoundReady:false});return false;}
+    try{
+      if(c.state!=='running')await c.resume();
+      if(c.state!=='running'){this.setState({alertSoundReady:false});return false;}
+      if(this.state.alertSoundPlaying)return true;
+      const start=c.currentTime,oscillators=[];
+      // Six clear pulses span 5.4 seconds, with short gaps and soft edges.
+      for(let i=0;i<6;i++){
+        const at=start+i*0.92,o=c.createOscillator(),g=c.createGain();
+        o.type='sine';o.frequency.setValueAtTime(i%2?1046.5:880,at);
+        g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(0.14,at+0.015);g.gain.setValueAtTime(0.14,at+0.70);g.gain.linearRampToValueAtTime(0,at+0.80);
+        o.connect(g);g.connect(c.destination);o.onended=()=>{o.disconnect();g.disconnect();if(i===5){this.alertOscillators=[];this.setState({alertSoundPlaying:false});}};
+        o.start(at);o.stop(at+0.80);oscillators.push(o);
       }
-    } catch (e) {}
-    try { const C = window.AudioContext || window.webkitAudioContext; if (C) { const c = new C(), o = c.createOscillator(), g = c.createGain(); o.frequency.value = 880; g.gain.value = 0.06; o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + 0.25); } } catch (e) {}
+      this.alertOscillators=oscillators;
+      this.setState({alertSoundReady:true,alertSoundPlaying:true,alertSoundError:''});
+      return true;
+    }catch(e){this.setState({alertSoundReady:false,alertSoundError:'No se pudo reproducir el aviso. Prueba el sonido desde Más.'});return false;}
+  }
+  stopAlertSound() {
+    for(const o of this.alertOscillators||[])try{o.onended=null;o.stop();o.disconnect();}catch(e){}
+    this.alertOscillators=[];
+    if(this.alertAudio){try{this.alertAudio.close()?.catch?.(()=>{});}catch(e){}this.alertAudio=null;}
+  }
+  async showSystemNotification(title,options,registration=null) {
+    if(typeof Notification==='undefined'||Notification.permission!=='granted')return false;
+    try{
+      const reg=registration||await this.readyNotificationWorker();
+      if(reg){this.swRegistration=reg;await reg.showNotification(title,options);return true;}
+    }catch(e){}
+    try{new Notification(title,options);return true;}catch(e){return false;}
+  }
+  async deliverTimerNotice(title,body,tag) {
+    let reg=null,alreadyDelivered=false;
+    if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+      reg=await this.readyNotificationWorker();
+      try{alreadyDelivered=!!(reg?.getNotifications&&(await reg.getNotifications({tag})).length);}catch(e){}
+    }
+    const sounded=await this.playAlertSound();
+    if(alreadyDelivered)return;
+    const shown=await this.showSystemNotification(title,{body,tag,renotify:false,requireInteraction:true,silent:sounded,timestamp:Date.now(),data:{url:'./'}},reg);
+    if(!sounded&&!shown)this.setState({alertSoundError:'El aviso queda aquí. Pulsa Probar aviso y sonido para preparar el audio.'});
+  }
+  notify(title,body,tag='tareas-pomodoro-'+Date.now()) {
+    if(this.lastTimerNoticeTag===tag)return;
+    this.lastTimerNoticeTag=tag;
+    this.setState({timerNotice:{title,body,tag,at:Date.now()},toast:title+' · '+body});
+    clearTimeout(this.toastTimer);this.toastTimer=setTimeout(()=>this.setState({toast:''}),7000);
+    this.deliverTimerNotice(title,body,tag).catch(()=>{});
   }
   uid() { return Math.random().toString(36).slice(2, 9); }
   pad(n) { return String(n).padStart(2, '0'); }
@@ -1782,7 +1886,7 @@ class Component extends DCLogic {
     try { saved = JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch (e) { saved = null; }
     const base = saved && saved.tasks ? saved : this.seed();
     base.tasks = this.normalizeTaskBuckets(base.tasks);
-    const defaultPomo = { mode: 'focus', remaining: this.focusSecs(), running: false, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null };
+    const defaultPomo = { mode: 'focus', remaining: this.focusSecs(), running: false, accountedAt:null, endsAt: null, breakEndsAt: null, pushJobId: null, breakPushJobId: null };
     const restoredPomo = saved && saved.pomo && typeof saved.pomo === 'object' ? { ...defaultPomo, ...saved.pomo } : defaultPomo;
     try { this.pushSubscriptionHash=localStorage.getItem(this.KEY+':push-hash')||''; } catch(e) { this.pushSubscriptionHash=''; }
     let savedTheme = 'classic'; try { savedTheme = localStorage.getItem(this.KEY + ':theme') || 'classic'; } catch (e) {}
@@ -1793,7 +1897,7 @@ class Component extends DCLogic {
       timelineMode: ['day','week','month'].includes(base.timelineMode) ? base.timelineMode : 'week', timelineAnchor: Number.isFinite(base.timelineAnchor) ? base.timelineAnchor : null, timelineProject: base.timelineProject || '',
       dailyDate: KaizenPlanning.validDateKey(base.dailyDate || '') ? base.dailyDate : '',
       activeId: saved?.activeId || null, timerMode: saved?.timerMode === 'watch' ? 'watch' : 'pomo', stopwatch: !!saved?.stopwatch,
-      watchSecs: Number(saved?.watchSecs) || 0, watchStartedAt: Number(saved?.watchStartedAt) || null, improvementChecklist: Array.isArray(saved?.improvementChecklist) ? saved.improvementChecklist : [],
+      watchSecs: Number(saved?.watchSecs) || 0, watchStartedAt: Number(saved?.watchStartedAt) || null, watchAccountedAt:Number(saved?.watchAccountedAt)||null, improvementChecklist: Array.isArray(saved?.improvementChecklist) ? saved.improvementChecklist : [],
       pomo: restoredPomo, theme: savedTheme
     });
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(r => { this.swRegistration = r; }).catch(() => {});
@@ -1806,7 +1910,7 @@ class Component extends DCLogic {
     window.addEventListener('keydown', this.onKey);
     this.onPageHide = () => {
       const s = this.state;
-      try { localStorage.setItem(this.KEY, JSON.stringify({ tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, timelineMode:s.timelineMode, timelineAnchor:s.timelineAnchor, timelineProject:s.timelineProject, dailyDate:s.dailyDate, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist })); if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId)); } catch (e) {}
+      try { localStorage.setItem(this.KEY, JSON.stringify({ tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, timelineMode:s.timelineMode, timelineAnchor:s.timelineAnchor, timelineProject:s.timelineProject, dailyDate:s.dailyDate, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, watchAccountedAt:s.watchAccountedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist })); if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId)); } catch (e) {}
       if (s.auth && s.workspaceId && this.remoteReady) {
         const saved=this.remoteSaved?.[s.workspaceId];
         const dirty=this.visibleRemoteTasks(s.tasks).filter(t=>saved?.get(t.id)!==this.taskFingerprint(t));
@@ -1828,7 +1932,7 @@ class Component extends DCLogic {
       this.bootstrapAuth();
     }
   }
-  componentWillUnmount() { this.cancelHourlyResize(); this.calendarReadRequest=(this.calendarReadRequest||0)+1; clearInterval(this.timer); document.removeEventListener('visibilitychange', this.onVisibility); document.removeEventListener('click', this.onMenuOutside, true); window.removeEventListener('keydown', this.onKey); window.removeEventListener('pagehide', this.onPageHide); }
+  componentWillUnmount() { this.stopAlertSound(); clearTimeout(this.toastTimer); this.cancelHourlyResize(); this.calendarReadRequest=(this.calendarReadRequest||0)+1; clearInterval(this.timer); document.removeEventListener('visibilitychange', this.onVisibility); document.removeEventListener('click', this.onMenuOutside, true); window.removeEventListener('keydown', this.onKey); window.removeEventListener('pagehide', this.onPageHide); }
   componentDidUpdate() {
     const s = this.state;
     this.updateCalendarReadContext();
@@ -1855,7 +1959,7 @@ class Component extends DCLogic {
     }else this.supervisionAutoKey=null;
     try {
       localStorage.setItem(this.KEY, JSON.stringify({
-        tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, timelineMode:s.timelineMode, timelineAnchor:s.timelineAnchor, timelineProject:s.timelineProject, dailyDate:s.dailyDate, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist
+        tasks: s.tasks, projects: s.projects, log: s.log, view: s.view, projFilter: s.projFilter, timelineMode:s.timelineMode, timelineAnchor:s.timelineAnchor, timelineProject:s.timelineProject, dailyDate:s.dailyDate, workspaceId: s.workspaceId || null, activeId: s.activeId, timerMode: s.timerMode, stopwatch: s.stopwatch, watchSecs: s.watchSecs, watchStartedAt: s.watchStartedAt, watchAccountedAt:s.watchAccountedAt, pomo: s.pomo, improvementChecklist: s.improvementChecklist
       }));
       if (s.workspaceId) localStorage.setItem(this.KEY + ':workspace', String(s.workspaceId));
     } catch (e) {}
@@ -1901,6 +2005,7 @@ class Component extends DCLogic {
     return (workspaces || []).find(w => Number(w.id) === remembered)?.id || (workspaces || [])[0]?.id || null;
   }
   async bootstrapAuth() {
+    this.timerRestoring=true;
     this.discardSlotDraft();
     this.remoteSaved = {};
     try {
@@ -1912,7 +2017,7 @@ class Component extends DCLogic {
         this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', assistantRuns:[],assistantStatus:'idle',assistantError:'',assistantSelId:null,assistantDemoState:'none', supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'',timelineResponsibleId:'',dailyResponsibleId:'',improvementChecklist: [] });
         if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); const members=await this.loadWorkspaceMembers(workspaceId); this.restorePersonFilters(r.user.id,workspaceId,members); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
       }
-    } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); }
+    } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); } finally { this.timerRestoring=false; }
   }
   async loadRemoteTasks(workspaceId, options = {}) {
     const request=this.taskLoadRequestId=(this.taskLoadRequestId||0)+1,userId=Number(this.state.auth?.id||0);
@@ -2088,8 +2193,8 @@ class Component extends DCLogic {
     }catch(e){this.setState({changeError:'No se pudo conectar con el servidor.'});}
     finally{this.setState({changeBusy:false});}
   }
-  async logout() { this.discardSlotDraft(); this.csrfToken=''; this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; this.remoteSaved = {}; try { await this.api('logout'); } finally { try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, view:'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'',timelineResponsibleId:'',dailyResponsibleId:'', improvementChecklist: [], authPassword: '', changeCurrent:'',changeNew:'',changeConfirmation:'', selId: null, delegatingId: null }); } }
-  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId: '',timelineResponsibleId:'',dailyResponsibleId:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); const members=await this.loadWorkspaceMembers(workspaceId); this.restorePersonFilters(this.state.auth?.id,workspaceId,members); await this.loadChecklist(workspaceId); }
+  async logout() { this.stopPomo(); this.discardSlotDraft(); this.csrfToken=''; this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; this.remoteSaved = {}; try { await this.api('logout'); } finally { try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, view:'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'',timelineResponsibleId:'',dailyResponsibleId:'', improvementChecklist: [], authPassword: '', changeCurrent:'',changeNew:'',changeConfirmation:'', selId: null, delegatingId: null }); } }
+  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.stopPomo();this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId: '',timelineResponsibleId:'',dailyResponsibleId:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); const members=await this.loadWorkspaceMembers(workspaceId); this.restorePersonFilters(this.state.auth?.id,workspaceId,members); await this.loadChecklist(workspaceId); }
   async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return []; const userId=Number(this.state.auth?.id||0),r=await this.api('workspace_members',{workspace_id:workspaceId}); if(!r.ok||Number(this.state.auth?.id||0)!==userId||Number(this.state.workspaceId||0)!==Number(workspaceId))return []; const members=Array.isArray(r.members)?r.members:[]; this.setState({workspaceMembers:members}); return members; }
   async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], workspaceMembers: m.members || [], adminOpen: true }); } }
   async clearWorkspaceTasks(workspaceId, workspaceName) { if (this.state.auth?.role !== 'super_admin') return; const r=await this.api('workspace_tasks_clear',{workspace_id:workspaceId}); if(r.ok){ if(Number(this.state.workspaceId)===Number(workspaceId)) this.setState({tasks:[],selId:null}); this.setState({authError:'Se borraron ' + (r.deleted||0) + ' tareas de «' + workspaceName + '».'}); await this.loadAdminSummary(); } else this.setState({authError:r.error||'No se pudieron borrar las tareas.'}); }
@@ -2186,64 +2291,82 @@ class Component extends DCLogic {
     return { tasks, projects, log, view: 'today', projFilter: null };
   }
 
+  focusDuration(value) { const seconds=Math.max(0,Math.floor(Number(value)||0)); if(!seconds)return '0 min'; if(seconds<60)return seconds+' s'; const minutes=Math.floor(seconds/60); return minutes<60?minutes+' min':Math.floor(minutes/60)+' h'+(minutes%60?' '+minutes%60+' min':''); }
+  focusDailyKey() { return String(this.state.auth?.id||'local')+':'+String(this.state.workspaceId||'local'); }
   tick() {
-    let focusEvent=null,breakEvent=null;
-    this.setState(s => {
-      const p = { ...s.pomo };
-      let tasks = s.tasks, log = s.log, creditSeconds = 0, finished = false, finishedBreak = false, watchSecs = s.watchSecs;
-      const now=Date.now(),today = this.dkey(now);
-      if (this.lastBucketDay !== today) { this.lastBucketDay = today; tasks = this.normalizeTaskBuckets(tasks); }
-      if (s.timerMode === 'watch') {
-        if (s.stopwatch) { watchSecs = s.watchStartedAt ? Math.max(0, Math.floor((now - s.watchStartedAt) / 1000)) : watchSecs + 1; creditSeconds = Math.max(0, watchSecs - s.watchSecs); }
-      } else if (p.running) {
-        const previousRemaining=Math.max(0,Number(p.remaining)||0);
-        const currentEndsAt=Number(p.endsAt)||now;
-        p.remaining=Math.max(0,Math.ceil((currentEndsAt-now)/1000));
-        if(p.mode==='focus')creditSeconds=Math.min(previousRemaining,Math.max(0,previousRemaining-p.remaining));
-        if(now>=currentEndsAt){
-          if(p.mode==='focus'){
-            finished=true; creditSeconds=previousRemaining;
-            const focusJobId=p.pushJobId;
-            const breakEndsAt=Number(p.breakEndsAt)||currentEndsAt+this.breakSecs()*1000/s.timerSpeed;
-            focusEvent={jobId:focusJobId,lateness:now-currentEndsAt};
-            if(now<breakEndsAt){
-              // La pausa se calcula desde la hora real en que acabó el enfoque,
-              // aunque iOS haya suspendido la página durante unos segundos.
-              p.mode='break';p.running=true;p.endsAt=breakEndsAt;p.breakEndsAt=breakEndsAt;
-              p.remaining=Math.max(1,Math.ceil((breakEndsAt-now)/1000));
-              p.pushJobId=p.breakPushJobId;p.breakPushJobId=null;
-            }else{
-              finishedBreak=true;breakEvent={jobId:p.breakPushJobId,lateness:now-breakEndsAt};
-              p.mode='focus';p.running=false;p.remaining=this.focusSecs();p.endsAt=null;p.breakEndsAt=null;p.pushJobId=null;p.breakPushJobId=null;
-            }
-          }else{
-            finishedBreak=true;breakEvent={jobId:p.pushJobId,lateness:now-currentEndsAt};
-            p.mode='focus';p.running=false;p.remaining=this.focusSecs();p.endsAt=null;p.breakEndsAt=null;p.pushJobId=null;p.breakPushJobId=null;
-          }
+    if(!this.state.auth||this.timerRestoring)return;
+    if(this.state.pomo.running&&this.state.pomo.timerIdentity&&this.state.pomo.timerIdentity!==this.focusDailyKey()){this.setState({pomo:{...this.state.pomo,running:false,endsAt:null,accountedAt:null,breakEndsAt:null,pushJobId:null,breakPushJobId:null}});return;}
+    const now=Date.now(),previous=this.state.pomo;
+    let latest=null,phaseChanged=false;
+    this.setState(s=>{
+      const p={...s.pomo},speed=[1,10,60].includes(Number(s.timerSpeed))?Number(s.timerSpeed):1;
+      let tasks=s.tasks,log={...s.log},watchSecs=s.watchSecs,watchAccountedAt=s.watchAccountedAt;
+      const user=this.focusDailyKey(),taskId=s.activeId||'__none__';
+      const record=(from,to)=>{
+        // Split at local hours and midnights. Per-task millisecond remainders
+        // prevent duplicate or lost seconds across ticks, reloads and transitions.
+        for(let cursor=from;cursor<to;){
+          const date=new Date(cursor),key=this.dkey(cursor),hour=date.getHours();
+          const midnight=+new Date(date.getFullYear(),date.getMonth(),date.getDate()+1);
+          const nextHour=+new Date(Math.floor(cursor/3600000)*3600000+3600000);
+          const end=Math.min(to,midnight,nextHour);
+          if(!(end>cursor))break;
+          const old=log[key]||{seconds:0,pomos:0,hours:{}},remainders={...(old.focusRemainders||{})},remainderKey=user+'|'+taskId;
+          const milliseconds=(Number(remainders[remainderKey])||0)+end-cursor,seconds=Math.floor(milliseconds/1000);
+          remainders[remainderKey]=milliseconds-seconds*1000;
+          const people={...(old.focusByTaskUser||{})},own={...(people[user]||{})};
+          own[taskId]=(Number(own[taskId])||0)+seconds;people[user]=own;
+          log[key]={...old,seconds:(old.seconds||0)+seconds,hours:{...(old.hours||{}),[hour]:((old.hours||{})[hour]||0)+seconds},focusRemainders:remainders,focusByTaskUser:people};
+          if(seconds&&s.activeId)tasks=tasks.map(t=>{
+            if(t.id!==s.activeId)return t;
+            const days={...(t.focusByDay||{})},entry={...(days[key]||{})};
+            entry[user]=(Number(entry[user])||0)+seconds;days[key]=entry;
+            return {...t,seconds:(Number(t.seconds)||0)+seconds,focusByDay:days};
+          });
+          cursor=end;
         }
-      } else if (s.stopwatch) creditSeconds = 1;
-      if (creditSeconds) {
-        const k = this.dkey(now), h = new Date(now).getHours();
-        const prev = log[k] || { seconds: 0, pomos: 0, hours: {} };
-        log = { ...log, [k]: { ...prev, seconds: prev.seconds + creditSeconds, hours: { ...prev.hours, [h]: (prev.hours[h] || 0) + creditSeconds } } };
-        if (s.activeId) tasks = tasks.map(t => t.id === s.activeId ? { ...t, seconds: t.seconds + creditSeconds } : t);
+      };
+      if(s.timerMode==='watch'&&s.stopwatch){
+        const start=Number(watchAccountedAt)||((Number(s.watchStartedAt)||now)+(Number(s.watchSecs)||0)*1000);
+        if(now>start)record(start,now);
+        watchAccountedAt=now;watchSecs=s.watchStartedAt?Math.max(0,Math.floor((now-s.watchStartedAt)/1000)):watchSecs;
+      }else if(p.running){
+        if(!(Number(p.endsAt)>0))p.endsAt=now+Math.max(1,Number(p.remaining)||this.focusSecs())*1000/speed;
+        let cursor=Number.isFinite(p.accountedAt)&&p.accountedAt>0?p.accountedAt:p.endsAt-Math.max(0,Number(p.remaining)||0)*1000/speed;
+        cursor=Math.min(cursor,now);
+        while(cursor<now||now>=p.endsAt){
+          const boundary=Number(p.endsAt),end=Math.min(now,boundary);
+          if(p.mode==='focus'&&end>cursor)record(cursor,end);
+          cursor=Math.max(cursor,end);
+          if(now<boundary)break;
+          const ended=p.mode,jobId=p.pushJobId;
+          latest={mode:ended,jobId,at:boundary};phaseChanged=true;
+          if(ended==='focus'){
+            const key=this.dkey(boundary-1),old=log[key]||{seconds:0,pomos:0,hours:{}};
+            log[key]={...old,pomos:(old.pomos||0)+1};
+            if(s.activeId)tasks=tasks.map(t=>t.id===s.activeId?{...t,pomos:(Number(t.pomos)||0)+1}:t);
+            p.mode='break';p.pushJobId=p.breakPushJobId||this.uid();p.breakPushJobId=null;
+            p.endsAt=boundary+this.breakSecs()*1000/speed;p.breakEndsAt=p.endsAt;
+          }else{
+            p.mode='focus';p.pushJobId=this.uid();p.breakPushJobId=this.uid();
+            p.endsAt=boundary+this.focusSecs()*1000/speed;p.breakEndsAt=p.endsAt+this.breakSecs()*1000/speed;
+          }
+          if(cursor>=now)break;
+        }
+        p.accountedAt=now;p.remaining=Math.max(0,Math.ceil((p.endsAt-now)*speed/1000));
       }
-      if (finished) {
-        const k = this.dkey(now);
-        const prev = log[k] || { seconds: 0, pomos: 0, hours: {} };
-        log = { ...log, [k]: { ...prev, pomos: prev.pomos + 1 } };
-        if (s.activeId) tasks = tasks.map(t => t.id === s.activeId ? { ...t, pomos: t.pomos + 1 } : t);
-      }
-      return { pomo: p, tasks, log, watchSecs };
+      const today=this.dkey(now);
+      if(this.lastBucketDay!==today){this.lastBucketDay=today;tasks=this.normalizeTaskBuckets(tasks);}
+      return {pomo:p,tasks,log,watchSecs,watchAccountedAt};
     });
-    const activeTask=this.state.tasks.find(t=>t.id===this.state.activeId);
-    if(focusEvent){
-      this.cancelPush(focusEvent.jobId);
-      if(focusEvent.lateness<5000)this.notify('Pomodoro terminado',activeTask?'Terminaste un ciclo de enfoque en «'+activeTask.title+'». Empieza tu descanso de '+this.fmtClock(this.breakSecs())+'.':'Terminaste un ciclo de enfoque. Empieza tu descanso de '+this.fmtClock(this.breakSecs())+'.','kaizen-'+focusEvent.jobId);
-    }
-    if(breakEvent){
-      this.cancelPush(breakEvent.jobId);
-      if(breakEvent.lateness<5000)this.notify('Descanso terminado','Tu descanso terminó. Puedes iniciar otro Pomodoro.','kaizen-'+breakEvent.jobId);
+    if(phaseChanged){
+      this.cancelPushJobs(previous);
+      const p=this.state.pomo,task=this.state.tasks.find(t=>t.id===this.state.activeId);
+      if(p.mode==='focus')this.scheduleFocusCycle(p.endsAt,p.pushJobId,p.breakEndsAt,p.breakPushJobId,task?.title||'');
+      else this.schedulePush(p.endsAt,p.pushJobId,task?.title||'','break');
+      const title=latest.mode==='focus'?'Pomodoro terminado':'Descanso terminado';
+      const body=latest.mode==='focus'?'Empieza tu descanso de '+this.fmtClock(this.breakSecs())+'. El siguiente Pomodoro comenzará automáticamente.':'Comienza automáticamente tu siguiente Pomodoro de '+this.fmtClock(this.focusSecs())+'. Pulsa Pausar o Detener cuando quieras.';
+      this.notify(title,body,'kaizen-'+latest.jobId);
     }
   }
 
@@ -3037,7 +3160,14 @@ class Component extends DCLogic {
       barStyle: { height: '100%', width: ((projSecs[p.id] || 0) / maxProj) * 100 + '%', background: 'var(--color-accent)' }
     })).concat(projSecs.none ? [{ name: 'Sin proyecto', value: this.fmtDur(projSecs.none), barStyle: { height: '100%', width: (projSecs.none / maxProj) * 100 + '%', background: 'var(--color-neutral-500)' } }] : []);
 
-    const todayKey = this.dkey(now), tl = s.log[todayKey] || { seconds: 0, pomos: 0 };
+    const todayKey = this.dkey(now), focusUser=this.focusDailyKey();
+    const focusRows=s.tasks.map(t=>({id:t.id,title:t.title,seconds:Math.max(0,Number(t.focusByDay?.[todayKey]?.[focusUser])||0)})).filter(t=>t.seconds>0);
+    const unassigned=Math.max(0,Number(s.log[todayKey]?.focusByTaskUser?.[focusUser]?.__none__)||0);
+    if(unassigned)focusRows.push({id:'__none__',title:'Sin tarea',seconds:unassigned});
+    focusRows.sort((a,b)=>b.seconds-a.seconds||String(a.title).localeCompare(String(b.title)));
+    const todayFocusTotal=this.focusDuration(focusRows.reduce((sum,t)=>sum+t.seconds,0));
+    const todayFocusRows=focusRows.map(t=>({id:t.id,label:t.title+' · '+this.focusDuration(t.seconds)}));
+    const tl = s.log[todayKey] || { seconds: 0, pomos: 0 };
     const selectedDate = new Date(selectedDay.ts);
     const selectedDayLabel = DOW[selectedDate.getDay()] + ' ' + this.pad(selectedDate.getDate()) + '/' + this.pad(selectedDate.getMonth() + 1) + '/' + selectedDate.getFullYear();
     const active = s.tasks.find(t => t.id === s.activeId);
@@ -3232,10 +3362,12 @@ class Component extends DCLogic {
       onWorkspaceChange: e => this.changeWorkspace(e.target.value),
       mobileNavOpen: s.mobileNavOpen, onToggleMobileNav: () => this.setState(s2 => ({ mobileNavOpen: !s2.mobileNavOpen })),
       onRefreshPage: () => this.refreshPage(),
-      onTestNotification: () => this.testNotification(),
+      todayFocusTotal,todayFocusRows,todayFocusEmpty:todayFocusRows.length===0,
+      timerCanStop:!!(s.pomo.running||s.stopwatch||s.pomo.remaining!==this.focusSecs()||s.pomo.mode==='break'),onStopPomo:()=>this.stopPomo(),
+      onTestNotification: () => this.testNotification(),onTestPushNotification:()=>this.testPushNotification(),notificationBusy:s.notificationBusy,alertSoundPlaying:s.alertSoundPlaying,alertSoundLabel:s.alertSoundError||(s.alertSoundReady?'Sonido de 5,4 segundos preparado':'El sonido se prepara al iniciar o probar el Pomodoro'),notificationContextLabel:(typeof window!=='undefined'&&(window.matchMedia?.('(display-mode: standalone)')?.matches||(typeof navigator!=='undefined'&&navigator.standalone)))?'Kaizen abierta como app':'Kaizen abierta en el navegador',hasTimerNotice:!!s.timerNotice,timerNoticeTitle:s.timerNotice?.title||'',timerNoticeBody:s.timerNotice?.body||'',onDismissTimerNotice:()=>this.setState({timerNotice:null}),
       onOpenIdeas: () => this.setState({ view: 'ideas', projFilter: null, selId: null, delegatingId: null, mobileNavOpen: false }),
-      toast: s.toast, onEnableNotifications: () => this.ensurePushSubscription(), showPushPrompt: !!s.auth && !s.pushReady, pushPromptText: s.notificationState === 'denied' ? 'Chrome está bloqueando este sitio. Permítelo desde el candado de la barra de direcciones.' : 'Pulsa el botón para recibir avisos aunque Kaizen esté en segundo plano.',
-      notificationLabel: s.pushReady ? 'Avisos activos' : s.notificationState === 'denied' ? 'Avisos bloqueados' : s.notificationState === 'unsupported' ? 'Avisos no disponibles' : 'Activar avisos',
+      toast: s.toast, onEnableNotifications: () => this.enableNotifications(), showPushPrompt: true, pushPromptText: s.notificationState === 'denied' ? 'Las notificaciones están bloqueadas. Permite Kaizen en el navegador o en Ajustes del Sistema > Notificaciones. El sonido y el aviso dentro de la app siguen disponibles.' : s.pushReady ? 'Avisos en segundo plano registrados en este dispositivo. Puedes probarlos aquí.' : s.notificationState === 'granted' ? 'Notificaciones permitidas. Activa y prueba la entrega en segundo plano para este dispositivo.' : 'Activar avisos solicita tu permiso. Iniciar el Pomodoro no abre solicitudes de permisos.',
+      notificationLabel: s.notificationBusy?'Activando avisos…':s.pushReady ? 'Avisos activos' : s.notificationState === 'denied' ? 'Avisos bloqueados' : s.notificationState === 'unsupported' ? 'Avisos no disponibles' : 'Activar avisos',
       timerSpeed: s.timerSpeed, onTimerSpeed: e => this.changeTimerSpeed(e.target.value),
       theme: s.theme, themeLabel: ({classic:'Claro',night:'Noche',sunset:'Atardecer',ocean:'Océano'})[s.theme] || 'Claro', onThemeChange: e => this.changeTheme(e.target.value), onCycleTheme: () => this.cycleTheme(),
       authUserLabel: s.auth?.name || s.auth?.email || '',
