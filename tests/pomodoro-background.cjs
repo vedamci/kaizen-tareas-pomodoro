@@ -67,14 +67,16 @@ async function saveWav(name,chunks){
    },WAIT_SECONDS);
    await page.bringToFront();await page.locator('.app-header > .btn-primary').click();await page.waitForFunction(()=>window.__kaizenQA.state.alertSoundReady);
    const state=await page.evaluate(()=>({fireAt:window.__kaizenQA.state.pomo.endsAt,audio:window.__kaizenQA.alertAudio.state,alarms:window.__kaizenQA.bellAlarms?.size||0}));cap.fireAt=state.fireAt;
-   const appWindow=run('xdotool',['getactivewindow']);
-   if(scenario==='inactive_tab'){const tab=await context.newPage();await tab.setContent('<title>Otra pestaña de Chrome</title><h1>Otra pestaña activa</h1>');await tab.bringToFront();}
-   else run('xdotool',['windowminimize',appWindow]);
+   const appSession=await context.newCDPSession(page);await appSession.send('Emulation.setFocusEmulationEnabled',{enabled:false});
+   const target=(await appSession.send('Target.getTargetInfo')).targetInfo;
+   const appWindow=(await session.send('Browser.getWindowForTarget',{targetId:target.targetId})).windowId;
+   if(scenario==='inactive_tab')await session.send('Target.createTarget',{url:'about:blank',browserContextId:target.browserContextId,newWindow:false,background:false});
+   await session.send('Browser.setWindowBounds',{windowId:appWindow,bounds:{windowState:'minimized'}});
    cases.push({kind,scenario,browser,context,page,cap,appWindow,relevant,initial:state});
   }
   const coverContext=await cases[1].browser.newContext({viewport:{width:1200,height:820}}),cover=await coverContext.newPage();await cover.setContent('<title>Otra ventana de Chrome</title><h1>Otra ventana de Chrome activa durante toda la prueba</h1>');await cover.bringToFront();
-  const coverWindow=run('xdotool',['getactivewindow']);assert.notEqual(coverWindow,cases[1].appWindow);
-  for(const item of cases){item.hidden=await item.page.evaluate(()=>({at:Date.now(),visibility:document.visibilityState,focus:document.hasFocus()}));assert.equal(item.hidden.visibility,'hidden');assert.equal(item.hidden.focus,false);console.log(JSON.stringify({stage:'background-start',kind:item.kind,scenario:item.scenario,hidden:item.hidden,initial:item.initial,normalBackgroundFlags:item.relevant,anotherChromeWindow:coverWindow!==item.appWindow}));}
+  const coverSession=await coverContext.newCDPSession(cover);await coverSession.send('Emulation.setFocusEmulationEnabled',{enabled:false});const coverTarget=(await coverSession.send('Target.getTargetInfo')).targetInfo;const browserSession=await cases[1].browser.newBrowserCDPSession();const coverWindow=(await browserSession.send('Browser.getWindowForTarget',{targetId:coverTarget.targetId})).windowId;assert.notEqual(coverWindow,cases[1].appWindow);await sleep(300);
+  for(const item of cases){item.hidden=await item.page.evaluate(()=>({at:Date.now(),visibility:document.visibilityState,focus:document.hasFocus()}));console.log(JSON.stringify({stage:'visibility-check',kind:item.kind,...item.hidden}));assert.equal(item.hidden.visibility,'hidden');assert.equal(item.hidden.focus,false);console.log(JSON.stringify({stage:'background-start',kind:item.kind,scenario:item.scenario,hidden:item.hidden,initial:item.initial,normalBackgroundFlags:item.relevant,anotherChromeWindow:coverWindow!==item.appWindow}));}
   const deadline=Math.max(...cases.map(item=>item.cap.fireAt))+65000;
   while(Date.now()<deadline){console.log(JSON.stringify({stage:'waiting-with-other-chrome-window-active',remainingSeconds:Math.ceil((deadline-Date.now())/1000)}));await sleep(Math.min(30000,deadline-Date.now()));}
   const results=[];
