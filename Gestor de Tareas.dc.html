@@ -1620,14 +1620,18 @@ class Component extends DCLogic {
       if(c.state!=='running'){this.setState({alertSoundReady:false});return false;}
       if(this.state.alertSoundPlaying)return true;
       const start=c.currentTime,oscillators=[];
-      // Six clear pulses span 5.4 seconds, with short gaps and soft edges.
-      for(let i=0;i<6;i++){
-        const at=start+i*0.92,o=c.createOscillator(),g=c.createGain();
-        o.type='sine';o.frequency.setValueAtTime(i%2?1046.5:880,at);
-        g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(0.14,at+0.015);g.gain.setValueAtTime(0.14,at+0.70);g.gain.linearRampToValueAtTime(0,at+0.80);
-        o.connect(g);g.connect(c.destination);o.onended=()=>{o.disconnect();g.disconnect();if(i===5){this.alertOscillators=[];this.setState({alertSoundPlaying:false});}};
-        o.start(at);o.stop(at+0.80);oscillators.push(o);
-      }
+      // Four softly struck bells. Inharmonic partials decay independently;
+      // the final bell fades out at 5.4 seconds without a hard cutoff.
+      const notes=[523.25,659.25,783.99,1046.5];
+      const partials=[{ratio:1,gain:0.10,ring:1.65},{ratio:2.756,gain:0.032,ring:1.16},{ratio:5.404,gain:0.010,ring:0.87}];
+      notes.forEach((note,i)=>partials.forEach((partial,j)=>{
+        const at=start+i*1.25,o=c.createOscillator(),g=c.createGain(),end=at+partial.ring;
+        o.type='sine';o.frequency.setValueAtTime(note*partial.ratio,at);
+        g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(partial.gain,at+0.008);
+        g.gain.exponentialRampToValueAtTime(j?0.0001:0.003,end-0.04);g.gain.linearRampToValueAtTime(0,end);
+        o.connect(g);g.connect(c.destination);o.onended=()=>{o.disconnect();g.disconnect();if(i===3&&j===0){this.alertOscillators=[];this.setState({alertSoundPlaying:false});}};
+        o.start(at);o.stop(end);oscillators.push(o);
+      }));
       this.alertOscillators=oscillators;
       this.setState({alertSoundReady:true,alertSoundPlaying:true,alertSoundError:''});
       return true;
@@ -3364,7 +3368,7 @@ class Component extends DCLogic {
       onRefreshPage: () => this.refreshPage(),
       todayFocusTotal,todayFocusRows,todayFocusEmpty:todayFocusRows.length===0,
       timerCanStop:!!(s.pomo.running||s.stopwatch||s.pomo.remaining!==this.focusSecs()||s.pomo.mode==='break'),onStopPomo:()=>this.stopPomo(),
-      onTestNotification: () => this.testNotification(),onTestPushNotification:()=>this.testPushNotification(),notificationBusy:s.notificationBusy,alertSoundPlaying:s.alertSoundPlaying,alertSoundLabel:s.alertSoundError||(s.alertSoundReady?'Sonido de 5,4 segundos preparado':'El sonido se prepara al iniciar o probar el Pomodoro'),notificationContextLabel:(typeof window!=='undefined'&&(window.matchMedia?.('(display-mode: standalone)')?.matches||(typeof navigator!=='undefined'&&navigator.standalone)))?'Kaizen abierta como app':'Kaizen abierta en el navegador',hasTimerNotice:!!s.timerNotice,timerNoticeTitle:s.timerNotice?.title||'',timerNoticeBody:s.timerNotice?.body||'',onDismissTimerNotice:()=>this.setState({timerNotice:null}),
+      onTestNotification: () => this.testNotification(),onTestPushNotification:()=>this.testPushNotification(),notificationBusy:s.notificationBusy,alertSoundPlaying:s.alertSoundPlaying,alertSoundLabel:s.alertSoundError||(s.alertSoundReady?'Campanas de 5,4 segundos preparadas':'El sonido se prepara al iniciar o probar el Pomodoro'),notificationContextLabel:(typeof window!=='undefined'&&(window.matchMedia?.('(display-mode: standalone)')?.matches||(typeof navigator!=='undefined'&&navigator.standalone)))?'Kaizen abierta como app':'Kaizen abierta en el navegador',hasTimerNotice:!!s.timerNotice,timerNoticeTitle:s.timerNotice?.title||'',timerNoticeBody:s.timerNotice?.body||'',onDismissTimerNotice:()=>this.setState({timerNotice:null}),
       onOpenIdeas: () => this.setState({ view: 'ideas', projFilter: null, selId: null, delegatingId: null, mobileNavOpen: false }),
       toast: s.toast, onEnableNotifications: () => this.enableNotifications(), showPushPrompt: true, pushPromptText: s.notificationState === 'denied' ? 'Las notificaciones están bloqueadas. Permite Kaizen en el navegador o en Ajustes del Sistema > Notificaciones. El sonido y el aviso dentro de la app siguen disponibles.' : s.pushReady ? 'Avisos en segundo plano registrados en este dispositivo. Puedes probarlos aquí.' : s.notificationState === 'granted' ? 'Notificaciones permitidas. Activa y prueba la entrega en segundo plano para este dispositivo.' : 'Activar avisos solicita tu permiso. Iniciar el Pomodoro no abre solicitudes de permisos.',
       notificationLabel: s.notificationBusy?'Activando avisos…':s.pushReady ? 'Avisos activos' : s.notificationState === 'denied' ? 'Avisos bloqueados' : s.notificationState === 'unsupported' ? 'Avisos no disponibles' : 'Activar avisos',
