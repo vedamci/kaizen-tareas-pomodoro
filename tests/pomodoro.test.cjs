@@ -84,3 +84,13 @@ test('push worker deduplicates tags and notification clicks focus Kaizen rather 
  let pending;handlers.push({data:{json:()=>({title:'Fin',tag:'same'})},waitUntil:p=>pending=p});await pending;assert.equal(shown.length,0);
  handlers.notificationclick({notification:{close(){},data:{url:'./'}},waitUntil:p=>pending=p});await pending;assert.deepEqual(focused,['kaizen']);
 });
+
+test('DST repeat and skipped hours credit only elapsed focus seconds',()=>{
+ const previous=process.env.TZ;
+ try{
+  process.env.TZ='America/New_York';
+  for(const at of ['2026-11-01T05:50:00Z','2026-03-08T06:50:00Z']){
+   const f=fixture(at);f.app.notify=()=>{};f.app.startTaskTimer('a');f.advance(60*60000);f.app.tick();assert.equal(f.app.state.tasks[0].seconds,3000);assert.equal(f.app.state.tasks[0].pomos,2);f.app.tick();assert.equal(f.app.state.tasks[0].seconds,3000);
+  }
+ }finally{process.env.TZ=previous;}
+});

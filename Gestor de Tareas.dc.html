@@ -2289,6 +2289,7 @@ class Component extends DCLogic {
     return { tasks, projects, log, view: 'today', projFilter: null };
   }
 
+  focusDuration(value) { const seconds=Math.max(0,Math.floor(Number(value)||0)); if(!seconds)return '0 min'; if(seconds<60)return seconds+' s'; const minutes=Math.floor(seconds/60); return minutes<60?minutes+' min':Math.floor(minutes/60)+' h'+(minutes%60?' '+minutes%60+' min':''); }
   focusDailyKey() { return String(this.state.auth?.id||'local')+':'+String(this.state.workspaceId||'local'); }
   tick() {
     const now=Date.now(),previous=this.state.pomo;
@@ -3160,8 +3161,8 @@ class Component extends DCLogic {
     const unassigned=Math.max(0,Number(s.log[todayKey]?.focusByTaskUser?.[focusUser]?.__none__)||0);
     if(unassigned)focusRows.push({id:'__none__',title:'Sin tarea',seconds:unassigned});
     focusRows.sort((a,b)=>b.seconds-a.seconds||String(a.title).localeCompare(String(b.title)));
-    const todayFocusTotal=this.fmtDur(focusRows.reduce((sum,t)=>sum+t.seconds,0));
-    const todayFocusRows=focusRows.map(t=>({id:t.id,label:t.title+' · '+this.fmtDur(t.seconds)}));
+    const todayFocusTotal=this.focusDuration(focusRows.reduce((sum,t)=>sum+t.seconds,0));
+    const todayFocusRows=focusRows.map(t=>({id:t.id,label:t.title+' · '+this.focusDuration(t.seconds)}));
     const tl = s.log[todayKey] || { seconds: 0, pomos: 0 };
     const selectedDate = new Date(selectedDay.ts);
     const selectedDayLabel = DOW[selectedDate.getDay()] + ' ' + this.pad(selectedDate.getDate()) + '/' + this.pad(selectedDate.getMonth() + 1) + '/' + selectedDate.getFullYear();
