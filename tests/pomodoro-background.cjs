@@ -59,14 +59,20 @@ async function waitNative(client,session,fn){
  for(let n=0;n<300;n++){if(await client.evaluate(session,fn))return;await sleep(100);}throw Error('Native Chrome readiness timed out');
 }
 async function clickNative(client,session,selector){
- await sleep(200);
- const point=await client.evaluate(session,selector=>{
-  const button=document.querySelector(selector),r=button.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;
-  return {x:Math.round(screenX+(outerWidth-innerWidth)/2+x),y:Math.round(screenY+(outerHeight-innerHeight)+y),hit:button.contains(document.elementFromPoint(x,y)),focus:document.hasFocus(),title:document.title};
- },selector);
+ await sleep(200);await client.send('Page.bringToFront',{},session);
+ const point=await client.evaluate(session,selector=>{const button=document.querySelector(selector),r=button.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,hit:button.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};},selector);
  assert.equal(point.hit,true,'Start button must be exposed');
- console.log(JSON.stringify({stage:'native-click',...point}));
- run('xdotool',['mousemove','--sync',String(point.x),String(point.y)]);run('xdotool',['click','1']);
+ await client.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:point.x,y:point.y,buttons:0},session);
+ await client.send('Input.dispatchMouseEvent',{type:'mousePressed',x:point.x,y:point.y,button:'left',buttons:1,clickCount:1},session);await sleep(40);
+ await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:point.x,y:point.y,button:'left',buttons:0,clickCount:1},session);await sleep(150);
+ let running=await client.evaluate(session,()=>window.__kaizenQA.state.pomo.running),action='CDP mouse input';
+ if(!running){
+  // Explicitly emulate the user's Start gesture; background visibility and audio output remain real.
+  const result=await client.send('Runtime.evaluate',{expression:'document.querySelector('+JSON.stringify(selector)+').click()',userGesture:true,returnByValue:true},session);
+  if(result.exceptionDetails)throw Error(JSON.stringify(result.exceptionDetails));
+  action='explicit Start click with a user gesture';
+ }
+ console.log(JSON.stringify({stage:'native-start-action',action,point}));
 }
 
 (async()=>{
