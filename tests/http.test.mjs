@@ -58,7 +58,13 @@ test('HTTP sessions, project access, delegation, persistence and concurrent edit
     const b=(await request(owner,'project_save',{workspace_id:1,name:'B',member_ids:[3]})).project;
     await request(member,'project_save',{workspace_id:1,project_id:a.id,name:'Hijack',member_ids:[2,3]},403);
     await request(owner,'project_save',{workspace_id:1,name:'Outsider',member_ids:[5]},422);
-    await sync(owner,[make('personal'),make('delegated'),make('project-task',a.id)]);
+    await sync(owner,[{...make('personal'),taskOrigin:'meeting',meetingTitle:'Junta de prueba',meetingDate:'2026-11-10'},make('delegated'),make('project-task',a.id)]);
+    const meetingReload=await get(owner,'personal');
+    check(meetingReload.taskOrigin==='meeting'&&meetingReload.meetingTitle==='Junta de prueba'&&meetingReload.meetingDate==='2026-11-10','explicit meeting metadata persists through HTTP and MySQL');
+    check(!('taskOrigin' in await get(owner,'delegated')),'legacy tasks remain without inferred meeting origin');
+    await sync(owner,[{...meetingReload,notes:'Updated without moving the meeting task'}]);
+    const meetingAgain=await get(owner,'personal');
+    check(meetingAgain.taskOrigin==='meeting'&&meetingAgain.meetingTitle==='Junta de prueba'&&meetingAgain.list==='inbox','ordinary edits preserve meeting metadata and list');
     await sync(member,[make('member-private')]);await sync(admin,[make('admin-private')]);
     check((await dashboard(owner)).tasks.map(t=>t.id).sort().join(',')==='delegated,personal,project-task','creator dashboard contains only creator tasks');
     check((await dashboard(member)).tasks.map(t=>t.id).join(',')==='member-private','member dashboard excludes peer project task before assignment');

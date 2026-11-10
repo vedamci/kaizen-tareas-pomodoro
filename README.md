@@ -354,3 +354,31 @@ trabajos cifrados; el worker descarta las direcciones inexistentes y envía los
 enlaces válidos. La tabla de tokens guarda únicamente el digest; la cola guarda
 el token cifrado con una clave derivada del secreto privado y lo borra tras el
 envío o vencimiento. Las pruebas usan remitente simulado y bases desechables.
+
+## Tareas creadas en junta
+
+**Más vistas → Tareas creadas en junta** reúne las tareas propias o recibidas por
+delegación directa cuyo origen se marcó explícitamente como **Creada en junta**.
+Incluye Bandeja, Hoy, Futuro y proyectos dentro de ese alcance; excluye Papelera.
+Permite consultar pendientes, hechas o ambas y buscar por tarea, junta o proyecto.
+El contador de navegación indica las pendientes. No importa automáticamente
+acuerdos desde reuniones, chats ni Slack y no infiere el origen de tareas antiguas.
+
+Agregar desde este apartado crea una tarea normal en Bandeja con
+`taskOrigin: "meeting"` y abre su detalle. Desde el detalle también puede marcarse
+una tarea existente y añadir `meetingTitle` y `meetingDate` opcionales. Quitar la
+marca retira la tarea del apartado y conserva esos datos para poder recuperarlos
+si se vuelve a marcar. No cambia lista, proyecto, delegaciones, planificación ni
+tiempo registrado. Las tareas de junta siguen apareciendo en sus listas habituales.
+
+Los administradores disponen además del filtro **Origen → Creadas en junta** en
+**Tareas del equipo**, con las mismas restricciones de solo lectura y espacio.
+La vista de juntas personal nunca incorpora esa colección administrativa.
+La persistencia reutiliza `tasks.payload_json`, el control de revisiones y los
+permisos existentes; no necesita migración ni cambios de API.
+
+La cobertura añadida comprueba clasificación explícita, datos antiguos,
+alcance personal/administrativo, filtros, creación, metadatos y conservación de
+datos. La prueba HTTP verifica guardado/lectura real en MySQL; la QA de navegador
+usa datos ficticios y cubre creación, detalle, búsqueda, mover a Hoy y recarga a
+1280, 375 y 320 px.
