@@ -85,6 +85,29 @@ async function drag(page,locator,dx,dy,touch){
    await page.waitForFunction(()=>!window.__kaizenQA.state.syncError);
    await page.screenshot({path:path.join('test-results','kaizen-'+width+'.png'),fullPage:true});
    console.log(JSON.stringify({viewport:width,input:touch?'touch':'mouse',menus:'pass',moveToday:'pass',oneHour:'pass',timelineMove:'09:00 -> 10:00',calendarMove:'10:00 -> 11:00',durationMinutes:60,recordedSeconds:123}));
+
+   await page.evaluate(()=>window.__kaizenQA.renderVals().navItems.find(n=>n.id==='meetings').onClick());
+   await page.getByRole('heading',{name:'Tareas creadas en junta',exact:true}).waitFor();
+   assert.equal(await page.getByText('No se importan automáticamente de juntas, chats ni Slack.',{exact:false}).count(),1);
+   await page.locator('.quick-add input').fill('Acuerdo de junta de prueba');
+   await page.getByRole('button',{name:'Agregar',exact:true}).click();
+   await page.locator('#task-origin').waitFor();
+   assert.equal(await page.locator('#task-origin').inputValue(),'meeting');
+   await page.locator('#task-meeting-title').fill('Coordinación demo');
+   await page.locator('#task-meeting-date').fill('2026-11-10');
+   await page.getByRole('button',{name:'Cerrar',exact:true}).click();
+   const meetingRow=page.locator('.task-row').filter({hasText:'Acuerdo de junta de prueba'});
+   await meetingRow.getByRole('button',{name:'Mover a Hoy',exact:true}).click();
+   assert.equal(await meetingRow.count(),1,'moving to Today preserves the meeting view');
+   await page.locator('#meeting-search').fill('Coordinación demo');
+   assert.equal(await page.locator('.task-row').count(),1);
+   await page.evaluate(async()=>{await window.__kaizenQA.refreshTasks();});
+   const saved=await page.evaluate(()=>window.__kaizenQA.state.tasks.find(t=>t.title==='Acuerdo de junta de prueba'));
+   assert.equal(saved.taskOrigin,'meeting');assert.equal(saved.meetingTitle,'Coordinación demo');assert.equal(saved.meetingDate,'2026-11-10');assert.equal(saved.list,'today');
+   await page.locator('#meeting-search').fill('');
+   assert.equal(await page.locator('.meeting-help').evaluate(node=>node.getBoundingClientRect().right<=innerWidth),true);
+   await page.screenshot({path:path.join('test-results','kaizen-meetings-'+width+'.png'),fullPage:true});
+   console.log(JSON.stringify({viewport:width,meetingCreate:'pass',meetingDetails:'pass',meetingSearch:'pass',meetingMoveToday:'pass',meetingReload:'pass'}));
    await context.close();
   }
  }finally{await browser?.close();server.kill();}

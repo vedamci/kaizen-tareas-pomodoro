@@ -650,3 +650,55 @@ test('person filters persist per identity and workspace only',()=>{
   c.state.workspaceId=3;c.setPersonFilter('timeline','999');assert.equal(c.state.timelineResponsibleId,'','unknown people cannot be selected');
 });
 
+
+test('meeting origins are explicit and legacy tasks are never inferred from names or tags',()=>{
+  const c=component(),tasks=[{id:'legacy',title:'Junta semanal',notes:'Acuerdo de reunión',tags:['junta'],list:'inbox'},{id:'partial',meetingTitle:'Junta',meetingDate:'2026-11-10',list:'future'},{id:'other',taskOrigin:'chat',list:'inbox'}];
+  const before=JSON.stringify(tasks);c.state.tasks=c.normalizeTaskBuckets(tasks);
+  assert.equal(c.meetingTasks().length,0);assert.equal(c.meetingLabel(c.state.tasks[0]),'');assert.equal(JSON.stringify(tasks),before);
+  assert.equal(c.state.tasks[0].taskOrigin,undefined);
+});
+test('meeting view spans personal lists while excluding trash, peer-only projects and administrative reads',()=>{
+  const c=component();c.state.auth={id:1,role:'admin'};c.state.workspaceId=1;c.state.workspaces=[{id:1,member_role:'admin'}];
+  const task=(id,extra={})=>({id,title:id,list:'inbox',taskOrigin:'meeting',_owner_id:1,quadrant:'q2',tags:[],subtasks:[],sharedWith:[],done:false,...extra});
+  c.state.projects=[{id:'p',name:'Proyecto demo'}];
+  c.state.tasks=[task('inbox'),task('today',{list:'today'}),task('future',{list:'future',project:'p',meetingTitle:'Revisión semanal'}),task('received',{_owner_id:2,_shared_user_ids:[1]}),task('peer',{_owner_id:2,_shared_user_ids:[],_dashboard_visible:false,project:'p'}),task('done',{list:'done',done:true}),task('trash',{list:'trash'}),task('ordinary',{taskOrigin:undefined})];
+  c.state.teamTasks=[task('admin-read',{_owner_id:2,_team_read_only:true})];const before=JSON.stringify(c.state.tasks);
+  c.state.view='meetings';let v=c.renderVals();assert.equal(v.isMeetings,true);assert.equal(v.showQuickAdd,true);
+  assert.deepEqual([...v.listTasks.map(t=>t.id)].sort(),['future','inbox','received','today']);
+  assert.equal(v.navItems.find(n=>n.id==='meetings').count,4);
+  v.onMeetingStatus({target:{value:'done'}});assert.deepEqual([...c.renderVals().listTasks.map(t=>t.id)],['done']);
+  c.state.meetingStatus='all';c.state.meetingQuery='semanal';assert.deepEqual([...c.renderVals().listTasks.map(t=>t.id)],['future']);
+  c.state.meetingQuery='proyecto demo';assert.deepEqual([...c.renderVals().listTasks.map(t=>t.id)],['future']);
+  assert.equal(JSON.stringify(c.state.tasks),before);
+  c.state.view='inbox';assert.ok(c.renderVals().listTasks.some(t=>t.id==='ordinary'));
+});
+test('marking and unmarking a meeting preserves list, project, assignment and recorded work',()=>{
+  const c=component();c.state.auth={id:1,role:'user'};c.state.workspaceId=1;c.state.view='inbox';
+  c.state.tasks=[{id:'old',title:'Existing',list:'future',project:'p',due:'2027-01-02',tags:[],subtasks:[],sharedWith:[2],seconds:321,pomos:2,notes:'keep',workBlocks:[{id:'b',start:'2026-11-10T10:00:00.000Z',end:'2026-11-10T11:00:00.000Z'}]}];
+  c.state.selId='old';const before=JSON.stringify(c.state.tasks[0]);let v=c.renderVals();
+  v.onSelTaskOrigin({target:{value:'meeting'}});v=c.renderVals();assert.equal(v.selIsMeeting,true);
+  v.onSelMeetingTitle({target:{value:'Planeación'}});v.onSelMeetingDate({target:{value:'2026-11-10'}});
+  assert.match(c.taskRow(c.state.tasks[0]).meta,/Creada en junta.*Planeación.*2026-11-10/);
+  const {taskOrigin,meetingTitle,meetingDate,...other}=c.state.tasks[0];assert.equal(JSON.stringify(other),before);
+  c.setTaskOrigin('old','');assert.equal(c.meetingTasks().length,0);assert.equal(c.state.tasks.length,1);assert.equal(c.state.tasks[0].meetingTitle,'Planeación');
+  c.setTaskOrigin('old','invalid');assert.equal(c.state.tasks[0].taskOrigin,'');
+});
+test('creating from meetings sets the origin and persists it through the existing sync payload',async()=>{
+  const c=component();c.state.auth={id:1,role:'user'};c.state.workspaceId=1;c.state.view='meetings';c.state.meetingStatus='done';c.state.meetingQuery='old filter';c.state.newTitle='  Confirmar acuerdo  ';
+  c.addTask();const task=c.state.tasks[0];assert.equal(task.taskOrigin,'meeting');assert.equal(task.list,'inbox');assert.equal(task.title,'Confirmar acuerdo');assert.equal(c.state.selId,task.id);assert.equal(c.state.meetingStatus,'pending');assert.equal(c.state.meetingQuery,'');
+  c.patch(task.id,{meetingTitle:'Junta demo',meetingDate:'2026-11-10'});let sent;
+  c.api=async(action,payload)=>{assert.equal(action,'tasks_sync');sent=JSON.parse(JSON.stringify(payload));return {ok:true};};
+  await c.syncRemoteTasks(1,c.state.tasks,c.state.projects);
+  const reloaded=c.normalizeTaskBuckets(JSON.parse(JSON.stringify(sent.tasks)));
+  assert.equal(reloaded[0].taskOrigin,'meeting');assert.equal(reloaded[0].meetingTitle,'Junta demo');assert.equal(reloaded[0].meetingDate,'2026-11-10');
+  c.state.view='inbox';c.state.newTitle='Normal';c.addTask();assert.equal(c.state.tasks[0].taskOrigin,undefined);
+});
+test('team meeting filter stays read-only and never adds administrative tasks to personal lists',()=>{
+  const c=component();c.state.auth={id:1,role:'admin'};c.state.workspaceId=1;c.state.workspaces=[{id:1,member_role:'admin'}];c.state.view='team';
+  c.state.teamTasks=[{id:'meeting',title:'Confirmar',list:'inbox',taskOrigin:'meeting',meetingTitle:'Coordinación',_owner_id:2,_team_read_only:true},{id:'ordinary',title:'Legacy',list:'inbox',_owner_id:2,_team_read_only:true}];
+  const before=JSON.stringify(c.state.teamTasks);let v=c.renderVals();v.onTeamOriginFilter({target:{value:'meeting'}});v=c.renderVals();
+  assert.equal(v.teamGroups.flatMap(g=>g.tasks).length,1);assert.match(v.teamGroups[0].tasks[0].meetingLabel,/Coordinación/);
+  assert.equal(c.state.tasks.length,0);assert.equal(c.meetingTasks().length,0);assert.equal(JSON.stringify(c.state.teamTasks),before);
+  v.onTeamResetFilters();assert.equal(c.state.teamOriginFilter,'all');assert.equal(c.renderVals().teamAllCount,2);
+  c.state.workspaces=[{id:1,member_role:'member'}];assert.equal(c.renderVals().isTeamView,false);assert.equal(c.teamViewModel().rows.length,0);
+});

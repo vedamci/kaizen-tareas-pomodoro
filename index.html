@@ -408,7 +408,7 @@
   .team-stat:hover, .team-stat[aria-pressed="true"] { border-color:var(--color-accent-700); background:color-mix(in srgb,var(--color-accent) 8%,var(--color-bg)); color:var(--color-accent-700); }
   .team-stat[data-filter="overdue"] { border-left-color:var(--color-accent); }
   .team-stat[data-filter="done"] { border-left-color:var(--color-text); }
-  .team-toolbar { display:grid; grid-template-columns:minmax(220px,2fr) repeat(2,minmax(150px,1fr)) auto; gap:10px; align-items:end; padding:14px; background:var(--color-surface); border-left:4px solid var(--color-accent); }
+  .team-toolbar { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:10px; align-items:end; padding:14px; background:var(--color-surface); border-left:4px solid var(--color-accent); }
   .team-toolbar label { display:flex; flex-direction:column; gap:5px; min-width:0; font-size:12px; font-weight:700; }
   .team-toolbar .input, .team-toolbar .btn { width:100%; min-width:0; min-height:44px; }
   .team-result { margin:0; font-size:12px; color:color-mix(in srgb,var(--color-text) 70%,transparent); }
@@ -478,6 +478,11 @@
   .nav-more > summary { cursor:pointer; padding:14px 18px; min-height:44px; font-size:13px; }
   .nav-more button { width:100%; min-height:44px; }
   .sidebar > button { min-height:44px; }
+  .meeting-help { font-size:13px; line-height:1.55; margin-bottom:16px; }
+  .meeting-help p { margin:0 0 10px; }
+  .meeting-filters { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:10px; }
+  .meeting-filters label { display:flex; flex-direction:column; gap:5px; flex:1; min-width:min(100%,220px); }
+  .meeting-filters .input, .meeting-origin .input { min-height:44px; width:100%; }
   .task-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; max-width:100%; }
   .row-options { min-width:0; }
   .row-options[open] { flex-basis:100%; }
@@ -662,6 +667,18 @@
         <sc-if value="{{ syncError }}" hint-placeholder-val="{{ false }}"><div role="alert" class="card" style="margin-bottom:16px">{{ syncError }} <button class="btn btn-secondary" onClick="{{ onRetrySync }}">Reintentar guardar</button><button class="btn btn-ghost" onClick="{{ onDiscardAndReload }}">Descartar cambios pendientes y recargar</button></div></sc-if>
 
 
+        <sc-if value="{{ isMeetings }}">
+          <section class="meeting-help" aria-label="Acerca de las tareas de junta">
+            <p>Reúne las tareas que creaste o recibiste por delegación directa y que están marcadas como creadas en junta, desde Bandeja, Hoy, Futuro o proyectos. Conservan su lista y proyecto.</p>
+            <p>No se importan automáticamente de juntas, chats ni Slack. Agrega una tarea aquí o abre una existente y elige «Creada en junta» en su origen.</p>
+            <div class="meeting-filters">
+              <label for="meeting-search">Buscar tarea o junta<input id="meeting-search" class="input" type="search" value="{{ meetingQuery }}" onInput="{{ onMeetingQuery }}" placeholder="Tarea, junta o proyecto"></label>
+              <label for="meeting-status">Estado<select id="meeting-status" class="input" value="{{ meetingStatus }}" onChange="{{ onMeetingStatus }}"><option value="pending">Pendientes</option><option value="done">Hechas</option><option value="all">Todas excepto papelera</option></select></label>
+            </div>
+            <p role="status" aria-live="polite">{{ meetingResultLabel }}</p>
+          </section>
+        </sc-if>
+
         <sc-if value="{{ showQuickAdd }}" hint-placeholder-val="{{ true }}">
           <div class="quick-add" style="display:flex;gap:8px;margin-bottom:18px">
             <input class="input" placeholder="Nueva tarea · Enter para añadir" value="{{ newTitle }}" onInput="{{ onNewInput }}" onKeyDown="{{ onNewKey }}">
@@ -704,7 +721,7 @@
               </div>
             </sc-for>
             <sc-if value="{{ listEmpty }}" hint-placeholder-val="{{ false }}">
-              <div style="padding:40px 0;font-size:13px;color:color-mix(in srgb, var(--color-text) 50%, transparent)">Nada aquí todavía.</div>
+              <div style="padding:40px 0;font-size:13px;color:color-mix(in srgb, var(--color-text) 50%, transparent)">{{ listEmptyLabel }}</div>
             </sc-if>
           </div>
         </sc-if>
@@ -1036,6 +1053,7 @@
               <div class="team-toolbar">
                 <label for="team-search">Buscar tarea, persona o proyecto<input id="team-search" class="input" type="search" placeholder="Escribe para filtrar…" value="{{ teamQuery }}" onInput="{{ onTeamQuery }}"></label>
                 <label for="team-filter">Estado<select id="team-filter" class="input" value="{{ teamStatusFilter }}" onChange="{{ onTeamStatusFilter }}"><option value="all">Todas excepto papelera</option><option value="pending">Pendientes</option><option value="overdue">Atrasadas</option><option value="done">Hechas</option><option value="unassigned">Sin responsable</option><option value="trash">Papelera</option></select></label>
+                <label for="team-origin">Origen<select id="team-origin" class="input" value="{{ teamOriginFilter }}" onChange="{{ onTeamOriginFilter }}"><option value="all">Todos los orígenes</option><option value="meeting">Creadas en junta</option></select></label>
                 <label for="team-group">Agrupar por<select id="team-group" class="input" value="{{ teamGroupBy }}" onChange="{{ onTeamGroupBy }}"><option value="responsible">Responsable</option><option value="project">Proyecto</option><option value="status">Estado</option></select></label>
                 <button class="btn btn-secondary" onClick="{{ onRefreshTeam }}" disabled="{{ teamLoading }}">{{ teamRefreshLabel }}</button>
               </div>
@@ -1045,7 +1063,7 @@
             <sc-if value="{{ teamError }}"><p role="alert">{{ teamError }}</p></sc-if>
             <sc-if value="{{ teamEmpty }}"><p class="team-empty">No hay tareas en este espacio.</p></sc-if>
             <sc-if value="{{ teamNoResults }}"><div class="team-empty" role="status">No hay tareas que coincidan con esos filtros.<button class="btn btn-ghost" onClick="{{ onTeamResetFilters }}">Quitar filtros</button></div></sc-if>
-            <div class="team-groups"><sc-for list="{{ teamGroups }}" as="g"><section class="team-group"><h3>{{ g.label }}<span>{{ g.count }}</span></h3><div class="team-group-list"><sc-for list="{{ g.tasks }}" as="t"><article class="team-task" data-status="{{ t.statusKey }}"><div class="team-task-head"><strong>{{ t.title }}</strong><span class="team-status" data-status="{{ t.statusKey }}">{{ t.status }}</span></div><div class="team-task-meta"><span>{{ t.creatorLabel }}</span><span class="timeline-assignee">{{ t.responsibleLabel }}</span></div><div class="team-task-meta"><span>{{ t.projectName }}</span><span>{{ t.dueLabel }}</span></div><small>{{ t.planLabel }} · Tiempo real {{ t.time }}</small></article></sc-for></div></section></sc-for></div>
+            <div class="team-groups"><sc-for list="{{ teamGroups }}" as="g"><section class="team-group"><h3>{{ g.label }}<span>{{ g.count }}</span></h3><div class="team-group-list"><sc-for list="{{ g.tasks }}" as="t"><article class="team-task" data-status="{{ t.statusKey }}"><div class="team-task-head"><strong>{{ t.title }}</strong><span class="team-status" data-status="{{ t.statusKey }}">{{ t.status }}</span></div><div class="team-task-meta"><span>{{ t.creatorLabel }}</span><span class="timeline-assignee">{{ t.responsibleLabel }}</span></div><div class="team-task-meta"><span>{{ t.projectName }}</span><span>{{ t.dueLabel }}</span></div><sc-if value="{{ t.meetingLabel }}"><small>{{ t.meetingLabel }}</small></sc-if><small>{{ t.planLabel }} · Tiempo real {{ t.time }}</small></article></sc-for></div></section></sc-for></div>
           </div>
         </sc-if>
 
@@ -1135,6 +1153,14 @@
           <div class="field" style="margin-bottom:12px">
             <label>Tarea</label>
             <input class="input" value="{{ sel.title }}" onInput="{{ onSelTitle }}">
+          </div>
+          <div class="meeting-origin" style="margin-bottom:14px">
+            <label for="task-origin">Origen de la tarea</label>
+            <select id="task-origin" class="input" value="{{ selTaskOrigin }}" onChange="{{ onSelTaskOrigin }}"><option value="">Sin identificar</option><option value="meeting">Creada en junta</option></select>
+            <sc-if value="{{ selIsMeeting }}">
+              <div class="field" style="margin-top:8px"><label for="task-meeting-title">Nombre de la junta (opcional)</label><input id="task-meeting-title" class="input" maxlength="180" value="{{ selMeetingTitle }}" onInput="{{ onSelMeetingTitle }}"></div>
+              <div class="field" style="margin-top:8px"><label for="task-meeting-date">Fecha de la junta (opcional)</label><input id="task-meeting-date" class="input" type="date" value="{{ selMeetingDate }}" onChange="{{ onSelMeetingDate }}"></div>
+            </sc-if>
           </div>
           <div style="display:flex;gap:10px;margin-bottom:12px">
             <div class="field" style="flex:1">
@@ -1263,6 +1289,7 @@ class Component extends DCLogic {
     timerSpeed: 1,
     pushReady: false, alertSoundReady:false, alertSoundPlaying:false, alertSoundError:'', notificationBusy:false, timerNotice:null,
     activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, watchAccountedAt:null, full: false,
+    meetingQuery:'', meetingStatus:'pending', teamOriginFilter:'all',
     teamTasks:[], teamProjects:[], teamLoading:false, teamError:'', teamQuery:'', teamStatusFilter:'all', teamGroupBy:'responsible',
     supervisionPeople:[], supervisionPersonId:'', supervisionTasks:[], supervisionLoading:false, supervisionError:'',
     assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantFilter:'all', assistantQuery:'', assistantSelId:null, assistantDemoState:'none', assistantActionBusy:false, assistantActionMessage:'', assistantActionRole:'status',
@@ -2600,7 +2627,7 @@ class Component extends DCLogic {
     if(!this.isWorkspaceAdmin())return {rows:[],groups:[],all:0,pending:0,overdue:0,done:0,unassigned:0};
     const today=this.dkey(Date.now()), fold=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-MX');
     const projects=new Map((s.teamProjects||[]).map(project=>[String(project.id),String(project.name||'Sin proyecto')]));
-    const rows=(s.teamTasks||[]).map(task=>{
+    const rows=(s.teamTasks||[]).filter(task=>s.teamOriginFilter!=='meeting'||this.isMeetingTask(task)).map(task=>{
       const trash=task.list==='trash', done=!trash&&(!!task.done||task.list==='done');
       const dueCandidate=String(task.due||''),dueDateCheck=/^\d{4}-\d{2}-\d{2}$/.test(dueCandidate)?new Date(dueCandidate+'T00:00:00.000Z'):null;
       const due=dueDateCheck&&dueDateCheck.toISOString().slice(0,10)===dueCandidate?dueCandidate:'';
@@ -2616,10 +2643,10 @@ class Component extends DCLogic {
         ?'Plan: '+new Date(start).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})+' → '+new Date(end).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})
         :'Sin planificación';
       return {
-        title:String(task.title||'Tarea sin título'),creatorLabel,responsibleLabel,projectName,status,statusKey,
+        title:String(task.title||'Tarea sin título'),creatorLabel,responsibleLabel,projectName,status,statusKey,meetingLabel:this.meetingLabel(task),
         dueLabel:due?'Fecha límite: '+dueDate:'Sin fecha límite',planLabel,time:this.fmtDur(Math.max(0,Number(task.seconds)||0)),
         isTrash:trash,isDone:done,isPending:!trash&&!done,isOverdue:overdue,hasAssignee:assigned.some(id=>Number(id)>0),dueSort:due||'9999-12-31',
-        search:fold([task.title,creatorLabel,responsibleLabel,projectName].join(' '))
+        search:fold([task.title,creatorLabel,responsibleLabel,projectName,this.meetingLabel(task)].join(' '))
       };
     });
     const active=rows.filter(row=>!row.isTrash);
@@ -2938,6 +2965,20 @@ class Component extends DCLogic {
   }
   openDailyTimeline(id) { this.setState({view:'timeline',timelineMode:'day',timelineAnchor:Date.parse(this.state.tasks.find(t=>t.id===id)?.scheduledStart)||Date.now(),selId:null}); }
 
+  isMeetingTask(task) { return task?.taskOrigin === 'meeting'; }
+  meetingLabel(task) {
+    if (!this.isMeetingTask(task)) return '';
+    return ['Creada en junta', typeof task.meetingTitle==='string'?task.meetingTitle.trim():'', typeof task.meetingDate==='string'?task.meetingDate:''].filter(Boolean).join(' · ');
+  }
+  meetingTasks() {
+    return this.state.tasks.filter(task=>this.isPersonalTask(task)&&this.isMeetingTask(task)&&task.list!=='trash');
+  }
+  setTaskOrigin(id, value) {
+    if (value!=='meeting' && value!=='') return;
+    // Changing the origin never moves or duplicates the task.
+    this.patch(id, {taskOrigin:value});
+  }
+
   addTask() {
     const title = this.state.newTitle.trim();
     if (!title) return;
@@ -2950,7 +2991,8 @@ class Component extends DCLogic {
       id: this.uid(), title, list, project, due, quadrant: 'q2', tags: [], estPomos: 1,
       notes: '', subtasks: [], sharedWith: [], done: false, doneAt: null, seconds: 0, pomos: 0, createdAt: Date.now()
     };
-    this.setState(s => ({ tasks: [nt, ...s.tasks], newTitle: '' }));
+    if (v === 'meetings') nt.taskOrigin = 'meeting';
+    this.setState(s => ({ tasks: [nt, ...s.tasks], newTitle: '', ...(v==='meetings'?{selId:nt.id,meetingStatus:'pending',meetingQuery:''}:{}) }));
   }
 
   taskRow(t) {
@@ -2959,6 +3001,7 @@ class Component extends DCLogic {
     const activeTimer = this.state.activeId === t.id && (this.state.stopwatch || this.state.pomo.running);
     const timerLabel = activeTimer ? (this.state.timerMode === 'watch' ? 'CRONÓMETRO ACTIVO' : 'POMODORO ACTIVO') : '';
     if (timerLabel) bits.push(timerLabel);
+    if (this.isMeetingTask(t)) bits.push(this.meetingLabel(t));
     if (t.project) bits.push(this.projName(t.project));
     if (t.due) bits.push(this.fmtDue(t.due));
     if (t.subtasks.length) bits.push(t.subtasks.filter(s => s.done).length + '/' + t.subtasks.length + ' subtareas');
@@ -3073,6 +3116,7 @@ class Component extends DCLogic {
       inbox: open.filter(t => t.list === 'inbox').length,
       future: open.filter(t => t.list === 'future').length,
       matrix: open.length,
+      meetings: this.meetingTasks().filter(t=>!t.done&&t.list!=='done').length,
       delegated: delegatedTasks.filter(t => !t.done).length,
       done: personalTasks.filter(t => t.list === 'done').length,
       trash: personalTasks.filter(t => t.list === 'trash').length,
@@ -3087,6 +3131,7 @@ class Component extends DCLogic {
     };
     const navDefs = [
       { id: 'today', label: 'Hoy' }, { id: 'inbox', label: 'Bandeja de entrada' },
+      { id: 'meetings', label: 'Tareas creadas en junta' },
       { id: 'future', label: 'Futuro' }, { id: 'delegated', label: 'Delegadas' }, { id: 'matrix', label: 'Matriz' },
       { id: 'done', label: 'Hechas' }, { id: 'trash', label: 'Borrado' },
       { id: 'projects', label: 'Proyectos' }, { id: 'calendar', label: 'Calendario de hoy' }, { id: 'timeline', label: 'Cronograma' }, { id: 'stats', label: 'Estadísticas' }, { id: 'ideas', label: 'Mejoras' }
@@ -3111,11 +3156,17 @@ class Component extends DCLogic {
       };
     });
 
-    const isList = ['today', 'inbox', 'future', 'delegated', 'done', 'trash'].includes(s.view);
+    const isList = ['today', 'inbox', 'future', 'delegated', 'done', 'trash', 'meetings'].includes(s.view);
     const activeTimerId = (s.pomo.running || s.stopwatch) ? s.activeId : null;
     const activeTimerFirst = (a, b) => (Number(b.id === activeTimerId) - Number(a.id === activeTimerId));
     let listTasks = [];
-    if (isList) {
+    if (s.view === 'meetings') {
+      const query=s.meetingQuery.trim().toLocaleLowerCase('es-MX');
+      listTasks=this.meetingTasks().filter(t=>{
+        const done=!!t.done||t.list==='done';
+        return (s.meetingStatus==='all'||(s.meetingStatus==='done'?done:!done))&&(!query||[t.title,this.meetingLabel(t),this.projName(t.project)].join(' ').toLocaleLowerCase('es-MX').includes(query));
+      }).sort((a,b)=>activeTimerFirst(a,b)||Number(!!a.done)-Number(!!b.done)||Number(b.createdAt||0)-Number(a.createdAt||0));
+    } else if (isList) {
       listTasks = (s.view === 'delegated' ? delegatedTasks : personalTasks.filter(t => t.list === s.view)).sort((a, b) => activeTimerFirst(a, b) || (s.view === 'done' || s.view === 'trash' ? (Number(b.doneAt || b.deletedAt || 0) - Number(a.doneAt || a.deletedAt || 0)) : ((a.done - b.done) || a.quadrant.localeCompare(b.quadrant))));
     } else if ((s.view === 'projects' || s.view === 'project') && s.projFilter) {
       listTasks = s.tasks.filter(t => t.project === s.projFilter && t.list !== 'trash').sort((a, b) => activeTimerFirst(a, b) || (a.done - b.done));
@@ -3125,6 +3176,7 @@ class Component extends DCLogic {
     const titles = {
       today: ['Hoy', 'Lo que se trabaja en esta jornada'],
       inbox: ['Bandeja de entrada', 'Captura rápida, sin clasificar'],
+      meetings: ['Tareas creadas en junta', 'Origen identificado explícitamente · tus tareas y delegaciones'],
       future: ['Futuro', 'Algún día / tal vez'],
       delegated: ['Delegadas', 'Tareas que delegaste o recibiste'],
       done: ['Hechas', 'Completadas en días anteriores'],
@@ -3239,6 +3291,13 @@ class Component extends DCLogic {
     const detail = {};
     if (sel) {
       detail.sel = { title: sel.title, due: sel.due, estPomos: sel.estPomos, notes: sel.notes, project: sel.project };
+      detail.selTaskOrigin = this.isMeetingTask(sel)?'meeting':'';
+      detail.selIsMeeting = this.isMeetingTask(sel);
+      detail.selMeetingTitle = typeof sel.meetingTitle==='string'?sel.meetingTitle:'';
+      detail.selMeetingDate = typeof sel.meetingDate==='string'?sel.meetingDate:'';
+      detail.onSelTaskOrigin = e => this.setTaskOrigin(sel.id,e.target.value);
+      detail.onSelMeetingTitle = e => this.patch(sel.id,{meetingTitle:e.target.value.slice(0,180)});
+      detail.onSelMeetingDate = e => this.patch(sel.id,{meetingDate:e.target.value});
       detail.selTags = sel.tags.join(', ');
       detail.selTime = this.fmtDur(sel.seconds);
       detail.selPomos = sel.pomos + ' / ' + sel.estPomos;
@@ -3448,15 +3507,16 @@ class Component extends DCLogic {
       viewTitle: tt[0], viewSub: tt[1],
       isTeamView:s.view==='team'&&this.isWorkspaceAdmin(),canSeeTeam:this.isWorkspaceAdmin(),teamLoading:s.teamLoading,teamError:s.teamError,teamEmpty:!s.teamLoading&&!s.teamTasks.length&&!s.teamError,teamHasTasks:!!s.teamTasks.length,
       teamNoResults:!s.teamLoading&&!s.teamError&&!!s.teamTasks.length&&!team.rows.length,
-      teamQuery:s.teamQuery,teamStatusFilter:s.teamStatusFilter,teamGroupBy:s.teamGroupBy,
+      teamQuery:s.teamQuery,teamStatusFilter:s.teamStatusFilter,teamGroupBy:s.teamGroupBy,teamOriginFilter:s.teamOriginFilter,
+      onTeamOriginFilter:e=>this.setState({teamOriginFilter:e.target.value}),
       teamAllCount:team.all,teamPendingCount:team.pending,teamOverdueCount:team.overdue,teamDoneCount:team.done,teamUnassignedCount:team.unassigned,
       teamAllSelected:s.teamStatusFilter==='all',teamPendingSelected:s.teamStatusFilter==='pending',teamOverdueSelected:s.teamStatusFilter==='overdue',teamDoneSelected:s.teamStatusFilter==='done',teamUnassignedSelected:s.teamStatusFilter==='unassigned',
-      teamResultLabel:'Mostrando '+team.rows.length+' de '+team.resultTotal+' tareas · agrupadas por '+({responsible:'responsable',project:'proyecto',status:'estado'}[s.teamGroupBy]||'responsable'),
+      teamResultLabel:'Mostrando '+team.rows.length+' de '+team.resultTotal+(s.teamOriginFilter==='meeting'?' tareas de junta':' tareas')+' · agrupadas por '+({responsible:'responsable',project:'proyecto',status:'estado'}[s.teamGroupBy]||'responsable'),
       teamRefreshLabel:s.teamLoading?'Actualizando…':'Actualizar equipo',teamGroups:team.groups,
       onRefreshTeam:()=>this.loadTeamTasks(),onOpenTeam:()=>{this.setState({view:'team',selId:null,delegatingId:null});this.loadTeamTasks();},
       onTeamQuery:e=>this.setState({teamQuery:e.target.value}),onTeamStatusFilter:e=>this.setState({teamStatusFilter:e.target.value}),onTeamGroupBy:e=>this.setState({teamGroupBy:e.target.value}),
       onTeamQuickFilterAll:()=>this.setState({teamStatusFilter:'all'}),onTeamQuickFilterPending:()=>this.setState({teamStatusFilter:'pending'}),onTeamQuickFilterOverdue:()=>this.setState({teamStatusFilter:'overdue'}),onTeamQuickFilterDone:()=>this.setState({teamStatusFilter:'done'}),onTeamQuickFilterUnassigned:()=>this.setState({teamStatusFilter:'unassigned'}),
-      onTeamResetFilters:()=>this.setState({teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible'}),
+      onTeamResetFilters:()=>this.setState({teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',teamOriginFilter:'all'}),
       isSupervisionView:s.view==='supervision'&&this.isWorkspaceAdmin(),supervisionLoading:s.supervisionLoading,supervisionError:s.supervisionError,
       supervisionPersonId:String(s.supervisionPersonId||''),supervisionPeopleOptions:this.isWorkspaceAdmin()?s.supervisionPeople.map(p=>({id:String(p.id),name:p.name,role:p.workspace_role==='admin'?'admin':'miembro'})):[],
       supervisionTodayLabel:new Date(now).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}),
@@ -3477,6 +3537,10 @@ class Component extends DCLogic {
       onBackProjects: () => this.setState({ view: 'projects', projFilter: null, selId: null, delegatingId: null }),
       showQuickAdd: (isList && s.view !== 'delegated') || (s.view === 'project' && s.projects.find(p=>p.id===s.projFilter)?._can_assign !== false),
       listTasks: rows, listEmpty: rows.length === 0 && (isList || s.view === 'projects'),
+      listEmptyLabel:s.view==='meetings'?'No hay tareas de junta que coincidan. Puedes agregar una o marcar su origen desde el detalle.':'Nada aquí todavía.',
+      isMeetings:s.view==='meetings',meetingQuery:s.meetingQuery,meetingStatus:s.meetingStatus,
+      meetingResultLabel:rows.length+' de '+this.meetingTasks().length+' tareas de junta · no incluye papelera',
+      onMeetingQuery:e=>this.setState({meetingQuery:e.target.value}),onMeetingStatus:e=>this.setState({meetingStatus:e.target.value}),
       newTitle: s.newTitle, subDraft: s.subDraft,
       onNewInput: e => this.setState({ newTitle: e.target.value }),
       onNewKey: e => { if (e.key === 'Enter') this.addTask(); },
