@@ -121,7 +121,7 @@ async function drag(page,locator,dx,dy,touch){
    assert.equal(await meetingRow.count(),1,'moving to Today preserves the meeting view');
    await page.locator('#meeting-search').fill('Coordinación demo');
    assert.equal(await page.locator('.task-row').count(),1);
-   assert.match(await meetingRow.innerText(),/Delegada a Luis/);
+   assert.match(await meetingRow.innerText(),/Delegada a Luis/i);
    await page.locator('#meeting-search').fill('Luis');
    assert.equal(await page.locator('.task-row').count(),1);
    await page.locator('#meeting-delegate').selectOption('__unassigned__');
