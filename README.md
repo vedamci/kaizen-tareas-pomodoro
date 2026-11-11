@@ -360,7 +360,18 @@ envío o vencimiento. Las pruebas usan remitente simulado y bases desechables.
 **Más vistas → Tareas creadas en junta** reúne las tareas propias o recibidas por
 delegación directa cuyo origen se marcó explícitamente como **Creada en junta**.
 Incluye Bandeja, Hoy, Futuro y proyectos dentro de ese alcance; excluye Papelera.
-Permite consultar pendientes, hechas o ambas y buscar por tarea, junta o proyecto.
+Permite consultar pendientes, hechas o ambas y buscar por tarea, junta, proyecto o
+persona delegada. El filtro **Delegada a** permite elegir un miembro o ver las
+tareas **Sin delegar**. Usa solo destinatarios confirmados por el servidor.
+
+El detalle de una tarea de junta muestra **Delegada a** y permite abrir el diálogo
+para crear, cambiar o retirar la delegación. Cancelar conserva los destinatarios;
+un error permite reintentar sin perder la selección. Al guardar o cancelar se
+conserva abierto el detalle. Reutiliza `task_share` y `task_shares`, con sus permisos
+de creador/administrador y membresía del proyecto; no crea campos paralelos ni
+requiere migrar tareas. Las tareas anteriores conservan sus delegaciones y, si no
+tenían ninguna, muestran **Sin delegar**. Una persona que recibe la tarea puede
+consultar sus destinatarios, aunque no tenga permiso para cambiarlos.
 El contador de navegación indica las pendientes. No importa automáticamente
 acuerdos desde reuniones, chats ni Slack y no infiere el origen de tareas antiguas.
 

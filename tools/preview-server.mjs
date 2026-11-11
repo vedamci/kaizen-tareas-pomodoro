@@ -3,7 +3,9 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
-const port = Number(process.env.KAIZEN_PREVIEW_PORT || 4178);
+const argValue = name => { const i=process.argv.indexOf(name); return i>=0?process.argv[i+1]:undefined; };
+const port = Number(process.env.KAIZEN_PREVIEW_PORT || argValue('--port') || process.env.PORT || 4178);
+const host = process.env.KAIZEN_PREVIEW_HOST || argValue('--host') || '127.0.0.1';
 const allowed = new Set(['sw.js','support.js','planning.js','preview/mock-api.js','kaizen-icon.svg','manifest.webmanifest','_ds/modernist-454c18dc-45af-4299-9be2-71360d2b9a90/styles.css','_ds/modernist-454c18dc-45af-4299-9be2-71360d2b9a90/_ds_bundle.js']);
 http.createServer(async(req,res)=>{
   try{
@@ -18,4 +20,4 @@ http.createServer(async(req,res)=>{
     }
     res.writeHead(200,{'Content-Type':type+'; charset=utf-8','Cache-Control':'no-store'});res.end(content);
   }catch(e){res.writeHead(500);res.end('Local preview unavailable');}
-}).listen(port,'127.0.0.1',()=>console.log(`Vista previa local: http://127.0.0.1:${port}/`));
+}).listen(port,host,()=>console.log(`Vista previa local: http://127.0.0.1:${port}/`));

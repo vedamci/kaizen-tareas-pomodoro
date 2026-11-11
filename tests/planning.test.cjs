@@ -702,3 +702,42 @@ test('team meeting filter stays read-only and never adds administrative tasks to
   v.onTeamResetFilters();assert.equal(c.state.teamOriginFilter,'all');assert.equal(c.renderVals().teamAllCount,2);
   c.state.workspaces=[{id:1,member_role:'member'}];assert.equal(c.renderVals().isTeamView,false);assert.equal(c.teamViewModel().rows.length,0);
 });
+
+
+test('meeting detail edits confirmed delegation in place and cancellation preserves task history',async()=>{
+  const c=delegationFixture();c.state.view='meetings';c.state.selId='t';
+  Object.assign(c.state.tasks[0],{taskOrigin:'meeting',meetingTitle:'Weekly',meetingDate:'2026-11-11',project:'p',quadrant:'q2',done:false,pomos:2,notes:'Keep',workBlocks:[{id:'b',start:'2026-11-11T09:00:00Z',end:'2026-11-11T10:00:00Z'}],_shared_user_ids:[2],sharedWith:[3]});
+  c.state.projects=[{id:'p',name:'Project',member_ids:[1,2,3]}];
+  let v=c.renderVals();assert.equal(v.selMeetingDelegationLabel,'Delegada a Recipient');assert.equal(v.selCanDelegate,true);assert.equal(v.selDelegateAction,'Cambiar delegación');
+  const before=JSON.stringify(c.state.tasks);v.onSelDelegate();assert.equal(c.state.selId,'t');assert.deepEqual([...c.state.delegationDraft],[2]);
+  c.toggleDelegationDraft(3);c.closeDelegation();assert.equal(c.state.selId,'t');assert.equal(JSON.stringify(c.state.tasks),before);
+  c.renderVals().onSelDelegate();c.toggleDelegationDraft(2);c.toggleDelegationDraft(3);
+  c.api=async()=>({ok:false,error:'No saved'});await c.saveDelegation();assert.equal(c.renderVals().selMeetingDelegationLabel,'Delegada a Recipient');assert.equal(JSON.stringify(c.state.tasks),before);assert.equal(c.state.selId,'t');
+  c.api=async()=>({ok:true,shared_user_ids:[3],delegated_at:'2026-11-11T12:00:00Z'});await c.saveDelegation();
+  assert.equal(c.state.selId,'t');assert.equal(c.renderVals().selMeetingDelegationLabel,'Delegada a Other');
+  const {sharedWith,_shared_user_ids,_delegated_at,...after}=c.state.tasks[0],{sharedWith:oldShares,_shared_user_ids:oldConfirmed,...old}=JSON.parse(before)[0];assert.deepEqual(after,old);
+  c.renderVals().onSelDelegate();c.toggleDelegationDraft(3);c.api=async()=>({ok:true,shared_user_ids:[]});await c.saveDelegation();assert.equal(c.renderVals().selMeetingDelegationLabel,'Sin delegar');assert.equal(c.state.selId,'t');
+});
+test('meeting delegate filters use confirmed recipients only, combine with status and search and never include team reads',()=>{
+  const c=delegationFixture();c.state.view='meetings';
+  const task={...c.state.tasks[0],taskOrigin:'meeting',quadrant:'q2',done:false};
+  c.state.tasks=[{...task,id:'confirmed',_shared_user_ids:[3],sharedWith:[2]},{...task,id:'legacy',_shared_user_ids:[],sharedWith:[2]},{...task,id:'completed',done:true,_shared_user_ids:[3]},{...task,id:'received',_owner_id:2,_shared_user_ids:[1,3]},{...task,id:'trash',list:'trash',_shared_user_ids:[3]},{...task,id:'project-only',_owner_id:2,_shared_user_ids:[3],_project_member:true,_dashboard_visible:false}];
+  c.state.teamTasks=[{...task,id:'admin-read',_shared_user_ids:[3],_team_read_only:true}];
+  const before=JSON.stringify(c.state.tasks);let v=c.renderVals();v.onMeetingDelegate({target:{value:'3'}});
+  assert.deepEqual([...c.renderVals().listTasks.map(t=>t.id)].sort(),['confirmed','received']);
+  c.state.meetingQuery='other';assert.equal(c.renderVals().listTasks.length,2);
+  c.state.meetingStatus='done';assert.deepEqual([...c.renderVals().listTasks.map(t=>t.id)],['completed']);
+  c.state.meetingStatus='all';c.state.meetingQuery='';c.state.meetingDelegateId='__unassigned__';assert.deepEqual([...c.renderVals().listTasks.map(t=>t.id)],['legacy']);
+  c.state.meetingDelegateId='2';assert.equal(c.renderVals().listTasks.length,0);c.state.meetingDelegateId='';c.state.meetingQuery='recipient';assert.equal(c.renderVals().listTasks.length,0);
+  c.state.meetingQuery='';v=c.renderVals();assert.match(v.listTasks.find(t=>t.id==='received').shareLabel,/Delegada a Owner, Other.*Delegada por Recipient/);assert.equal(v.listTasks.find(t=>t.id==='legacy').shareLabel,'Sin delegar');assert.equal(JSON.stringify(c.state.tasks),before);
+});
+test('meeting delegation explains unavailable members and editing permissions without granting access',()=>{
+  const c=delegationFixture();c.state.view='meetings';c.state.selId='t';Object.assign(c.state.tasks[0],{taskOrigin:'meeting',quadrant:'q2',_owner_id:2,_shared_user_ids:[1]});
+  let v=c.renderVals();assert.equal(v.selCanDelegate,false);assert.match(v.selDelegationHelp,/Solo quien creó/);v.onSelDelegate();assert.equal(c.state.delegatingId,null);assert.equal(c.state.selId,'t');
+  c.state.tasks[0]._owner_id=1;c.state.workspaceMembers=[{id:1,name:'Owner'}];v=c.renderVals();assert.equal(v.selCanDelegate,false);assert.match(v.selDelegationHelp,/No hay otros miembros/);
+  c.state.workspaceMembers.push({id:2,name:'Recipient'});c.state.projects=[{id:'p',member_ids:[1]}];c.state.tasks[0].project='p';assert.equal(c.renderVals().selCanDelegate,false);
+});
+test('creating a meeting under a delegate filter reveals the new task and does not infer a recipient',()=>{
+  const c=delegationFixture();c.state.view='meetings';c.state.meetingDelegateId='2';c.state.newTitle='New';const old=JSON.stringify(c.state.tasks);
+  c.addTask();assert.equal(c.state.meetingDelegateId,'');const t=c.state.tasks[0];assert.equal(c.renderVals().selMeetingDelegationLabel,'Sin delegar');assert.deepEqual([...t.sharedWith],[]);assert.equal(JSON.stringify(c.state.tasks.slice(1)),old);
+});
