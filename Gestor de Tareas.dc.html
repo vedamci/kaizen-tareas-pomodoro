@@ -672,9 +672,11 @@
             <p>Reúne las tareas que creaste o recibiste por delegación directa y que están marcadas como creadas en junta, desde Bandeja, Hoy, Futuro o proyectos. Conservan su lista y proyecto.</p>
             <p>No se importan automáticamente de juntas, chats ni Slack. Agrega una tarea aquí o abre una existente y elige «Creada en junta» en su origen.</p>
             <div class="meeting-filters">
-              <label for="meeting-search">Buscar tarea o junta<input id="meeting-search" class="input" type="search" value="{{ meetingQuery }}" onInput="{{ onMeetingQuery }}" placeholder="Tarea, junta o proyecto"></label>
+              <label for="meeting-search">Buscar tarea, junta o persona<input id="meeting-search" class="input" type="search" value="{{ meetingQuery }}" onInput="{{ onMeetingQuery }}" placeholder="Tarea, junta, proyecto o persona"></label>
+              <label for="meeting-delegate">Delegada a<select id="meeting-delegate" class="input" value="{{ meetingDelegateId }}" onChange="{{ onMeetingDelegate }}"><option value="">Todas las personas</option><option value="__unassigned__">Sin delegar</option><sc-for list="{{ meetingDelegateOptions }}" as="m"><option value="{{ m.id }}">{{ m.label }}</option></sc-for></select></label>
               <label for="meeting-status">Estado<select id="meeting-status" class="input" value="{{ meetingStatus }}" onChange="{{ onMeetingStatus }}"><option value="pending">Pendientes</option><option value="done">Hechas</option><option value="all">Todas excepto papelera</option></select></label>
             </div>
+            <p>En el detalle, «Delegada a» permite elegir miembros del equipo y guardar la delegación. En proyectos, solo puedes elegir miembros de ese proyecto.</p>
             <p role="status" aria-live="polite">{{ meetingResultLabel }}</p>
           </section>
         </sc-if>
@@ -1160,6 +1162,12 @@
             <sc-if value="{{ selIsMeeting }}">
               <div class="field" style="margin-top:8px"><label for="task-meeting-title">Nombre de la junta (opcional)</label><input id="task-meeting-title" class="input" maxlength="180" value="{{ selMeetingTitle }}" onInput="{{ onSelMeetingTitle }}"></div>
               <div class="field" style="margin-top:8px"><label for="task-meeting-date">Fecha de la junta (opcional)</label><input id="task-meeting-date" class="input" type="date" value="{{ selMeetingDate }}" onChange="{{ onSelMeetingDate }}"></div>
+              <section aria-label="Delegada a" style="margin-top:12px;overflow-wrap:anywhere">
+                <strong style="font-size:13px">Delegada a</strong>
+                <p role="status" aria-live="polite" style="font-size:13px;margin:6px 0">{{ selMeetingDelegationLabel }}</p>
+                <sc-if value="{{ selCanDelegate }}"><button class="btn btn-secondary delegate-button" onClick="{{ onSelDelegate }}">{{ selDelegateAction }}</button></sc-if>
+                <p style="font-size:12px;line-height:1.5;margin:8px 0 0">{{ selDelegationHelp }}</p>
+              </section>
             </sc-if>
           </div>
           <div style="display:flex;gap:10px;margin-bottom:12px">
@@ -1289,7 +1297,7 @@ class Component extends DCLogic {
     timerSpeed: 1,
     pushReady: false, alertSoundReady:false, alertSoundPlaying:false, alertSoundError:'', notificationBusy:false, timerNotice:null,
     activeId: null, stopwatch: false, timerMode: 'pomo', watchSecs: 0, watchStartedAt: null, watchAccountedAt:null, full: false,
-    meetingQuery:'', meetingStatus:'pending', teamOriginFilter:'all',
+    meetingQuery:'', meetingStatus:'pending', meetingDelegateId:'', teamOriginFilter:'all',
     teamTasks:[], teamProjects:[], teamLoading:false, teamError:'', teamQuery:'', teamStatusFilter:'all', teamGroupBy:'responsible',
     supervisionPeople:[], supervisionPersonId:'', supervisionTasks:[], supervisionLoading:false, supervisionError:'',
     assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantFilter:'all', assistantQuery:'', assistantSelId:null, assistantDemoState:'none', assistantActionBusy:false, assistantActionMessage:'', assistantActionRole:'status',
@@ -1601,12 +1609,12 @@ class Component extends DCLogic {
     const project=s.projects.find(p=>p.id===task.project);
     return s.workspaceMembers.filter(m=>Number(m.id)!==owner && (!project?.member_ids || project.member_ids.map(Number).includes(Number(m.id))));
   }
-  openDelegate(id) {
+  openDelegate(id, keepDetail = false) {
     if(this.delegationRequest)return;
     const task=this.state.tasks.find(t=>t.id===id);
     if(!this.delegationCandidates(task).length)return;
     this.delegationTrigger=typeof document!=='undefined'?document.activeElement:null;
-    this.setState({selId:null,delegatingId:id,delegationDraft:[...(task.sharedWith||[])].map(Number).filter(id=>this.delegationCandidates(task).some(m=>Number(m.id)===id)),delegationError:'',delegationBusy:false});
+    this.setState({selId:keepDetail?id:null,delegatingId:id,delegationDraft:this.confirmedResponsibleIds(task).filter(id=>this.delegationCandidates(task).some(m=>Number(m.id)===id)),delegationError:'',delegationBusy:false});
     // Native top layer keeps the chooser above scrolling rows and traps focus.
     if(typeof document!=='undefined')setTimeout(()=>{const dialog=document.querySelector('.delegation-dialog');if(dialog&&!dialog.open)dialog.showModal();},0);
   }
@@ -2102,7 +2110,7 @@ class Component extends DCLogic {
         this.csrfToken=r.csrf_token||'';
         const workspaceId = this.preferredWorkspaceId(r.workspaces || []);
         this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1;this.supervisionAutoKey=null;
-        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', assistantRuns:[],assistantStatus:'idle',assistantError:'',assistantSelId:null,assistantDemoState:'none', supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'',timelineResponsibleId:'',dailyResponsibleId:'',improvementChecklist: [] });
+        this.setState({ auth: r.user, workspaces: r.workspaces || [], workspaceId, tasks: [], projects: [], suggestions: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'', assistantRuns:[],assistantStatus:'idle',assistantError:'',assistantSelId:null,assistantDemoState:'none', supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'',meetingDelegateId:'',timelineResponsibleId:'',dailyResponsibleId:'',improvementChecklist: [] });
         if (workspaceId) { await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); const members=await this.loadWorkspaceMembers(workspaceId); this.restorePersonFilters(r.user.id,workspaceId,members); await this.loadChecklist(workspaceId); if ('Notification' in window && Notification.permission === 'granted') await this.ensurePushSubscription(true); }
       }
     } catch (e) { this.setState({ authError: 'No se pudo conectar con el servidor.' }); } finally { this.timerRestoring=false; }
@@ -2281,8 +2289,8 @@ class Component extends DCLogic {
     }catch(e){this.setState({changeError:'No se pudo conectar con el servidor.'});}
     finally{this.setState({changeBusy:false});}
   }
-  async logout() { this.stopPomo(); this.discardSlotDraft(); this.csrfToken=''; this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; this.remoteSaved = {}; try { await this.api('logout'); } finally { try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, view:'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'',timelineResponsibleId:'',dailyResponsibleId:'', improvementChecklist: [], authPassword: '', changeCurrent:'',changeNew:'',changeConfirmation:'', selId: null, delegatingId: null }); } }
-  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.stopPomo();this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId: '',timelineResponsibleId:'',dailyResponsibleId:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); const members=await this.loadWorkspaceMembers(workspaceId); this.restorePersonFilters(this.state.auth?.id,workspaceId,members); await this.loadChecklist(workspaceId); }
+  async logout() { this.stopPomo(); this.discardSlotDraft(); this.csrfToken=''; this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; this.remoteSaved = {}; try { await this.api('logout'); } finally { try { localStorage.removeItem(this.KEY + ':device'); } catch (e) {} this.remoteReady = false; this.setState({ auth: null, workspaces: [], workspaceId: null, view:'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', tasks: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId:'',meetingDelegateId:'',timelineResponsibleId:'',dailyResponsibleId:'', improvementChecklist: [], authPassword: '', changeCurrent:'',changeNew:'',changeConfirmation:'', selId: null, delegatingId: null }); } }
+  async changeWorkspace(id) { if(this.state.auth?.role!=='super_admin')return;this.stopPomo();this.discardSlotDraft();this.taskLoadRequestId=(this.taskLoadRequestId||0)+1;this.teamRequestId=(this.teamRequestId||0)+1;this.assistantRequestId=(this.assistantRequestId||0)+1;this.supervisionRequestId=(this.supervisionRequestId||0)+1; const workspaceId=Number(id); try { localStorage.setItem(this.KEY + ':workspace', String(workspaceId)); } catch (e) {} this.setState({ workspaceId, view: 'today', assistantRuns:[], assistantStatus:'idle', assistantError:'', assistantSelId:null, assistantDemoState:'none', selId: null, delegatingId: null, tasks: [], projects: [], suggestions: [], workspaceMembers: [], teamTasks:[],teamProjects:[],teamLoading:false,teamError:'',teamQuery:'',teamStatusFilter:'all',teamGroupBy:'responsible',supervisionPeople:[],supervisionPersonId:'',supervisionTasks:[],supervisionLoading:false,supervisionError:'', dailyAssignId: '',meetingDelegateId:'',timelineResponsibleId:'',dailyResponsibleId:'', improvementChecklist: [] }); await this.loadRemoteTasks(workspaceId); await this.loadSuggestions(workspaceId); const members=await this.loadWorkspaceMembers(workspaceId); this.restorePersonFilters(this.state.auth?.id,workspaceId,members); await this.loadChecklist(workspaceId); }
   async loadWorkspaceMembers(workspaceId) { if(!workspaceId)return []; const userId=Number(this.state.auth?.id||0),r=await this.api('workspace_members',{workspace_id:workspaceId}); if(!r.ok||Number(this.state.auth?.id||0)!==userId||Number(this.state.workspaceId||0)!==Number(workspaceId))return []; const members=Array.isArray(r.members)?r.members:[]; this.setState({workspaceMembers:members}); return members; }
   async loadAdminSummary() { const r = await this.api('admin_overview'); if (r.ok) { const wid=this.state.workspaceId; const m=wid ? await this.api('workspace_members',{workspace_id:wid}) : {members:[]}; this.setState({ adminSummary: r.workspaces || [], adminMembers: m.members || [], workspaceMembers: m.members || [], adminOpen: true }); } }
   async clearWorkspaceTasks(workspaceId, workspaceName) { if (this.state.auth?.role !== 'super_admin') return; const r=await this.api('workspace_tasks_clear',{workspace_id:workspaceId}); if(r.ok){ if(Number(this.state.workspaceId)===Number(workspaceId)) this.setState({tasks:[],selId:null}); this.setState({authError:'Se borraron ' + (r.deleted||0) + ' tareas de «' + workspaceName + '».'}); await this.loadAdminSummary(); } else this.setState({authError:r.error||'No se pudieron borrar las tareas.'}); }
@@ -2970,6 +2978,11 @@ class Component extends DCLogic {
     if (!this.isMeetingTask(task)) return '';
     return ['Creada en junta', typeof task.meetingTitle==='string'?task.meetingTitle.trim():'', typeof task.meetingDate==='string'?task.meetingDate:''].filter(Boolean).join(' · ');
   }
+  meetingDelegationLabel(task) {
+    const ids=this.confirmedResponsibleIds(task);
+    const names=ids.map(id=>{const m=this.state.workspaceMembers.find(m=>Number(m.id)===id);return m?.name||m?.email||'nombre no disponible';});
+    return names.length?'Delegada a '+names.join(', '):'Sin delegar';
+  }
   meetingTasks() {
     return this.state.tasks.filter(task=>this.isPersonalTask(task)&&this.isMeetingTask(task)&&task.list!=='trash');
   }
@@ -2992,7 +3005,7 @@ class Component extends DCLogic {
       notes: '', subtasks: [], sharedWith: [], done: false, doneAt: null, seconds: 0, pomos: 0, createdAt: Date.now()
     };
     if (v === 'meetings') nt.taskOrigin = 'meeting';
-    this.setState(s => ({ tasks: [nt, ...s.tasks], newTitle: '', ...(v==='meetings'?{selId:nt.id,meetingStatus:'pending',meetingQuery:''}:{}) }));
+    this.setState(s => ({ tasks: [nt, ...s.tasks], newTitle: '', ...(v==='meetings'?{selId:nt.id,meetingStatus:'pending',meetingQuery:'',meetingDelegateId:''}:{}) }));
   }
 
   taskRow(t) {
@@ -3012,7 +3025,8 @@ class Component extends DCLogic {
     const receivedShare=ownerId>0&&currentId>0&&ownerId!==currentId;
     const sharedCount=Array.isArray(t.sharedWith)?t.sharedWith.length:0;
     const sharedNames=(t.sharedWith||[]).map(id=>{const member=this.state.workspaceMembers.find(m=>Number(m.id)===Number(id));return member?.name||member?.email||'';}).filter(Boolean);
-    const shareLabel=receivedShare ? (t._project_member && !(t.sharedWith||[]).map(Number).includes(currentId) ? 'Creada por ' : 'Delegada por ')+this.memberName(ownerId) : (sharedCount ? 'Delegada a '+(sharedNames.length?sharedNames.join(', '):sharedCount+' '+(sharedCount===1?'persona':'personas')) : '');
+    const originalShareLabel=receivedShare ? (t._project_member && !(t.sharedWith||[]).map(Number).includes(currentId) ? 'Creada por ' : 'Delegada por ')+this.memberName(ownerId) : (sharedCount ? 'Delegada a '+(sharedNames.length?sharedNames.join(', '):sharedCount+' '+(sharedCount===1?'persona':'personas')) : '');
+    const shareLabel=this.state.view==='meetings' ? [this.meetingDelegationLabel(t),receivedShare?originalShareLabel:''].filter(Boolean).join(' · ') : originalShareLabel;
     const delegatedAt=t._delegated_at||t.delegatedAt||'';
     const delegatedMeta=this.state.view==='delegated' ? 'Delegada el '+this.fmtDelegatedAt(delegatedAt) : '';
     const taskTime=this.state.view==='delegated' ? 'Dedicación: '+this.fmtDur(t.seconds) : this.fmtDur(t.seconds);
@@ -3164,7 +3178,8 @@ class Component extends DCLogic {
       const query=s.meetingQuery.trim().toLocaleLowerCase('es-MX');
       listTasks=this.meetingTasks().filter(t=>{
         const done=!!t.done||t.list==='done';
-        return (s.meetingStatus==='all'||(s.meetingStatus==='done'?done:!done))&&(!query||[t.title,this.meetingLabel(t),this.projName(t.project)].join(' ').toLocaleLowerCase('es-MX').includes(query));
+        const ids=this.confirmedResponsibleIds(t),delegateMatch=!s.meetingDelegateId||(s.meetingDelegateId==='__unassigned__'?ids.length===0:ids.includes(Number(s.meetingDelegateId)));
+        return delegateMatch&&(s.meetingStatus==='all'||(s.meetingStatus==='done'?done:!done))&&(!query||[t.title,this.meetingLabel(t),this.projName(t.project),this.meetingDelegationLabel(t)].join(' ').toLocaleLowerCase('es-MX').includes(query));
       }).sort((a,b)=>activeTimerFirst(a,b)||Number(!!a.done)-Number(!!b.done)||Number(b.createdAt||0)-Number(a.createdAt||0));
     } else if (isList) {
       listTasks = (s.view === 'delegated' ? delegatedTasks : personalTasks.filter(t => t.list === s.view)).sort((a, b) => activeTimerFirst(a, b) || (s.view === 'done' || s.view === 'trash' ? (Number(b.doneAt || b.deletedAt || 0) - Number(a.doneAt || a.deletedAt || 0)) : ((a.done - b.done) || a.quadrant.localeCompare(b.quadrant))));
@@ -3295,6 +3310,12 @@ class Component extends DCLogic {
       detail.selIsMeeting = this.isMeetingTask(sel);
       detail.selMeetingTitle = typeof sel.meetingTitle==='string'?sel.meetingTitle:'';
       detail.selMeetingDate = typeof sel.meetingDate==='string'?sel.meetingDate:'';
+      detail.selMeetingDelegationLabel = this.meetingDelegationLabel(sel);
+      detail.selCanDelegate = this.delegationCandidates(sel).length>0;
+      detail.selDelegateAction = this.confirmedResponsibleIds(sel).length?'Cambiar delegación':'Delegar tarea';
+      const owner=Number(sel._owner_id||s.auth?.id),admin=['admin','super_admin'].includes(s.auth?.role)||s.workspaceMembers.some(m=>Number(m.id)===Number(s.auth?.id)&&m.workspace_role==='admin');
+      detail.selDelegationHelp = detail.selCanDelegate ? 'La delegación se aplica al guardar. Puedes cambiar las personas o quitar todas las selecciones para retirarla.' : sel.list==='trash' ? 'Restaura la tarea para cambiar su delegación.' : owner!==Number(s.auth?.id)&&!admin ? 'Solo quien creó la tarea o un administrador puede cambiar su delegación.' : 'No hay otros miembros disponibles. Agrega miembros al espacio y, si corresponde, al proyecto para poder delegar.';
+      detail.onSelDelegate = () => this.openDelegate(sel.id,true);
       detail.onSelTaskOrigin = e => this.setTaskOrigin(sel.id,e.target.value);
       detail.onSelMeetingTitle = e => this.patch(sel.id,{meetingTitle:e.target.value.slice(0,180)});
       detail.onSelMeetingDate = e => this.patch(sel.id,{meetingDate:e.target.value});
@@ -3538,9 +3559,9 @@ class Component extends DCLogic {
       showQuickAdd: (isList && s.view !== 'delegated') || (s.view === 'project' && s.projects.find(p=>p.id===s.projFilter)?._can_assign !== false),
       listTasks: rows, listEmpty: rows.length === 0 && (isList || s.view === 'projects'),
       listEmptyLabel:s.view==='meetings'?'No hay tareas de junta que coincidan. Puedes agregar una o marcar su origen desde el detalle.':'Nada aquí todavía.',
-      isMeetings:s.view==='meetings',meetingQuery:s.meetingQuery,meetingStatus:s.meetingStatus,
+      isMeetings:s.view==='meetings',meetingQuery:s.meetingQuery,meetingStatus:s.meetingStatus,meetingDelegateId:s.meetingDelegateId,meetingDelegateOptions:this.personFilterOptions(),
       meetingResultLabel:rows.length+' de '+this.meetingTasks().length+' tareas de junta · no incluye papelera',
-      onMeetingQuery:e=>this.setState({meetingQuery:e.target.value}),onMeetingStatus:e=>this.setState({meetingStatus:e.target.value}),
+      onMeetingQuery:e=>this.setState({meetingQuery:e.target.value}),onMeetingStatus:e=>this.setState({meetingStatus:e.target.value}),onMeetingDelegate:e=>this.setState({meetingDelegateId:e.target.value}),
       newTitle: s.newTitle, subDraft: s.subDraft,
       onNewInput: e => this.setState({ newTitle: e.target.value }),
       onNewKey: e => { if (e.key === 'Enter') this.addTask(); },
