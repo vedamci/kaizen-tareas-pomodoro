@@ -105,12 +105,12 @@ async function drag(page,locator,dx,dy,touch){
    await delegationDetail.getByRole('button',{name:'Delegar tarea',exact:true}).click();
    assert.equal(await chooser.getByRole('checkbox').first().isChecked(),false);
    await chooser.getByRole('checkbox').first().check();
-   await page.locator('[aria-label="Respuesta de delegación"]').selectOption('reject');
+   await page.locator('[aria-label="Respuesta de delegación"]').selectOption('reject',{force:true});
    await chooser.getByRole('button',{name:'Guardar delegación',exact:true}).click();
    await chooser.getByRole('alert').waitFor();
    assert.match(await delegationDetail.innerText(),/Sin delegar/);
    assert.equal(await chooser.getByRole('checkbox').first().isChecked(),true);
-   await page.locator('[aria-label="Respuesta de delegación"]').selectOption('normal');
+   await page.locator('[aria-label="Respuesta de delegación"]').selectOption('normal',{force:true});
    await chooser.getByRole('button',{name:'Guardar delegación',exact:true}).click();
    await chooser.waitFor({state:'hidden'});
    assert.match(await delegationDetail.innerText(),/Delegada a Luis/);
